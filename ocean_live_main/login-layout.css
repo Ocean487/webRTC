@@ -1,0 +1,46 @@
+/* 登入表單布局調整 */
+.auth-form {
+    width: 280px;
+    margin: 0;
+    padding-left: 10px;
+}
+
+.input-container {
+    width: 100%;
+}
+
+.input-container input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.form-options {
+    width: 100%;
+    margin: 5px 0;
+}
+
+.btn-login {
+    width: 100%;
+}
+
+/* 保持頭部和底部居中 */
+.auth-header,
+.auth-footer {
+    margin-left: auto;
+    margin-right: auto;
+    width: 100%;
+    text-align: center;
+}
+
+/* 調整輸入框位置 */
+.form-group {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+/* 確保按鈕和底部文字的寬度一致 */
+.btn-login,
+.form-options,
+.auth-footer {
+    max-width: 280px;
+}

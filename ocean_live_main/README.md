@@ -1,0 +1,290 @@
+# 🚀 WebRTC 直播平台部署指南
+
+## 📋 系統需求
+
+- **Node.js**: 14.0.0 或以上版本
+- **瀏覽器**: Chrome 60+, Firefox 55+, Safari 11+, Edge 79+
+- **網路**: 穩定的網路連接（建議有公網IP或使用內網穿透）
+
+## 🛠️ 安裝步驟
+
+### 1. 安裝 Node.js
+
+#### Windows
+1. 前往 [Node.js 官網](https://nodejs.org/)
+2. 下載 LTS 版本
+3. 執行安裝程式，按照提示完成安裝
+
+#### macOS
+```bash
+# 使用 Homebrew
+brew install node
+
+# 或下載安裝包
+# https://nodejs.org/
+```
+
+#### Linux (Ubuntu/Debian)
+```bash
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt-get install -y nodejs
+```
+
+#### Linux (CentOS/RHEL)
+```bash
+curl -fsSL https://rpm.nodesource.com/setup_lts.x | sudo bash -
+sudo yum install -y nodejs
+```
+
+### 2. 下載專案
+
+```bash
+# 方法1: 直接下載
+# 下載所有文件到同一個資料夾
+
+# 方法2: 使用 Git (如果有 Git 倉庫)
+git clone https://github.com/yourusername/webrtc-livestream-platform.git
+cd webrtc-livestream-platform
+```
+
+### 3. 安裝依賴
+
+```bash
+npm install
+```
+
+### 4. 啟動服務器
+
+#### 方法1: 使用啟動腳本
+```bash
+# Windows
+start.bat
+
+# Linux/macOS
+chmod +x start.sh
+./start.sh
+```
+
+#### 方法2: 手動啟動
+```bash
+npm start
+```
+
+## 🌐 訪問直播平台
+
+啟動成功後，你會看到以下訊息：
+
+```
+🚀 直播服務器已啟動在端口 3000
+📺 主播端: http://localhost:3000/livestream_platform.html
+👥 觀眾端: http://localhost:3000/viewer.html
+🔧 服務器狀態: 運行中
+```
+
+### 📺 主播端
+- 網址：`http://localhost:3000/livestream_platform.html`
+- 功能：開始直播、控制音視頻、管理直播設定
+
+### 👥 觀眾端
+- 網址：`http://localhost:3000/viewer.html`
+- 功能：觀看直播、發送聊天訊息
+
+## 🔧 配置選項
+
+### 修改端口
+編輯 `server.js` 文件：
+```javascript
+const PORT = process.env.PORT || 3000; // 修改這裡的數字
+```
+
+### 修改 STUN 服務器
+編輯 `script.js` 和 `viewer.js` 文件：
+```javascript
+const configuration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' }
+        // 可以添加更多 STUN 服務器
+    ]
+};
+```
+
+## 🌍 公網部署
+
+### 方法1: 雲端服務器
+
+#### 使用 VPS
+1. 租用雲端服務器（如 AWS、Google Cloud、阿里雲等）
+2. 安裝 Node.js
+3. 上傳專案文件
+4. 啟動服務器
+5. 配置防火牆開放端口
+
+#### 使用 Heroku
+1. 創建 Heroku 帳號
+2. 安裝 Heroku CLI
+3. 部署應用：
+```bash
+heroku create your-app-name
+git push heroku main
+```
+
+### 方法2: 內網穿透
+
+#### 使用 ngrok
+```bash
+# 安裝 ngrok
+npm install -g ngrok
+
+# 啟動內網穿透
+ngrok http 3000
+```
+
+#### 使用 frp
+1. 下載 frp
+2. 配置 frps.ini 和 frpc.ini
+3. 啟動服務
+
+### 方法3: 反向代理
+
+#### 使用 Nginx
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+## 🔒 安全配置
+
+### 1. 環境變數
+創建 `.env` 文件：
+```env
+NODE_ENV=production
+PORT=3000
+SECRET_KEY=your-secret-key
+```
+
+### 2. HTTPS 配置
+```javascript
+const https = require('https');
+const fs = require('fs');
+
+const options = {
+    key: fs.readFileSync('path/to/key.pem'),
+    cert: fs.readFileSync('path/to/cert.pem')
+};
+
+https.createServer(options, app).listen(443);
+```
+
+### 3. 防火牆配置
+```bash
+# Ubuntu/Debian
+sudo ufw allow 3000
+sudo ufw enable
+
+# CentOS/RHEL
+sudo firewall-cmd --permanent --add-port=3000/tcp
+sudo firewall-cmd --reload
+```
+
+## 📊 監控和日誌
+
+### 1. 日誌配置
+```javascript
+const winston = require('winston');
+
+const logger = winston.createLogger({
+    level: 'info',
+    format: winston.format.json(),
+    transports: [
+        new winston.transports.File({ filename: 'error.log', level: 'error' }),
+        new winston.transports.File({ filename: 'combined.log' })
+    ]
+});
+```
+
+### 2. 性能監控
+```javascript
+const cluster = require('cluster');
+const numCPUs = require('os').cpus().length;
+
+if (cluster.isMaster) {
+    for (let i = 0; i < numCPUs; i++) {
+        cluster.fork();
+    }
+} else {
+    // 工作進程
+}
+```
+
+## 🚨 故障排除
+
+### 常見問題
+
+#### 1. 端口被占用
+```bash
+# 查看端口使用情況
+netstat -tulpn | grep :3000
+
+# 殺死佔用端口的進程
+kill -9 <PID>
+```
+
+#### 2. 依賴安裝失敗
+```bash
+# 清除 npm 緩存
+npm cache clean --force
+
+# 重新安裝
+rm -rf node_modules package-lock.json
+npm install
+```
+
+#### 3. WebRTC 連接失敗
+- 檢查 STUN 服務器是否可用
+- 確認防火牆配置
+- 檢查網路連接
+
+#### 4. 瀏覽器相容性問題
+- 確保使用支援 WebRTC 的瀏覽器
+- 檢查瀏覽器版本
+- 確認已啟用 WebRTC 功能
+
+## 📞 技術支援
+
+如果遇到問題，請：
+
+1. 檢查瀏覽器控制台錯誤訊息
+2. 查看服務器終端輸出
+3. 確認網路連接和防火牆設定
+4. 提交 Issue 到專案倉庫
+
+## 🔄 更新和維護
+
+### 定期更新
+```bash
+# 更新依賴
+npm update
+
+# 檢查安全漏洞
+npm audit
+npm audit fix
+```
+
+### 備份配置
+定期備份以下文件：
+- `server.js`
+- `package.json`
+- 自定義配置文件
+- 日誌文件

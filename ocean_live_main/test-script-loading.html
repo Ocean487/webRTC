@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Script Loading Test</title>
+</head>
+<body>
+    <h1>Script Loading Test</h1>
+    <div id="status">Loading...</div>
+    
+    <script>
+        console.log('Test page loaded');
+        document.getElementById('status').innerHTML = 'Test page JavaScript working';
+    </script>
+    
+    <script src="script.js" onerror="console.error('script.js failed to load'); document.getElementById('status').innerHTML = 'script.js failed to load';">
+    </script>
+    
+    <script>
+        setTimeout(() => {
+            if (typeof toggleStream !== 'undefined') {
+                document.getElementById('status').innerHTML = 'script.js loaded successfully! Functions available.';
+                console.log('toggleStream type:', typeof toggleStream);
+            } else {
+                document.getElementById('status').innerHTML = 'script.js loaded but functions not available';
+                console.log('Functions not found in global scope');
+            }
+        }, 1000);
+    </script>
+</body>
+</html>
