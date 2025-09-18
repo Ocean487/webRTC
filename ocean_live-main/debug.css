@@ -1,0 +1,20 @@
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .panel { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .panel h3 { margin: 0 0 15px 0; color: #333; }
+        .log { background: #000; color: #0f0; padding: 15px; border-radius: 4px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .controls { margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .status { padding: 8px; border-radius: 4px; margin: 5px 0; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #b8daff; }
+        #localVideo, #remoteVideo { width: 300px; height: 225px; background: #000; border: 1px solid #ccc; }
+        .video-container { display: flex; gap: 20px; }
+        .video-panel { text-align: center; }
+    

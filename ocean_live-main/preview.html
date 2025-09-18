@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeLo - 專業直播平台</title>
+    <link rel="stylesheet" href="preview-styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- 導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <img src="images/vibelo-logo.png" alt="VibeLo" class="logo-img" style="height: 50px; width: auto;">
+                <span class="brand-text" style="display: none;">VibeLo</span>
+            </div>
+            <div class="nav-menu">
+                <a href="#home" class="nav-link active">首頁</a>
+                <a href="#about" class="nav-link">關於</a>
+                <a href="#features" class="nav-link">功能</a>
+                <a href="contact.html" class="nav-link">聯絡</a>
+            </div>
+            <div class="nav-actions">
+                <a href="login.html" class="btn btn-secondary">登入</a>
+                <a href="register.html" class="btn btn-primary">註冊</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容 -->
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section id="home" class="hero-section">
+            <div class="hero-background">
+                <div class="hero-overlay"></div>
+            </div>
+            <div class="hero-content">
+                <div class="hero-text">
+                    <h1 class="hero-title">
+                        歡迎來到 <span class="brand-highlight">VibeLo</span>
+                    </h1>
+                    <p class="hero-subtitle">
+                        專業的直播平台，讓你的創意與世界分享
+                    </p>
+                    <h2 class="hero-cta-title">
+                        準備好開始您的直播之旅了嗎？
+                    </h2>
+                    <p class="hero-cta-subtitle">
+                        立即加入 VibeLo，展現您的才華！
+                    </p>
+                    <div class="hero-buttons">
+                        <a href="register.html" class="btn btn-hero-primary">
+                            <i class="fas fa-rocket"></i>
+                            開始直播
+                        </a>
+                        <a href="#about" class="btn btn-hero-secondary">
+                            <i class="fas fa-play"></i>
+                            觀看介紹
+                        </a>
+                    </div>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat-card">
+                        <div class="stat-number">10K+</div>
+                        <div class="stat-label">活躍創作者</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">100K+</div>
+                        <div class="stat-label">每日觀眾</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">即時互動</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 關於我們 -->
+        <section id="about" class="about-section">
+            <div class="container">
+                <div class="about-content">
+                    <div class="about-text">
+                        <h2>關於 VibeLo</h2>
+                        <p>我們是一個專注於創作者的直播平台，致力於提供最優質的直播工具和觀看體驗。</p>
+                        <p>無論你是遊戲愛好者、藝術創作者、還是教育工作者，VibeLo 都能為你提供完美的直播解決方案。</p>
+                        <div class="about-features">
+                            <div class="about-feature">
+                                <i class="fas fa-check-circle"></i>
+                                <span>免費開始使用</span>
+                            </div>
+                            <div class="about-feature">
+                                <i class="fas fa-check-circle"></i>
+                                <span>專業技術支援</span>
+                            </div>
+                            <div class="about-feature">
+                                <i class="fas fa-check-circle"></i>
+                                <span>持續功能更新</span>
+                            </div>
+                        </div>
+                        <a href="about.html" class="btn btn-primary">了解更多</a>
+                    </div>
+                    <div class="about-image">
+                        <div class="video-container">
+                            <div class="video-player" id="demoVideo">
+                                <div class="video-screen">
+                                    <div class="video-content">
+                                        <div class="demo-slide active" data-slide="0">
+                                            <div class="slide-content">
+                                                <h3>歡迎來到 VibeLo</h3>
+                                                <p>專業的直播平台</p>
+                                                <div class="demo-features">
+                                                    <div class="feature-icon">🎮</div>
+                                                    <div class="feature-icon">🎵</div>
+                                                    <div class="feature-icon">🎨</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="demo-slide" data-slide="1">
+                                            <div class="slide-content">
+                                                <h3>即時互動功能</h3>
+                                                <p>與觀眾零距離交流</p>
+                                                <div class="chat-demo">
+                                                    <div class="chat-message">觀眾A: 超讚的直播！</div>
+                                                    <div class="chat-message">觀眾B: 太精彩了 👏</div>
+                                                    <div class="chat-message">觀眾C: 期待下次直播</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="demo-slide" data-slide="2">
+                                            <div class="slide-content">
+                                                <h3>多元化內容</h3>
+                                                <p>遊戲、音樂、藝術應有盡有</p>
+                                                <div class="content-grid">
+                                                    <div class="content-item">🎮 遊戲</div>
+                                                    <div class="content-item">🎵 音樂</div>
+                                                    <div class="content-item">🎨 藝術</div>
+                                                    <div class="content-item">💬 聊天</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="demo-slide" data-slide="3">
+                                            <div class="slide-content">
+                                                <h3>專業直播工具</h3>
+                                                <p>一鍵開始您的直播</p>
+                                                <div class="tools-demo">
+                                                    <div class="tool-item">📹 高畫質串流</div>
+                                                    <div class="tool-item">🎤 清晰音質</div>
+                                                    <div class="tool-item">📊 即時數據</div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="video-overlay">
+                                        <div class="play-button" id="playButton">
+                                            <i class="fas fa-play"></i>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 熱門分類 -->
+        <section id="features" class="categories-section">
+            <div class="container">
+                <div class="section-header">
+                    <h2 class="section-title">熱門分類</h2>
+                    <p class="section-subtitle">探索各種精彩的直播內容</p>
+                </div>
+                <div class="categories-grid">
+                    <div class="category-card">
+                        <div class="category-icon">
+                            <i class="fas fa-gamepad"></i>
+                        </div>
+                        <h3>遊戲直播</h3>
+                        <p>500+ 個直播中</p>
+                        <div class="category-tags">
+                            <span class="tag">競技</span>
+                            <span class="tag">休閒</span>
+                            <span class="tag">手遊</span>
+                        </div>
+                    </div>
+                    <div class="category-card">
+                        <div class="category-icon">
+                            <i class="fas fa-music"></i>
+                        </div>
+                        <h3>音樂表演</h3>
+                        <p>200+ 個直播中</p>
+                        <div class="category-tags">
+                            <span class="tag">演唱</span>
+                            <span class="tag">樂器</span>
+                            <span class="tag">作曲</span>
+                        </div>
+                    </div>
+                    <div class="category-card">
+                        <div class="category-icon">
+                            <i class="fas fa-palette"></i>
+                        </div>
+                        <h3>創作藝術</h3>
+                        <p>150+ 個直播中</p>
+                        <div class="category-tags">
+                            <span class="tag">繪畫</span>
+                            <span class="tag">手作</span>
+                            <span class="tag">設計</span>
+                        </div>
+                    </div>
+                    <div class="category-card">
+                        <div class="category-icon">
+                            <i class="fas fa-comments"></i>
+                        </div>
+                        <h3>生活分享</h3>
+                        <p>300+ 個直播中</p>
+                        <div class="category-tags">
+                            <span class="tag">聊天</span>
+                            <span class="tag">美食</span>
+                            <span class="tag">旅遊</span>
+                        </div>
+                    </div>
+                    <div class="category-card">
+                        <div class="category-icon">
+                            <i class="fas fa-dumbbell"></i>
+                        </div>
+                        <h3>運動健身</h3>
+                        <p>80+ 個直播中</p>
+                        <div class="category-tags">
+                            <span class="tag">健身</span>
+                            <span class="tag">瑜伽</span>
+                            <span class="tag">舞蹈</span>
+                        </div>
+                    </div>
+                    <div class="category-card">
+                        <div class="category-icon">
+                            <i class="fas fa-utensils"></i>
+                        </div>
+                        <h3>美食烹飪</h3>
+                        <p>95+ 個直播中</p>
+                        <div class="category-tags">
+                            <span class="tag">料理</span>
+                            <span class="tag">烘焙</span>
+                            <span class="tag">品嘗</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- 頁腳 -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <div class="footer-brand">
+                        <img src="images/vibelo-logo.png" alt="VibeLo" class="footer-logo" style="height: 40px; width: auto;">
+                        <span class="brand-text" style="display: none;">VibeLo</span>
+                    </div>
+                    <p class="footer-description">專業的直播平台，讓創作者與觀眾建立更深層的連結。</p>
+                    <h4>關注我們</h4>
+                    <div class="social-links">
+                        <a href="https://www.facebook.com/zhong.heng.138267" target="_blank" class="social-link"><i class="fab fa-facebook"></i></a>
+                        <a href="https://x.com/Ocean31387429" target="_blank" class="social-link"><i class="fab fa-twitter"></i></a>
+                        <a href="https://www.instagram.com/zhong._.izzi/" target="_blank" class="social-link"><i class="fab fa-instagram"></i></a>
+                        <a href="https://www.youtube.com/@%E8%95%AD%E4%BB%B2%E4%BA%A8-e1d" target="_blank" class="social-link"><i class="fab fa-youtube"></i></a>
+                    </div>
+                </div>
+                <div class="footer-section">
+                    <h4>平台</h4>
+                    <ul class="footer-links">
+                        <li><a href="about.html">平台介紹</a></li>
+                        <li><a href="features.html">功能介紹</a></li>
+                        <li><a href="faq.html">常見問題</a></li>
+                        <li><a href="support.html">技術支援</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>社群</h4>
+                    <ul class="footer-links">
+                        <li><a href="guidelines.html">社群準則</a></li>
+                        <li><a href="terms.html">使用條款</a></li>
+                        <li><a href="privacy.html">隱私政策</a></li>
+                        <li><a href="contact.html">聯絡我們</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <div class="footer-bottom-left">
+                    <!-- 空白區域或其他內容 -->
+                </div>
+                <div class="footer-bottom-center">
+                    &copy; 2025 VibeLo. 版權所有
+                </div>
+                <div class="footer-bottom-right">
+                    <!-- 空白區域 -->
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="preview.js"></script>
+</body>
+</html>

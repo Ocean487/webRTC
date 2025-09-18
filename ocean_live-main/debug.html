@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeLo WebRTC 診斷工具</title>
+    <link rel="stylesheet" href="debug.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 VibeLo WebRTC 診斷工具</h1>
+        
+        <div class="panel">
+            <h3>📡 WebSocket 連接狀態</h3>
+            <div id="wsStatus" class="status info">未連接</div>
+            <div class="controls">
+                <button class="btn-primary" onclick="connectWebSocket()">連接 WebSocket</button>
+                <button class="btn-danger" onclick="disconnectWebSocket()">斷開連接</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>📹 媒體設備測試</h3>
+            <div id="mediaStatus" class="status info">未測試</div>
+            <div class="controls">
+                <button class="btn-success" onclick="testMediaDevices()">測試攝影機和麥克風</button>
+                <button class="btn-danger" onclick="stopMediaTest()">停止測試</button>
+            </div>
+            <div class="video-container">
+                <div class="video-panel">
+                    <h4>本地視頻 (主播端)</h4>
+                    <video id="localVideo" autoplay muted></video>
+                </div>
+                <div class="video-panel">
+                    <h4>遠端視頻 (觀眾端)</h4>
+                    <video id="remoteVideo" autoplay></video>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>🔗 WebRTC 連接測試</h3>
+            <div id="rtcStatus" class="status info">未連接</div>
+            <div class="controls">
+                <button class="btn-primary" onclick="startBroadcaster()">啟動主播模式</button>
+                <button class="btn-warning" onclick="startViewer()">啟動觀眾模式</button>
+                <button class="btn-danger" onclick="stopRTC()">停止 WebRTC</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>📋 診斷日志</h3>
+            <div class="controls">
+                <button class="btn-warning" onclick="clearLog()">清空日志</button>
+                <button class="btn-primary" onclick="exportLog()">導出日志</button>
+            </div>
+            <div id="debugLog" class="log"></div>
+        </div>
+    </div>
+
+    <script src="debug.js"></script>
+</body>
+</html>
