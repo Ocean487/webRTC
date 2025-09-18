@@ -1,40 +1,5 @@
 console.log('🚀 登入頁面開始載入');
 
-// 全局密碼切換函數
-function togglePassword(inputId) {
-    console.log('🔒 togglePassword 被調用，輸入 ID:', inputId);
-    
-    const passwordInput = document.getElementById(inputId);
-    if (!passwordInput) {
-        console.error('❌ 找不到密碼輸入框:', inputId);
-        return;
-    }
-    
-    const toggleButton = passwordInput.parentElement.querySelector('.password-toggle-new');
-    if (!toggleButton) {
-        console.error('❌ 找不到切換按鈕');
-        return;
-    }
-    
-    const icon = toggleButton.querySelector('i');
-    if (!icon) {
-        console.error('❌ 找不到圖標');
-        return;
-    }
-    
-    if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        icon.classList.remove('fa-eye');
-        icon.classList.add('fa-eye-slash');
-        console.log('👁️ 密碼已顯示');
-    } else {
-        passwordInput.type = 'password';
-        icon.classList.remove('fa-eye-slash');
-        icon.classList.add('fa-eye');
-        console.log('🙈 密碼已隱藏');
-    }
-}
-
 // DOM 載入完成
 document.addEventListener('DOMContentLoaded', function() {
     console.log('✅ DOM 載入完成');
@@ -66,7 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             console.log('🖱️ 密碼切換按鈕被點擊');
-            togglePassword('password');
+            window.togglePassword('password'); // 使用 common.js 中的 togglePassword
         });
     }
     
