@@ -15,26 +15,6 @@ let currentAudioOutput = null; // 當前音訊輸出端
 // 主播ID相關
 let myBroadcasterId = null;
 
-// 獲取主播ID的函數
-function getBroadcasterId() {
-    if (!myBroadcasterId) {
-        // 先嘗試從URL參數獲取
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlBroadcasterId = urlParams.get('broadcaster');
-        
-        if (urlBroadcasterId) {
-            myBroadcasterId = urlBroadcasterId;
-        } else if (window.currentUser && window.currentUser.id) {
-            // 基於當前用戶ID生成
-            myBroadcasterId = `broadcaster_${window.currentUser.id}`;
-        } else {
-            // 最後備份：使用時間戳
-            myBroadcasterId = `broadcaster_${Date.now()}`;
-        }
-    }
-    return myBroadcasterId;
-}
-
 // 分頁音訊相關變數
 let tabAudioStream = null;
 let isTabAudioEnabled = false;
@@ -103,7 +83,7 @@ function ensureAudioTracksEnabled(stream) {
 function checkAudioOutputSupport() {
     const localVideo = document.getElementById('localVideo');
     if (!localVideo.setSinkId) {
-        window.addMessage('系統', '⚠️ 您的瀏覽器不支援音訊輸出端切換功能');
+        window.addMessage('系統', '⚠️ 您的瀏覽器不支援音訊輸出端切換功能，將使用預設輸出端');
         console.warn('瀏覽器不支援 setSinkId API');
         return false;
     }
@@ -510,7 +490,7 @@ async function shareScreen() {
                 cursor: 'always',
                 displaySurface: 'monitor'
             },
-            audio: true  // 讓瀏覽器顯示音頻選擇選項
+            audio: true
         });
 
         // 保存當前的音訊軌道（如果有的話）
@@ -581,13 +561,7 @@ async function shareScreen() {
 
     } catch (error) {
         console.error('螢幕分享失敗:', error);
-        if (error.name === 'NotAllowedError') {
-            window.addMessage('系統', '❌ 螢幕分享被拒絕，請允許螢幕分享權限');
-        } else if (error.name === 'NotFoundError') {
-            window.addMessage('系統', '❌ 找不到可分享的螢幕');
-        } else {
-            window.addMessage('系統', '❌ 螢幕分享失敗: ' + error.message);
-        }
+        window.addMessage('系統', '❌ 螢幕分享失敗');
     }
 }
 
@@ -946,7 +920,7 @@ async function switchAudioDevice() {
             }
         }
         
-        window.addMessage('系統', '🎤 麥克風已切換，視訊保持不變');
+        window.addMessage('系統', '🎤 麥克風已切換，音訊保持不變');
 
         // 更新所有觀眾的軌道
         if (isStreaming) {
@@ -1526,7 +1500,7 @@ function handleOnlineViewers(data) {
             return;
         }
 
-        console.log(`為 ${viewers.length} 個在線觀眾建立連接...`);
+        console.log(`📺 為 ${viewers.length} 個在線觀眾建立連接...`);
         window.addMessage('系統', `📺 正在為 ${viewers.length} 個觀眾建立連接...`);
 
         viewers.forEach((viewerId, index) => {
@@ -1653,7 +1627,7 @@ function createPeerConnection(viewerId) {
                 }
             });
             
-            window.addMessage('系統', `已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
+            window.addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
             
         } else {
             console.error('❌ 本地串流不存在');
@@ -1677,7 +1651,7 @@ function createPeerConnection(viewerId) {
         // 監聽連接狀態
         peerConnection.onconnectionstatechange = function() {
             const state = peerConnection.connectionState;
-            console.log('觀眾', viewerId, '連接狀態:', state);
+            console.log(`觀眾 ${viewerId.substr(-3)} 連接狀態:`, state);
             
             switch (state) {
                 case 'connecting':
@@ -1814,7 +1788,7 @@ async function handleIceCandidate(data) {
     if (peerConnection && data.candidate) {
         try {
             await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
-            console.log('已添加觀眾 ICE 候選');
+            console.log('已添加 ICE 候選');
         } catch (error) {
             console.error('添加 ICE Candidate 失敗:', error);
             window.addMessage('系統', `❌ 處理觀眾 ${data.viewerId.substr(-3)} ICE 候選失敗`);
