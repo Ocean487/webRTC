@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeLo 直播平台 - 專業直播解決方案</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="livestream-platform.css">
+</head>
+
+<body>
+    <!-- 頂部導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="images/vibelo-logo.png" alt="VibeLo" style="height: 45px; width: auto; margin-bottom: 0px;">
+                <h2 class="logo-text" style="display: none;">VibeLo</h2>
+            </a>
+
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="livestream_platform.html" class="nav-link active">開始直播</a>
+                <a href="viewer.html" class="nav-link">觀看直播</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+
+            <div class="user-menu">
+                <div class="status-indicator">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">上線</span>
+                </div>
+                <div class="user-avatar" id="userAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容區 -->
+    <main class="main-content">
+        <!-- 特效面板 -->
+        <div class="effects-panel">
+            <div class="effects-header">
+                <i class="fas fa-magic"></i>
+                <h3>視覺特效</h3>
+            </div>
+
+            <div class="effect-category">
+                <h4><i class="fas fa-palette"></i> 濾鏡效果</h4>
+                <div class="effect-grid">
+                    <button class="effect-btn" data-effect="blur">
+                        <i class="fas fa-adjust"></i><br>模糊
+                    </button>
+                    <button class="effect-btn" data-effect="vintage">
+                        <i class="fas fa-film"></i><br>復古
+                    </button>
+                    <button class="effect-btn" data-effect="bw">
+                        <i class="fas fa-eye"></i><br>黑白
+                    </button>
+                    <button class="effect-btn" data-effect="sepia">
+                        <i class="fas fa-sun"></i><br>懷舊
+                    </button>
+                </div>
+            </div>
+
+            <div class="effect-category">
+                <h4><i class="fas fa-sparkles"></i> 美顏特效</h4>
+                <div class="effect-grid">
+                    <button class="effect-btn" data-effect="smooth">
+                        <i class="fas fa-magic"></i><br>磨皮
+                    </button>
+                    <button class="effect-btn" data-effect="bright">
+                        <i class="fas fa-sun"></i><br>美白
+                    </button>
+                    <button class="effect-btn" data-effect="warm">
+                        <i class="fas fa-palette"></i><br>暖色調
+                    </button>
+                    <button class="effect-btn" data-effect="backgroundBlur">
+                        <i class="fas fa-eye-slash"></i><br>背景虛化
+                    </button>
+                </div>
+            </div>
+
+            <div class="effect-category">
+                <h4><i class="fas fa-sparkles"></i> 動畫特效</h4>
+                <div class="effect-grid">
+                    <button class="effect-btn" data-effect="particles">
+                        <i class="fas fa-star"></i><br>粒子
+                    </button>
+                    <button class="effect-btn" data-effect="hearts">
+                        <i class="fas fa-heart"></i><br>愛心
+                    </button>
+                    <button class="effect-btn" data-effect="confetti">
+                        <i class="fas fa-star-and-crescent"></i><br>彩帶
+                    </button>
+                    <button class="effect-btn" data-effect="snow">
+                        <i class="fas fa-snowflake"></i><br>雪花
+                    </button>
+                </div>
+            </div>
+
+            <div class="effect-category">
+                <h4><i class="fas fa-border-all"></i> 邊框樣式</h4>
+                <div class="effect-grid">
+                    <button class="effect-btn" data-effect="neon">
+                        <i class="fas fa-highlighter"></i><br>霓虹
+                    </button>
+                    <button class="effect-btn" data-effect="glow">
+                        <i class="fas fa-lightbulb"></i><br>發光
+                    </button>
+                    <button class="effect-btn" data-effect="rainbow">
+                        <i class="fas fa-rainbow"></i><br>彩虹
+                    </button>
+                    <button class="effect-btn" data-effect="clear">
+                        <i class="fas fa-times"></i><br>清除
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 背景音樂面板 -->
+        <div class="music-panel">
+            <h3><i class="fas fa-music"></i> 背景音樂</h3>
+
+            <div class="music-tip">
+                <i class="fas fa-info-circle"></i>
+                <span>要讓觀眾聽到背景音樂，請在直播時選擇「分享螢幕」並勾選「分享音訊」選項</span>
+            </div>
+
+            <input type="text" id="youtube-url" class="url-input" placeholder="輸入 YouTube 影片網址...">
+
+            <button class="btn-load" id="loadVideoBtn">
+                <i class="fas fa-play"></i> 載入並播放
+            </button>
+
+            <div class="audio-tip">
+                <strong><i class="fas fa-info-circle"></i> 重要音訊設置：</strong><br>
+                1. 在此載入YouTube音樂並播放<br>
+                2. 點擊「開始直播」時選擇「分享螢幕」<br>
+                3. <strong>必須勾選「分享音訊」選項</strong><br>
+                4. 選擇包含YouTube視窗的螢幕<br>
+                ※ 只有這樣觀眾才能聽到背景音樂
+            </div>
+
+            <div id="youtube-embed"></div>
+
+            <div class="volume-section">
+                <button id="muteButton">
+                    <i class="fas fa-volume-up"></i>
+                </button>
+                <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="100">
+                <span>音量</span>
+            </div>
+        </div>
+
+        <!-- 直播畫面區域 -->
+        <div class="stream-area">
+            <div class="stream-header">
+                <h3><i class="fas fa-video"></i> 直播畫面</h3>
+                <div class="status-indicator">
+                    <div class="status-dot" id="streamStatusDot"></div>
+                    <span id="streamStatusText">準備中</span>
+                </div>
+            </div>
+
+            <div class="video-container">
+                <video id="localVideo" autoplay muted playsinline></video>
+                <div id="previewPlaceholder" class="video-placeholder">
+                    <div class="placeholder-content">
+                        <i class="fas fa-video"></i>
+                        <h4>準備開始直播</h4>
+                        <p>點擊右側控制面板的「開始直播」按鈕</p>
+                    </div>
+                </div>
+                <div class="video-overlay" id="videoOverlay" style="display: none;">
+                    <span class="live-indicator">
+                        <i class="fas fa-circle"></i> 直播中
+                    </span>
+                    <span class="quality-indicator">
+                        畫質: <span id="currentQuality">720p</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="quality-controls">
+                <label><i class="fas fa-cog"></i> 畫質設定:</label>
+                <select id="qualitySelect" onchange="changeQuality()">
+                    <option value="480">480p</option>
+                    <option value="720" selected>720p</option>
+                    <option value="1080">1080p</option>
+                </select>
+            </div>
+
+            <!-- 直播標題設定 -->
+            <div class="stream-title-section">
+                <label><i class="fas fa-edit"></i> 直播標題:</label>
+                <input type="text" id="streamTitleInput" class="stream-title-input" placeholder="輸入你的直播標題..."
+                    maxlength="100" oninput="onTitleInput()" onchange="updateStreamTitle()"
+                    onkeypress="handleTitleKeyPress(event)">
+                <div class="current-title" id="currentTitle">
+                    目前標題: 未設定
+                </div>
+            </div>
+        </div>
+
+        <!-- 直播控制面板 -->
+        <div class="control-panel">
+            <h3><i class="fas fa-sliders-h"></i> 直播控制</h3>
+
+            <button class="btn-primary" id="streamBtn">
+                <i class="fas fa-play-circle"></i> 開始直播
+            </button>
+
+            <div class="control-buttons">
+                <button class="btn-control" id="videoBtn">
+                    <i class="fas fa-video"></i>
+                </button>
+                <button class="btn-control" id="audioBtn">
+                    <i class="fas fa-microphone"></i>
+                </button>
+                <button class="btn-control" id="screenBtn">
+                    <i class="fas fa-desktop"></i>
+                </button>
+                <button class="btn-control" id="tabAudioBtn" title="背景音樂分享 - 點擊分享分頁音訊給觀眾">
+                    <i class="fas fa-volume-off"></i>
+                </button>
+            </div>
+
+            <div class="device-selection">
+                <div class="select-group">
+                    <label><i class="fas fa-camera"></i> 攝影機</label>
+                    <select id="cameraSelect" onchange="switchVideoDevice()">
+                        <option>載入中...</option>
+                    </select>
+                </div>
+
+                <div class="select-group">
+                    <label><i class="fas fa-microphone"></i> 麥克風</label>
+                    <select id="microphoneSelect" onchange="switchAudioDevice()">
+                        <option>載入中...</option>
+                    </select>
+                </div>
+
+                <div class="select-group">
+                    <label><i class="fas fa-volume-up"></i> 音訊輸出</label>
+                    <select id="audioOutputSelect" onchange="switchAudioOutput()">
+                        <option>載入中...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stream-status">
+                <div class="status-row">
+                    <span><i class="fas fa-eye"></i> 觀看人數:</span>
+                    <span id="viewerCount">0</span>
+                </div>
+                <div class="status-row">
+                    <span><i class="fas fa-clock"></i> 直播時間:</span>
+                    <span id="duration">00:00:00</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天室 -->
+        <div class="chat-panel">
+            <div class="chat-header">
+                <h3><i class="fas fa-comments"></i> 即時聊天室</h3>
+                <span class="viewer-badge">
+                    <i class="fas fa-users"></i> <span id="chatViewerCount">0</span>
+                </span>
+            </div>
+            <!-- 新增聊天室狀態列 -->
+            <div id="chatStatusBar" class="chat-status-bar" data-state="disconnected"
+                style="display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 10px;margin:-4px 0 8px 0;border:1px solid rgba(102,126,234,0.25);border-radius:8px;background:linear-gradient(135deg,rgba(255,255,255,0.4),rgba(255,255,255,0.25));backdrop-filter:blur(8px);">
+                <span class="status-dot"
+                    style="width:8px;height:8px;border-radius:50%;background:#1eff69;display:inline-block;"></span>
+                <span class="status-text">已連線</span>
+                <span class="retry-hint" style="margin-left:auto;opacity:0.7;">自動連接中...</span>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="message system">
+                    <div class="message-avatar">
+                        <i class="fas fa-cog"></i>
+                    </div>
+                    <div class="message-content-wrapper">
+                        <div class="message-header">
+                            <span class="username">系統</span>
+                            <span class="timestamp">剛剛</span>
+                        </div>
+                        <div class="message-content">
+                            歡迎來到 VibeLo 直播間！開始你的直播之旅吧 🚀
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-input">
+                <input type="text" id="messageInput" placeholder="說點什麼...">
+                <button class="btn-send">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 登入權限檢測彈窗 -->
+    <div id="loginPermissionModal" class="login-permission-modal">
+        <div class="modal-content">
+            <div class="modal-icon">
+                <i class="fas fa-user-lock"></i>
+            </div>
+            <h2 class="modal-title">需要登入權限</h2>
+            <p class="modal-message">
+                開始直播需要登入帳號，這樣可以確保平台安全並提供更好的用戶體驗。
+                <br><br>
+                請先登入您的帳號，或者創建一個新帳號來開始直播。
+            </p>
+            <div class="modal-buttons">
+                <a href="/login.html" class="modal-btn primary">
+                    <i class="fas fa-sign-in-alt"></i>
+                    立即登入
+                </a>
+                <a href="/register.html" class="modal-btn secondary">
+                    <i class="fas fa-user-plus"></i>
+                    免費註冊
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript 文件 - 按依赖顺序加载 -->
+    <script src="script.js"></script>
+    <script src="livestream-platform.js"></script>
+    <script src="chat-system.js"></script>
+    <script src="music-player.js"></script>
+
+    <!-- 调试脚本 -->
+    <script>
+        // 忽略浏览器扩展相关的错误
+        window.addEventListener('error', function (e) {
+            if (e.message && e.message.includes('message channel closed')) {
+                console.log('忽略浏览器扩展错误:', e.message);
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        window.addEventListener('unhandledrejection', function (e) {
+            if (e.reason && e.reason.message && e.reason.message.includes('message channel closed')) {
+                console.log('忽略浏览器扩展Promise错误:', e.reason.message);
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        // 检查脚本加载状态
+        window.addEventListener('load', function () {
+            console.log('=== VibeLo 直播平台初始化 ===');
+
+            // 简单直接的函数检查
+            function checkAndSetup() {
+                console.log('检查函数状态:');
+                console.log('- toggleStream:', typeof toggleStream);
+                console.log('- toggleVideo:', typeof toggleVideo);
+                console.log('- toggleAudio:', typeof toggleAudio);
+                console.log('- shareScreen:', typeof shareScreen);
+                console.log('- toggleTabAudio:', typeof toggleTabAudio);
+
+                const allFunctionsLoaded = typeof toggleStream === 'function' &&
+                    typeof toggleVideo === 'function' &&
+                    typeof toggleAudio === 'function' &&
+                    typeof shareScreen === 'function' &&
+                    typeof toggleTabAudio === 'function';
+
+                if (allFunctionsLoaded) {
+                    console.log('✅ 所有函数已加载，设置事件监听器');
+                    setupEventListeners();
+                } else {
+                    console.log('❌ 部分函数未加载，等待重试...');
+                    setTimeout(checkAndSetup, 1000);
+                }
+            }
+
+            // 延迟检查，确保脚本完全加载
+            setTimeout(checkAndSetup, 500);
+            
+            // 创建测试用户，让界面看起来正常
+            if (!window.currentUser) {
+                window.currentUser = {
+                    username: 'test_user',
+                    displayName: '测试主播',
+                    email: 'test@example.com',
+                    id: 'test_123'
+                };
+                
+                // 更新用户头像显示
+                const userAvatar = document.getElementById('userAvatar');
+                if (userAvatar) {
+                    userAvatar.innerHTML = '测';
+                    userAvatar.title = '测试主播';
+                }
+                
+                console.log('✅ 已创建测试用户用于界面显示');
+            }
+
+            function setupEventListeners() {
+                // 设置直播按钮点击事件
+                const streamBtn = document.getElementById('streamBtn');
+                if (streamBtn) {
+                    console.log('设置直播按钮点击事件');
+
+                    streamBtn.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        console.log('🎬 直播按钮被点击');
+
+                        try {
+                            // 检查是否有登录用户
+                            if (!window.currentUser) {
+                                console.log('⚠️ 用户未登录，但允许测试模式');
+                                // 创建临时测试用户
+                                window.currentUser = {
+                                    username: 'test_user',
+                                    displayName: '测试主播',
+                                    email: 'test@example.com',
+                                    id: 'test_123'
+                                };
+                                console.log('✅ 已创建测试用户:', window.currentUser);
+                                
+                                // 更新用户显示
+                                const userAvatar = document.getElementById('userAvatar');
+                                if (userAvatar) {
+                                    userAvatar.innerHTML = '测';
+                                    userAvatar.title = '测试主播';
+                                }
+                                
+                                // 继续执行直播功能
+                            }
+
+                            // 尝试调用直播函数
+                            if (typeof toggleStream === 'function') {
+                                console.log('✅ 调用 toggleStream 函数');
+                                toggleStream();
+                            } else {
+                                console.error('❌ toggleStream 函数未找到');
+                                alert('直播功能暂时无法使用，请刷新页面重试');
+                            }
+                        } catch (error) {
+                            console.error('直播按钮点击错误:', error);
+                            alert('直播功能出现错误，请刷新页面重试');
+                        }
+                    });
+                }
+
+                // 设置其他控制按钮的事件
+                const videoBtn = document.getElementById('videoBtn');
+                if (videoBtn) {
+                    videoBtn.addEventListener('click', function () {
+                        if (typeof toggleVideo === 'function') {
+                            toggleVideo();
+                        } else {
+                            console.log('toggleVideo 函数未加载');
+                        }
+                    });
+                }
+
+                const audioBtn = document.getElementById('audioBtn');
+                if (audioBtn) {
+                    audioBtn.addEventListener('click', function () {
+                        if (typeof toggleAudio === 'function') {
+                            toggleAudio();
+                        } else {
+                            console.log('toggleAudio 函数未加载');
+                        }
+                    });
+                }
+
+                const screenBtn = document.getElementById('screenBtn');
+                if (screenBtn) {
+                    screenBtn.addEventListener('click', function () {
+                        if (typeof shareScreen === 'function') {
+                            shareScreen();
+                        } else {
+                            console.log('shareScreen 函数未加载');
+                        }
+                    });
+                }
+
+                const tabAudioBtn = document.getElementById('tabAudioBtn');
+                if (tabAudioBtn) {
+                    tabAudioBtn.addEventListener('click', function () {
+                        if (typeof toggleTabAudio === 'function') {
+                            toggleTabAudio();
+                        } else {
+                            console.log('toggleTabAudio 函数未加载');
+                        }
+                    });
+                }
+
+                console.log('✅ 所有按钮事件监听器已设置完成');
+
+                // 设置用户头像点击事件
+                const userAvatar = document.getElementById('userAvatar');
+                if (userAvatar) {
+                    userAvatar.addEventListener('click', function () {
+                        console.log('用户头像被点击');
+                        console.log('头像被点击，显示用户菜单');
+                        
+                        // 创建简单的下拉菜单
+                        const existingMenu = document.querySelector('.user-dropdown');
+                        if (existingMenu) {
+                            existingMenu.remove();
+                        } else {
+                            const menu = document.createElement('div');
+                            menu.className = 'user-dropdown';
+                            menu.style.cssText = `
+                                position: absolute;
+                                top: 100%;
+                                right: 0;
+                                background: white;
+                                border-radius: 12px;
+                                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+                                padding: 1rem;
+                                min-width: 200px;
+                                z-index: 9999;
+                                margin-top: 0.5rem;
+                                opacity: 0;
+                                transform: translateY(-10px);
+                                transition: all 0.3s ease;
+                            `;
+                            
+                            const userName = window.currentUser ? window.currentUser.displayName : '主播';
+                            
+                            menu.innerHTML = `
+                                <div style="padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 0.5rem;">
+                                    <div style="font-weight: 600; color: #1f2937;">${userName}</div>
+                                </div>
+                                <a href="viewer.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; color: #4b5563; text-decoration: none; border-radius: 8px; transition: all 0.3s ease;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                                    <i class="fas fa-eye"></i> 觀看直播
+                                </a>
+                                <a href="index.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; color: #4b5563; text-decoration: none; border-radius: 8px; transition: all 0.3s ease;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
+                                    <i class="fas fa-home"></i> 回到首頁
+                                </a>
+                                <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; color: #dc2626; cursor: pointer; border-radius: 8px; transition: all 0.3s ease;" onclick="window.currentUser = null; alert('已登出测试模式')" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
+                                    <i class="fas fa-sign-out-alt"></i> 登出
+                                </div>
+                            `;
+                            
+                            userAvatar.style.position = 'relative';
+                            userAvatar.appendChild(menu);
+                            
+                            // 显示动画
+                            setTimeout(() => {
+                                menu.style.opacity = '1';
+                                menu.style.transform = 'translateY(0)';
+                            }, 10);
+                            
+                            // 点击其他地方关闭菜单
+                            setTimeout(() => {
+                                function closeMenu(e) {
+                                    if (!menu.contains(e.target) && !userAvatar.contains(e.target)) {
+                                        menu.style.opacity = '0';
+                                        menu.style.transform = 'translateY(-10px)';
+                                        setTimeout(() => {
+                                            if (menu.parentNode) {
+                                                menu.remove();
+                                            }
+                                        }, 300);
+                                        document.removeEventListener('click', closeMenu);
+                                    }
+                                }
+                                document.addEventListener('click', closeMenu);
+                            }, 100);
+                        }
+                    });
+                    console.log('✅ 用户头像事件监听器已设置');
+                }
+
+                // 设置特效按钮事件
+                const effectBtns = document.querySelectorAll('.effect-btn');
+                effectBtns.forEach(btn => {
+                    btn.addEventListener('click', function () {
+                        const effect = this.getAttribute('data-effect');
+                        console.log('特效按钮被点击:', effect);
+
+                        if (effect === 'backgroundBlur') {
+                            if (typeof toggleBackgroundBlur === 'function') {
+                                toggleBackgroundBlur();
+                            } else {
+                                console.log('toggleBackgroundBlur 函数未加载');
+                            }
+                        } else {
+                            if (typeof applyEffect === 'function') {
+                                applyEffect(effect);
+                            } else {
+                                console.log('applyEffect 函数未加载');
+                            }
+                        }
+                    });
+                });
+
+                // 设置音乐相关按钮事件
+                const loadVideoBtn = document.getElementById('loadVideoBtn');
+                if (loadVideoBtn) {
+                    loadVideoBtn.addEventListener('click', function () {
+                        if (typeof loadYouTubeVideo === 'function') {
+                            loadYouTubeVideo();
+                        } else {
+                            console.log('loadYouTubeVideo 函数未加载');
+                        }
+                    });
+                }
+
+                const muteButton = document.getElementById('muteButton');
+                if (muteButton) {
+                    muteButton.addEventListener('click', function () {
+                        if (typeof toggleMute === 'function') {
+                            toggleMute();
+                        } else {
+                            console.log('toggleMute 函数未加载');
+                        }
+                    });
+                }
+
+                console.log('✅ 所有特效和音乐按钮事件监听器已设置');
+            }
+        });
+    </script>
+</body>
+
+</html>

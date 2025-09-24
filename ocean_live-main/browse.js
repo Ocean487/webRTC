@@ -183,7 +183,7 @@
                             ${stream.title || '精彩直播中...'}
                         </div>
                         <div class="stream-actions">
-                            <a href="viewer.html?streamer=${stream.userId}" class="action-btn watch-btn" onclick="event.stopPropagation()">
+                            <a href="viewer.html?broadcasterId=${stream.userId}" class="action-btn watch-btn" onclick="event.stopPropagation()">
                                 <i class="fas fa-play"></i> 觀看
                             </a>
                             <button class="action-btn share-btn" onclick="event.stopPropagation(); shareStream('${stream.userId}', '${stream.username}')">
@@ -209,7 +209,7 @@
 
         // 觀看直播
         function watchStream(userId) {
-            window.location.href = `viewer.html?streamer=${userId}`;
+            window.location.href = `viewer.html?broadcasterId=${userId}`;
         }
 
         // 分享直播

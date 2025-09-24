@@ -1783,10 +1783,9 @@
             if (streamBtn) {
                 streamBtn.disabled = true;
                 streamBtn.innerHTML = '<i class="fas fa-lock"></i> 請先登入';
-                streamBtn.onclick = function() {
-                    showLoginPermissionModal();
-                };
             }
+            // 顯示登入權限彈窗
+            showLoginPermissionModal();
             
             // 顯示登入提示訊息
             if (typeof addMessage === 'function') {
@@ -3635,6 +3634,23 @@
                     if (window.addMessage) {
                         addMessage('系統', `🎉 歡迎，${currentUser.displayName}！您可以開始直播了`);
                     }
+                    
+                    // 載入設備列表
+                    try {
+                        await loadDevices();
+                        console.log('設備列表載入完成');
+                    } catch (error) {
+                        console.error('載入設備列表失敗:', error);
+                    }
+                    
+                    // 自動啟動攝影機預覽
+                    try {
+                        await startPreview();
+                        console.log('攝影機預覽已自動啟動');
+                    } catch (error) {
+                        console.log('自動預覽啟動失敗，用戶可以手動啟動');
+                    }
+                    
                 } else {
                     showLoginRequired();
                     
@@ -3659,22 +3675,6 @@
                 if (typeof showLoginRequired === 'function') {
                     showLoginRequired();
                 }
-            }
-            
-            // 載入設備列表
-            try {
-                await loadDevices();
-                console.log('設備列表載入完成');
-            } catch (error) {
-                console.error('載入設備列表失敗:', error);
-            }
-            
-            // 自動啟動攝影機預覽
-            try {
-                await startPreview();
-                console.log('攝影機預覽已自動啟動');
-            } catch (error) {
-                console.log('自動預覽啟動失敗，用戶可以手動啟動');
             }
             
             // 延遲初始化聊天系統，等待主播WebSocket連接建立

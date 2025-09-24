@@ -1,0 +1,2562 @@
+// 全局變數
+let localStream = null;
+let isStreaming = false;
+let isVideoEnabled = true;
+let isAudioEnabled = true;
+let currentFacingMode = 'user'; // 'user' or 'environment'
+let streamStartTime = null;
+let durationInterval = null;
+let messageCount = 0;
+let viewerCount = 0;
+let currentQuality = '720';
+let dataTransferInterval = null;
+let currentAudioOutput = null; // 當前音訊輸出端
+
+// 主播ID相關
+let myBroadcasterId = null;
+
+// 獲取主播ID的函數
+function getBroadcasterId() {
+    if (!myBroadcasterId) {
+        // 先嘗試從URL參數獲取
+        const urlParams = new URLSearchParams(window.location.search);
+        const urlBroadcasterId = urlParams.get('broadcaster');
+        
+        if (urlBroadcasterId) {
+            myBroadcasterId = urlBroadcasterId;
+        } else if (window.currentUser && window.currentUser.id) {
+            // 基於當前用戶ID生成
+            myBroadcasterId = `broadcaster_${window.currentUser.id}`;
+        } else {
+            // 最後備份：使用時間戳
+            myBroadcasterId = `broadcaster_${Date.now()}`;
+        }
+    }
+    return myBroadcasterId;
+}
+
+// 分頁音訊相關變數
+let tabAudioStream = null;
+let isTabAudioEnabled = false;
+let audioContext = null;
+let mixedAudioStream = null;
+
+// WebSocket 連接
+let streamingSocket = null;
+let peerConnections = new Map(); // viewerId -> RTCPeerConnection
+
+// WebRTC 配置 - 優化視頻編碼兼容性
+const constraints = {
+    video: {
+        width: { ideal: 1280, max: 1920 },
+        height: { ideal: 720, max: 1080 },
+        frameRate: { ideal: 30, max: 60 },
+        facingMode: 'user'
+    },
+    audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: { ideal: 48000 },
+        channelCount: { ideal: 2 }
+    }
+};
+
+// WebRTC 連接配置 - 增強編解碼器支援
+const rtcConfiguration = {
+    iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.services.mozilla.com' },
+        { urls: 'stun:stun.l.google.com:19305' }
+    ],
+    iceCandidatePoolSize: 10,
+    bundlePolicy: 'max-bundle',
+    rtcpMuxPolicy: 'require'
+};
+
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    loadDevices();
+    checkAudioOutputSupport();
+    simulateInitialActivity();
+    // 在頁面載入時就建立 WebSocket 連接以支援聊天功能
+    connectToStreamingServer();
+});
+
+// 確保音訊軌道正確啟用
+function ensureAudioTracksEnabled(stream) {
+    if (!stream) return;
+    
+    const audioTracks = stream.getAudioTracks();
+    audioTracks.forEach(track => {
+        if (track.readyState === 'live') {
+            track.enabled = true;
+            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
+        } else {
+            console.warn('音訊軌道狀態異常:', track.id, '狀態:', track.readyState);
+        }
+    });
+}
+
+// 檢查音訊輸出端支援
+function checkAudioOutputSupport() {
+    const localVideo = document.getElementById('localVideo');
+    if (!localVideo.setSinkId) {
+        addMessage('系統', '⚠️ 您的瀏覽器不支援音訊輸出端切換功能，將使用預設輸出端');
+        console.warn('瀏覽器不支援 setSinkId API');
+        return false;
+    }
+    
+    // 檢查是否支援音訊輸出端列舉
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        addMessage('系統', '⚠️ 您的瀏覽器不支援裝置列舉功能');
+        console.warn('瀏覽器不支援 enumerateDevices API');
+        return false;
+    }
+    
+    console.log('音訊輸出端功能支援正常');
+    return true;
+}
+
+// 載入可用裝置
+async function loadDevices() {
+    try {
+        // 先請求權限以獲取裝置標籤
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        
+        const cameras = devices.filter(device => device.kind === 'videoinput');
+        const microphones = devices.filter(device => device.kind === 'audioinput');
+        const speakers = devices.filter(device => device.kind === 'audiooutput');
+
+        const cameraSelect = document.getElementById('cameraSelect');
+        const microphoneSelect = document.getElementById('microphoneSelect');
+        const audioOutputSelect = document.getElementById('audioOutputSelect');
+
+        // 載入攝影機
+        cameraSelect.innerHTML = '';
+        cameras.forEach((camera, index) => {
+            const option = document.createElement('option');
+            option.value = camera.deviceId;
+            option.textContent = camera.label || `攝影機 ${index + 1}`;
+            cameraSelect.appendChild(option);
+        });
+
+        // 載入麥克風
+        microphoneSelect.innerHTML = '';
+        microphones.forEach((mic, index) => {
+            const option = document.createElement('option');
+            option.value = mic.deviceId;
+            option.textContent = mic.label || `麥克風 ${index + 1}`;
+            microphoneSelect.appendChild(option);
+        });
+
+        // 載入音訊輸出端
+        audioOutputSelect.innerHTML = '';
+        
+        // 添加預設選項
+        const defaultOption = document.createElement('option');
+        defaultOption.value = 'default';
+        defaultOption.textContent = '預設音訊輸出端';
+        audioOutputSelect.appendChild(defaultOption);
+        
+        // 添加檢測到的音訊輸出端
+        speakers.forEach((speaker, index) => {
+            const option = document.createElement('option');
+            option.value = speaker.deviceId;
+            option.textContent = speaker.label || `音訊輸出端 ${index + 1}`;
+            audioOutputSelect.appendChild(option);
+        });
+
+        console.log('檢測到的音訊輸出端:', speakers.length, speakers.map(s => s.label));
+
+    } catch (error) {
+        console.error('無法載入裝置列表:', error);
+        addMessage('系統', '⚠️ 無法檢測音視訊裝置，請檢查瀏覽器權限');
+    }
+}
+
+// 開始/停止直播
+async function toggleStream() {
+    if (!isStreaming) {
+        await startStream();
+    } else {
+        stopStream();
+    }
+}
+
+// 開始直播
+async function startStream() {
+    try {
+        // 簡化的流獲取 - 只獲取攝影機和麥克風
+        // YouTube音訊將通過系統音效混入
+        const userStream = await navigator.mediaDevices.getUserMedia(getConstraints());
+        
+        // 直接使用用戶媒體流，不進行複雜的音訊混合
+        localStream = userStream;
+        
+        // 顯示本地視訊
+        const localVideo = document.getElementById('localVideo');
+        const placeholder = document.getElementById('previewPlaceholder');
+        
+        localVideo.srcObject = localStream;
+        localVideo.style.display = 'block';
+        placeholder.style.display = 'none';
+
+        // 確保音訊軌道正確啟用
+        ensureAudioTracksEnabled(localStream);
+
+        console.log('直播流已啟動，YouTube音訊將通過系統音效混入');
+
+        // 設置音訊輸出端（如果已選擇）
+        if (currentAudioOutput && currentAudioOutput !== 'default') {
+            try {
+                if (localVideo.setSinkId) {
+                    await localVideo.setSinkId(currentAudioOutput);
+                    console.log('已設置音訊輸出端:', currentAudioOutput);
+                    
+                    // 獲取裝置名稱並顯示
+                    const devices = await navigator.mediaDevices.enumerateDevices();
+                    const selectedDevice = devices.find(device => 
+                        device.kind === 'audiooutput' && device.deviceId === currentAudioOutput
+                    );
+                    const deviceName = selectedDevice ? selectedDevice.label : '預設音訊輸出端';
+                    addMessage('系統', `🔊 音訊輸出端已設置為: ${deviceName}`);
+                    
+                    // 確保音訊播放
+                    try {
+                        await localVideo.play();
+                        console.log('音訊已開始播放');
+                    } catch (playError) {
+                        console.warn('自動播放失敗:', playError);
+                        addMessage('系統', '⚠️ 請點擊視訊畫面以開始播放音訊');
+                    }
+                }
+            } catch (error) {
+                console.warn('設置音訊輸出端失敗:', error);
+                addMessage('系統', '⚠️ 音訊輸出端設置失敗，使用預設輸出端');
+            }
+        } else {
+            addMessage('系統', '🔊 使用預設音訊輸出端');
+            
+            // 確保音訊播放
+            try {
+                await localVideo.play();
+                console.log('音訊已開始播放');
+            } catch (playError) {
+                console.warn('自動播放失敗:', playError);
+                addMessage('系統', '⚠️ 請點擊視訊畫面以開始播放音訊');
+            }
+        }
+
+        // 更新 UI 狀態
+        isStreaming = true;
+        window.isStreaming = isStreaming; // 確保全局可訪問
+        window.localStream = localStream; // 確保全局可訪問
+        updateStreamStatus(true);
+        startStreamTimer();
+        // simulateViewers();
+
+        addMessage('系統', '🎉 直播已開始！觀眾可以看到你的畫面了');
+
+        // 模擬數據傳輸
+        simulateDataTransfer();
+        
+        // 確保 WebSocket 連接已建立（通常已在頁面載入時建立）
+        if (!streamingSocket || streamingSocket.readyState !== WebSocket.OPEN) {
+            connectToStreamingServer();
+        }
+        
+        // 等待 WebSocket 連接建立後通知服務器直播已開始
+        setTimeout(() => {
+            if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
+                // 獲取直播標題
+                const titleInput = document.getElementById('streamTitleInput');
+                const streamTitle = titleInput ? titleInput.value.trim() : '';
+                const finalTitle = streamTitle || '精彩直播中';
+                
+                // 確保主播端的標題顯示也更新
+                if (titleInput && !streamTitle) {
+                    titleInput.value = finalTitle;
+                }
+                
+                // 更新主播端標題顯示
+                updateStreamTitle();
+                
+                console.log('發送直播開始事件，標題:', finalTitle);
+                
+                // 通知服務器直播開始，並請求已在線觀眾列表
+                streamingSocket.send(JSON.stringify({
+                    type: 'stream_start',
+                    title: finalTitle,
+                    message: '主播已開始直播',
+                    timestamp: Date.now(),
+                    requestViewers: true // 請求當前在線觀眾列表
+                }));
+                
+                addMessage('系統', `🔄 直播已開始，標題: ${finalTitle}`);
+                addMessage('系統', '🔄 正在為現有觀眾建立連接...');
+            }
+        }, 1000);
+
+    } catch (error) {
+        console.error('無法啟動直播:', error);
+        
+        let errorMessage = '無法啟動直播: ';
+        if (error.name === 'NotAllowedError') {
+            errorMessage += '請允許存取攝影機和麥克風權限';
+        } else if (error.name === 'NotFoundError') {
+            errorMessage += '找不到攝影機或麥克風裝置';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        addMessage('系統', '❌ ' + errorMessage);
+        
+        // 顯示權限請求提示
+        showPermissionRequest();
+    }
+}
+
+// 停止直播
+function stopStream() {
+    if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        localStream = null;
+    }
+
+    // 隱藏視訊，顯示預覽
+    const localVideo = document.getElementById('localVideo');
+    const placeholder = document.getElementById('previewPlaceholder');
+    
+    localVideo.style.display = 'none';
+    placeholder.style.display = 'flex';
+
+    // 重置狀態
+    isStreaming = false;
+    updateStreamStatus(false);
+    stopStreamTimer();
+    resetStats();
+    
+    // 關閉所有 WebRTC 連接
+    peerConnections.forEach(connection => {
+        connection.close();
+    });
+    peerConnections.clear();
+    
+    // 通知服務器直播結束
+    if (streamingSocket) {
+        streamingSocket.send(JSON.stringify({
+            type: 'stream_end',
+            broadcasterId: getBroadcasterId()
+        }));
+    }
+
+    addMessage('系統', '📺 直播已結束，感謝觀看！');
+}
+
+// 獲取約束條件
+function getConstraints() {
+    const quality = getQualitySettings(currentQuality);
+    return {
+        video: {
+            ...quality,
+            facingMode: currentFacingMode,
+            deviceId: document.getElementById('cameraSelect').value || undefined
+        },
+        audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            deviceId: document.getElementById('microphoneSelect').value || undefined
+        }
+    };
+}
+
+// 獲取畫質設定
+function getQualitySettings(quality) {
+    const settings = {
+        '480': { width: { ideal: 854 }, height: { ideal: 480 } },
+        '720': { width: { ideal: 1280 }, height: { ideal: 720 } },
+        '1080': { width: { ideal: 1920 }, height: { ideal: 1080 } }
+    };
+    return settings[quality] || settings['720'];
+}
+
+// 切換視訊
+async function toggleVideo() {
+    if (!localStream) return;
+
+    const videoTracks = localStream.getVideoTracks();
+    videoTracks.forEach(track => {
+        track.enabled = !track.enabled;
+    });
+
+    isVideoEnabled = !isVideoEnabled;
+    const btn = document.getElementById('videoBtn');
+    btn.textContent = isVideoEnabled ? '📹 關閉視訊' : '📹 開啟視訊';
+
+    addMessage('系統', isVideoEnabled ? '📹 視訊已開啟' : '📹 視訊已關閉');
+    
+    // 更新所有觀眾的軌道狀態
+    if (isStreaming) {
+        const viewerIds = Array.from(peerConnections.keys());
+        for (const viewerId of viewerIds) {
+            await updatePeerConnectionTracks(viewerId);
+        }
+    }
+}
+
+// 切換音訊
+async function toggleAudio() {
+    if (!localStream) return;
+
+    const audioTracks = localStream.getAudioTracks();
+    audioTracks.forEach(track => {
+        track.enabled = !track.enabled;
+    });
+
+    isAudioEnabled = !isAudioEnabled;
+    const btn = document.getElementById('audioBtn');
+    btn.textContent = isAudioEnabled ? '🎤 關閉音訊' : '🎤 開啟音訊';
+
+    addMessage('系統', isAudioEnabled ? '🎤 音訊已開啟' : '🎤 音訊已關閉');
+    
+    // 更新所有觀眾的軌道狀態
+    if (isStreaming) {
+        const viewerIds = Array.from(peerConnections.keys());
+        for (const viewerId of viewerIds) {
+            await updatePeerConnectionTracks(viewerId);
+        }
+    }
+}
+
+// 切換鏡頭
+async function switchCamera() {
+    if (!isStreaming) return;
+
+    try {
+        currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
+        
+        // 保存當前的音訊軌道
+        const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        
+        // 只停止視訊軌道，保持音訊軌道
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            videoTracks.forEach(track => track.stop());
+        }
+
+        // 重新取得媒體串流（只包含視訊）
+        const videoConstraints = getConstraints();
+        const newVideoStream = await navigator.mediaDevices.getUserMedia(videoConstraints);
+        
+        // 創建新的串流，包含新的視訊軌道和原有的音訊軌道
+        const newStream = new MediaStream();
+        
+        // 添加新的視訊軌道
+        newVideoStream.getVideoTracks().forEach(track => {
+            newStream.addTrack(track);
+        });
+        
+        // 保持原有的音訊軌道
+        if (currentAudioTrack && currentAudioTrack.readyState === 'live') {
+            newStream.addTrack(currentAudioTrack);
+            console.log('保持原有音訊軌道，軌道ID:', currentAudioTrack.id);
+        }
+        
+        // 更新本地串流
+        localStream = newStream;
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = localStream;
+        
+        // 確保音訊軌道啟用
+        const newAudioTracks4 = localStream.getAudioTracks();
+        newAudioTracks4.forEach(track => {
+            track.enabled = true;
+            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
+        });
+
+        // 重新設置音訊輸出端
+        if (currentAudioOutput && currentAudioOutput !== 'default') {
+            try {
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo.setSinkId) {
+                    await localVideo.setSinkId(currentAudioOutput);
+                    console.log('已重新設置音訊輸出端:', currentAudioOutput);
+                }
+            } catch (error) {
+                console.warn('重新設置音訊輸出端失敗:', error);
+            }
+        }
+
+        const cameraType = currentFacingMode === 'user' ? '前鏡頭' : '後鏡頭';
+        addMessage('系統', `🔄 已切換到${cameraType}，音訊保持不變`);
+        
+        // 更新所有 WebRTC 連接的軌道
+        await updateAllPeerConnections();
+    } catch (error) {
+        console.error('切換鏡頭失敗:', error);
+        addMessage('系統', '❌ 鏡頭切換失敗');
+    }
+}
+
+// 分享螢幕
+async function shareScreen() {
+    try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+            video: { 
+                cursor: 'always',
+                displaySurface: 'monitor'
+            },
+            audio: true
+        });
+
+        // 保存當前的音訊軌道（如果有的話）
+        const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        
+        // 只停止視訊軌道，保持音訊軌道
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            videoTracks.forEach(track => track.stop());
+        }
+
+        // 創建新的串流，包含螢幕分享的視訊軌道和原有的音訊軌道
+        const newStream = new MediaStream();
+        
+        // 添加螢幕分享的視訊軌道
+        screenStream.getVideoTracks().forEach(track => {
+            newStream.addTrack(track);
+        });
+        
+        // 保持原有的音訊軌道（如果存在且有效）
+        if (currentAudioTrack && currentAudioTrack.readyState === 'live') {
+            newStream.addTrack(currentAudioTrack);
+            console.log('保持原有音訊軌道，軌道ID:', currentAudioTrack.id);
+        } else {
+            // 如果沒有原有音訊軌道，添加螢幕分享的音訊軌道
+            screenStream.getAudioTracks().forEach(track => {
+                newStream.addTrack(track);
+            });
+        }
+
+        // 更新本地串流並設置到視訊元素
+        localStream = newStream;
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = localStream;
+        
+        // 確保音訊軌道啟用
+        const newAudioTracks = localStream.getAudioTracks();
+        newAudioTracks.forEach(track => {
+            track.enabled = true;
+            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
+        });
+
+        // 重新設置音訊輸出端
+        if (currentAudioOutput && currentAudioOutput !== 'default') {
+            try {
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo.setSinkId) {
+                    await localVideo.setSinkId(currentAudioOutput);
+                    console.log('已重新設置音訊輸出端:', currentAudioOutput);
+                }
+            } catch (error) {
+                console.warn('重新設置音訊輸出端失敗:', error);
+            }
+        }
+
+        addMessage('系統', '🖥️ 螢幕分享已開始，音訊保持不變');
+
+        // 監聽螢幕分享結束
+        screenStream.getVideoTracks()[0].onended = () => {
+            addMessage('系統', '🖥️ 螢幕分享已結束');
+            // 可以選擇切回攝影機或結束直播
+        };
+
+        // 更新所有觀眾的軌道
+        if (isStreaming) {
+            await updateAllPeerConnections();
+        }
+
+    } catch (error) {
+        console.error('螢幕分享失敗:', error);
+        addMessage('系統', '❌ 螢幕分享失敗');
+    }
+}
+
+// 切換畫質
+async function changeQuality() {
+    if (!isStreaming) {
+        currentQuality = document.getElementById('qualitySelect').value;
+        document.getElementById('currentQuality').textContent = currentQuality + 'p';
+        return;
+    }
+
+    try {
+        currentQuality = document.getElementById('qualitySelect').value;
+        
+        // 保存當前的音訊軌道
+        const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        
+        // 只重新配置視訊軌道
+        const videoTracks = localStream.getVideoTracks();
+        if (videoTracks.length > 0) {
+            const quality = getQualitySettings(currentQuality);
+            await videoTracks[0].applyConstraints(quality);
+            document.getElementById('currentQuality').textContent = currentQuality + 'p';
+            addMessage('系統', `📺 畫質已切換為 ${currentQuality}p，音訊保持不變`);
+        }
+
+    } catch (error) {
+        console.error('畫質切換失敗:', error);
+        addMessage('系統', '❌ 畫質切換失敗');
+    }
+}
+
+// 切換視訊裝置
+async function switchVideoDevice() {
+    if (!isStreaming) return;
+
+    try {
+        // 保存當前的音訊軌道
+        const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        
+        // 只停止視訊軌道
+        const videoTracks = localStream.getVideoTracks();
+        videoTracks.forEach(track => track.stop());
+
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+                ...getQualitySettings(currentQuality),
+                deviceId: document.getElementById('cameraSelect').value
+            },
+            audio: false
+        });
+
+        // 創建新的串流，包含新的視訊軌道和原有的音訊軌道
+        const combinedStream = new MediaStream();
+        
+        // 添加新的視訊軌道
+        newStream.getVideoTracks().forEach(track => {
+            combinedStream.addTrack(track);
+        });
+        
+        // 保持原有的音訊軌道
+        if (currentAudioTrack && currentAudioTrack.readyState === 'live') {
+            combinedStream.addTrack(currentAudioTrack);
+            console.log('保持原有音訊軌道，軌道ID:', currentAudioTrack.id);
+        }
+
+        // 更新本地串流
+        localStream = combinedStream;
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = localStream;
+        
+        // 確保音訊軌道啟用
+        const newAudioTracks2 = localStream.getAudioTracks();
+        newAudioTracks2.forEach(track => {
+            track.enabled = true;
+            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
+        });
+
+        // 重新設置音訊輸出端
+        if (currentAudioOutput && currentAudioOutput !== 'default') {
+            try {
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo.setSinkId) {
+                    await localVideo.setSinkId(currentAudioOutput);
+                    console.log('已重新設置音訊輸出端:', currentAudioOutput);
+                }
+            } catch (error) {
+                console.warn('重新設置音訊輸出端失敗:', error);
+            }
+        }
+        
+        addMessage('系統', '📹 攝影機已切換，音訊保持不變');
+
+        // 更新所有觀眾的軌道
+        if (isStreaming) {
+            await updateAllPeerConnections();
+        }
+
+    } catch (error) {
+        console.error('攝影機切換失敗:', error);
+        addMessage('系統', '❌ 攝影機切換失敗');
+    }
+}
+
+// 檢查當前音訊輸出端狀態
+async function checkAudioOutputStatus() {
+    try {
+        const localVideo = document.getElementById('localVideo');
+        
+        if (!localVideo.setSinkId) {
+            addMessage('系統', '⚠️ 瀏覽器不支援音訊輸出端切換');
+            return;
+        }
+        
+        // 獲取當前音訊輸出端
+        const currentSinkId = localVideo.sinkId || 'default';
+        
+        // 獲取所有音訊輸出端
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioOutputs = devices.filter(device => device.kind === 'audiooutput');
+        
+        // 找到當前使用的輸出端
+        const currentDevice = audioOutputs.find(device => device.deviceId === currentSinkId);
+        const deviceName = currentDevice ? currentDevice.label : '預設音訊輸出端';
+        
+        // 檢查音訊軌道狀態
+        const audioTracks = localStream ? localStream.getAudioTracks() : [];
+        const enabledTracks = audioTracks.filter(track => track.enabled);
+        
+        let statusMessage = `🔊 當前音訊輸出端: ${deviceName}\n`;
+        statusMessage += `📊 音訊軌道: ${audioTracks.length} 個 (${enabledTracks.length} 個啟用)\n`;
+        statusMessage += `▶️ 播放狀態: ${localVideo.paused ? '暫停' : '播放中'}\n`;
+        statusMessage += `🔊 音量: ${Math.round(localVideo.volume * 100)}%`;
+        
+        addMessage('系統', statusMessage);
+        
+        console.log('音訊輸出端狀態:', {
+            sinkId: currentSinkId,
+            deviceName: deviceName,
+            audioTracks: audioTracks.length,
+            enabledTracks: enabledTracks.length,
+            paused: localVideo.paused,
+            volume: localVideo.volume
+        });
+        
+    } catch (error) {
+        console.error('檢查音訊輸出端狀態失敗:', error);
+        addMessage('系統', '❌ 檢查音訊輸出端狀態失敗');
+    }
+}
+
+// 測試音訊輸出端
+async function testAudioOutput() {
+    try {
+        const selectedOutputId = document.getElementById('audioOutputSelect').value;
+        const localVideo = document.getElementById('localVideo');
+        
+        if (!localVideo.setSinkId) {
+            addMessage('系統', '⚠️ 您的瀏覽器不支援音訊輸出端切換功能');
+            return;
+        }
+
+        // 如果正在直播，使用實際的視訊元素測試
+        if (isStreaming && localStream) {
+            try {
+                // 切換到選擇的音訊輸出端
+                await localVideo.setSinkId(selectedOutputId);
+                
+                // 獲取裝置名稱
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const selectedDevice = devices.find(device => 
+                    device.kind === 'audiooutput' && device.deviceId === selectedOutputId
+                );
+                const deviceName = selectedDevice ? selectedDevice.label : '預設音訊輸出端';
+                
+                addMessage('系統', `🔊 正在測試音訊輸出端: ${deviceName}`);
+                
+                // 確保視訊播放
+                if (localVideo.paused) {
+                    await localVideo.play();
+                }
+                
+                // 3秒後恢復原來的輸出端
+                setTimeout(async () => {
+                    if (currentAudioOutput && currentAudioOutput !== 'default') {
+                        await localVideo.setSinkId(currentAudioOutput);
+                    }
+                    addMessage('系統', '🔊 音訊測試完成，已恢復原輸出端');
+                }, 3000);
+                
+            } catch (error) {
+                console.error('音訊測試失敗:', error);
+                addMessage('系統', '❌ 音訊測試失敗: ' + error.message);
+            }
+        } else {
+            // 如果沒有直播，創建測試音訊
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 音符
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // 降低音量
+            
+            oscillator.start();
+            
+            // 播放 1 秒後停止
+            setTimeout(() => {
+                oscillator.stop();
+                addMessage('系統', '🔊 音訊測試完成');
+            }, 1000);
+        }
+        
+    } catch (error) {
+        console.error('音訊測試失敗:', error);
+        addMessage('系統', '❌ 音訊測試失敗');
+    }
+}
+
+// 切換音訊輸出端
+async function switchAudioOutput() {
+    try {
+        const selectedOutputId = document.getElementById('audioOutputSelect').value;
+        const localVideo = document.getElementById('localVideo');
+        
+        // 檢查瀏覽器是否支援 setSinkId
+        if (!localVideo.setSinkId) {
+            addMessage('系統', '⚠️ 您的瀏覽器不支援音訊輸出端切換功能');
+            return;
+        }
+
+        if (!isStreaming) {
+            currentAudioOutput = selectedOutputId;
+            addMessage('系統', '🔊 音訊輸出端已設定，開始直播後生效');
+            return;
+        }
+
+        // 切換音訊輸出端
+        await localVideo.setSinkId(selectedOutputId);
+        currentAudioOutput = selectedOutputId;
+        
+        // 獲取裝置名稱
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const selectedDevice = devices.find(device => 
+            device.kind === 'audiooutput' && device.deviceId === selectedOutputId
+        );
+        const deviceName = selectedDevice ? selectedDevice.label : '預設音訊輸出端';
+        
+        addMessage('系統', `🔊 音訊輸出端已切換至: ${deviceName}`);
+        
+        console.log('音訊輸出端已切換至:', deviceName, 'ID:', selectedOutputId);
+        
+        // 確保音訊播放
+        if (localVideo.paused) {
+            try {
+                await localVideo.play();
+                console.log('音訊已開始播放');
+                addMessage('系統', '▶️ 音訊已開始播放');
+            } catch (error) {
+                console.warn('自動播放失敗:', error);
+                addMessage('系統', '⚠️ 請點擊視訊畫面以開始播放音訊');
+            }
+        } else {
+            console.log('視訊已在播放中');
+        }
+        
+        // 檢查音訊軌道狀態
+        const audioTracks = localStream ? localStream.getAudioTracks() : [];
+        const enabledTracks = audioTracks.filter(track => track.enabled);
+        console.log('音訊軌道狀態:', {
+            total: audioTracks.length,
+            enabled: enabledTracks.length,
+            tracks: audioTracks.map(track => ({
+                id: track.id,
+                enabled: track.enabled,
+                readyState: track.readyState
+            }))
+        });
+        
+    } catch (error) {
+        console.error('切換音訊輸出端失敗:', error);
+        
+        let errorMessage = '切換音訊輸出端失敗: ';
+        if (error.name === 'NotAllowedError') {
+            errorMessage += '請允許存取音訊輸出端權限';
+        } else if (error.name === 'NotFoundError') {
+            errorMessage += '找不到指定的音訊輸出端';
+        } else {
+            errorMessage += error.message;
+        }
+        
+        addMessage('系統', '❌ ' + errorMessage);
+    }
+}
+
+// 切換音訊裝置
+async function switchAudioDevice() {
+    if (!isStreaming) return;
+
+    try {
+        // 保存當前的視訊軌道
+        const currentVideoTrack = localStream ? localStream.getVideoTracks()[0] : null;
+        
+        // 只停止音訊軌道
+        const audioTracks = localStream.getAudioTracks();
+        audioTracks.forEach(track => track.stop());
+
+        const newStream = await navigator.mediaDevices.getUserMedia({
+            video: false,
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true,
+                deviceId: document.getElementById('microphoneSelect').value
+            }
+        });
+
+        // 創建新的串流，包含新的音訊軌道和原有的視訊軌道
+        const combinedStream = new MediaStream();
+        
+        // 添加新的音訊軌道
+        newStream.getAudioTracks().forEach(track => {
+            combinedStream.addTrack(track);
+        });
+        
+        // 保持原有的視訊軌道
+        if (currentVideoTrack && currentVideoTrack.readyState === 'live') {
+            combinedStream.addTrack(currentVideoTrack);
+            console.log('保持原有視訊軌道，軌道ID:', currentVideoTrack.id);
+        }
+
+        // 更新本地串流
+        localStream = combinedStream;
+        const localVideo = document.getElementById('localVideo');
+        localVideo.srcObject = localStream;
+        
+        // 確保音訊軌道啟用
+        const newAudioTracks3 = localStream.getAudioTracks();
+        newAudioTracks3.forEach(track => {
+            track.enabled = true;
+            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
+        });
+
+        // 重新設置音訊輸出端
+        if (currentAudioOutput && currentAudioOutput !== 'default') {
+            try {
+                const localVideo = document.getElementById('localVideo');
+                if (localVideo.setSinkId) {
+                    await localVideo.setSinkId(currentAudioOutput);
+                    console.log('已重新設置音訊輸出端:', currentAudioOutput);
+                }
+            } catch (error) {
+                console.warn('重新設置音訊輸出端失敗:', error);
+            }
+        }
+        
+        addMessage('系統', '🎤 麥克風已切換，視訊保持不變');
+
+        // 更新所有觀眾的軌道
+        if (isStreaming) {
+            await updateAllPeerConnections();
+        }
+
+    } catch (error) {
+        console.error('麥克風切換失敗:', error);
+        addMessage('系統', '❌ 麥克風切換失敗');
+    }
+}
+
+// 截圖功能
+function takeScreenshot() {
+    if (!localStream) return;
+
+    const canvas = document.createElement('canvas');
+    const video = document.getElementById('localVideo');
+    const ctx = canvas.getContext('2d');
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    ctx.drawImage(video, 0, 0);
+
+    // 下載截圖
+    const link = document.createElement('a');
+    link.download = `screenshot_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+    link.href = canvas.toDataURL();
+    link.click();
+
+    addMessage('系統', '📸 截圖已下載');
+}
+
+// 全螢幕切換
+function toggleFullscreen() {
+    const videoContainer = document.querySelector('.video-container');
+    
+    if (!document.fullscreenElement) {
+        videoContainer.requestFullscreen().catch(err => {
+            console.error('全螢幕失敗:', err);
+        });
+    } else {
+        document.exitFullscreen();
+    }
+}
+
+// 更新直播狀態
+function updateStreamStatus(isLive) {
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const streamBtn = document.getElementById('streamBtn');
+
+    // 添加null檢查
+    if (!statusDot || !statusText || !streamBtn) {
+        console.error('無法找到必要的UI元素:', {
+            statusDot: !!statusDot,
+            statusText: !!statusText,
+            streamBtn: !!streamBtn
+        });
+        return;
+    }
+
+    if (isLive) {
+        statusDot.classList.add('live');
+        statusText.textContent = '直播中';
+        statusText.classList.add('live-status'); // 添加直播狀態類
+        streamBtn.textContent = '⏹️ 停止直播';
+        streamBtn.classList.add('streaming');
+        
+        // 也更新直播畫面區域的狀態
+        const streamStatusDot = document.getElementById('streamStatusDot');
+        const streamStatusText = document.getElementById('streamStatusText');
+        if (streamStatusDot && streamStatusText) {
+            streamStatusDot.classList.add('live');
+            streamStatusText.textContent = '直播中';
+            streamStatusText.classList.add('live-status');
+        }
+    } else {
+        statusDot.classList.remove('live');
+        statusText.classList.remove('live-status'); // 移除直播狀態類
+        streamBtn.textContent = '🔴 開始直播';
+        streamBtn.classList.remove('streaming');
+        
+        // 也更新直播畫面區域的狀態
+        const streamStatusDot = document.getElementById('streamStatusDot');
+        const streamStatusText = document.getElementById('streamStatusText');
+        if (streamStatusDot && streamStatusText) {
+            streamStatusDot.classList.remove('live');
+            streamStatusText.classList.remove('live-status');
+        }
+    }
+}
+
+// 開始直播計時器
+function startStreamTimer() {
+    streamStartTime = Date.now();
+    durationInterval = setInterval(updateDuration, 1000);
+}
+
+// 停止直播計時器
+function stopStreamTimer() {
+    if (durationInterval) {
+        clearInterval(durationInterval);
+        durationInterval = null;
+    }
+    streamStartTime = null;
+}
+
+// 更新直播時長
+function updateDuration() {
+    if (!streamStartTime) return;
+
+    const elapsed = Date.now() - streamStartTime;
+    const minutes = Math.floor(elapsed / 60000);
+    const seconds = Math.floor((elapsed % 60000) / 1000);
+    
+    const durationElement = document.getElementById('duration');
+    if (durationElement) {
+        durationElement.textContent = 
+            `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    }
+}
+
+// 模擬觀眾數量
+function simulateViewers() {
+    if (!isStreaming) return;
+
+    // 隨機增加觀眾
+    const viewerIncrease = Math.floor(Math.random() * 3) + 1;
+    viewerCount += viewerIncrease;
+    
+    const viewerCountElement = document.getElementById('viewerCount');
+    const chatViewerCountElement = document.getElementById('chatViewerCount');
+    
+    if (viewerCountElement) {
+        viewerCountElement.textContent = viewerCount;
+    }
+    if (chatViewerCountElement) {
+        chatViewerCountElement.textContent = viewerCount;
+    }
+
+    // 隨機發送觀眾訊息
+    if (Math.random() < 0.3) {
+        const messages = [
+            '主播好！',
+            '畫面很清晰呢',
+            '支持主播！',
+            '請問主播在玩什麼遊戲？',
+            '主播的聲音很好聽',
+            '這個直播間很棒！',
+            '主播加油！',
+            '請問主播幾歲？',
+            '主播的技術很棒',
+            '這個直播很有趣'
+        ];
+        
+        const randomMessage = messages[Math.floor(Math.random() * messages.length)];
+        const usernames = ['觀眾A', '觀眾B', '觀眾C', '觀眾D', '觀眾E', '觀眾F'];
+        const randomUsername = usernames[Math.floor(Math.random() * usernames.length)];
+        
+        addMessage(randomUsername, randomMessage);
+    }
+
+    // 繼續模擬
+    setTimeout(simulateViewers, Math.random() * 5000 + 3000);
+}
+
+// 模擬數據傳輸
+function simulateDataTransfer() {
+    if (!isStreaming) return;
+
+    const dataRate = Math.floor(Math.random() * 1000) + 100;
+    const dataRateElement = document.getElementById('dataRate');
+    if (dataRateElement) {
+        dataRateElement.textContent = `${dataRate} KB/s`;
+    }
+
+    dataTransferInterval = setTimeout(simulateDataTransfer, 2000);
+}
+
+// 重置統計數據
+function resetStats() {
+    viewerCount = 0;
+    messageCount = 0;
+    
+    // 安全地重置所有統計元素
+    const elements = {
+        'viewerCount': '0',
+        'chatViewerCount': '0',
+        'messageCount': '0',
+        'duration': '00:00',
+        'dataRate': '0 KB/s'
+    };
+    
+    for (const [id, value] of Object.entries(elements)) {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value;
+        }
+    }
+
+    if (dataTransferInterval) {
+        clearTimeout(dataTransferInterval);
+        dataTransferInterval = null;
+    }
+}
+
+// 添加聊天訊息
+function addMessage(username, content) {
+    const chatMessages = document.getElementById('chatMessages');
+    if (!chatMessages) return;
+    
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'message';
+    
+    // 根據用戶類型設置不同的樣式
+    if (username === '系統') {
+        messageDiv.classList.add('system');
+    } else if (username === '主播' || username === getCurrentUser()) {
+        messageDiv.classList.add('broadcaster');
+    }
+    
+    const timestamp = new Date().toLocaleTimeString('zh-TW', { 
+        hour: '2-digit', 
+        minute: '2-digit' 
+    });
+    
+    // 獲取用戶頭像
+    const avatar = getUserAvatar(username);
+    
+    messageDiv.innerHTML = `
+        <div class="message-avatar">
+            ${avatar}
+        </div>
+        <div class="message-content-wrapper">
+            <div class="message-bubble">
+                <div class="message-header">
+                    <span class="username">${username}</span>
+                    <span class="timestamp">${timestamp}</span>
+                </div>
+                <div class="message-content">${content}</div>
+            </div>
+        </div>
+    `;
+    
+    chatMessages.appendChild(messageDiv);
+    
+    // 強制自動滾動到底部 - 使用多種方法確保滾動
+    scrollChatToBottom();
+    
+    // 延遲再次滾動，確保 DOM 完全更新
+    setTimeout(() => {
+        scrollChatToBottom();
+    }, 50);
+    
+    // 再次延遲滾動，處理可能的動畫或佈局變化
+    setTimeout(() => {
+        scrollChatToBottom();
+    }, 100);
+    
+    // 更新訊息計數
+    if (username !== '系統') {
+        messageCount++;
+        const messageCountElement = document.getElementById('messageCount');
+        if (messageCountElement) {
+            messageCountElement.textContent = messageCount;
+        }
+    }
+}
+
+// 獲取用戶頭像
+function getUserAvatar(username) {
+    if (username === '系統') {
+        return '<i class="fas fa-cog"></i>';
+    } else if (username === '主播' || username === getCurrentUser()) {
+        // 使用當前用戶的頭像
+        if (window.getCurrentUserAvatar) {
+            return window.getCurrentUserAvatar();
+        } else {
+            return '<i class="fas fa-star"></i>';
+        }
+    } else {
+        // 普通用戶顯示用戶名的第一個字母
+        return username.charAt(0).toUpperCase();
+    }
+}
+
+// 獲取當前用戶名稱
+function getCurrentUser() {
+    // 從全域變數或頁面函數獲取用戶名
+    if (window.currentUser && window.currentUser.displayName) {
+        return window.currentUser.displayName;
+    } else if (window.getCurrentUser) {
+        return window.getCurrentUser();
+    } else {
+        return '主播'; // 預設值
+    }
+}
+
+// 獲取當前用戶完整信息
+function getCurrentUserInfo() {
+    // 首先檢查全局變數 currentUser (可能是從API載入或設置的訪客身份)
+    if (window.currentUser || currentUser) {
+        const user = window.currentUser || currentUser;
+        return {
+            displayName: user.displayName || user.username,
+            avatarUrl: user.avatarUrl || user.avatar || null,
+            isLoggedIn: !user.isGuest,
+            isGuest: user.isGuest || false
+        };
+    }
+    
+    // 其次檢查localStorage中的用戶信息
+    const storedUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
+    if (storedUser) {
+        return {
+            displayName: storedUser.username,
+            avatarUrl: storedUser.avatar || null,
+            isLoggedIn: true,
+            isGuest: false
+        };
+    } 
+    
+    // 最後返回預設的主播身份
+    return {
+        displayName: '主播',
+        avatarUrl: null,
+        isLoggedIn: false,
+        isGuest: false
+    };
+}
+
+// 發送訊息 - 僅作為後備，優先使用ChatSystem
+function sendMessage() {
+    console.log('[SCRIPT] sendMessage被調用');
+    
+    // 檢查ChatSystem是否可用，如果可用則委託給ChatSystem處理
+    if (window.chatSystem && 
+        window.chatSystem.isReady && 
+        typeof window.chatSystem.sendMessage === 'function') {
+        console.log('[SCRIPT] 檢測到ChatSystem可用，委託給ChatSystem處理');
+        window.chatSystem.sendMessage();
+        return;
+    }
+    
+    console.log('[SCRIPT] ChatSystem不可用，使用後備處理');
+    
+    const messageInput = document.getElementById('messageInput');
+    if (!messageInput) {
+        console.error('[SCRIPT] 找不到messageInput元素');
+        return;
+    }
+    
+    const message = messageInput.value.trim();
+    
+    if (!message) {
+        console.warn('[SCRIPT] 消息為空，忽略發送');
+        return;
+    }
+
+    console.log('[SCRIPT] sendMessage invoked. socketState=', streamingSocket? streamingSocket.readyState : 'null', 'raw=', message);
+    
+    // 獲取當前用戶名稱
+    const currentUserName = getCurrentUser();
+    
+    // 通過 WebSocket 發送訊息給所有觀眾
+    if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
+        const messageData = {
+            type: 'chat',  // 使用統一的聊天消息類型
+            role: 'broadcaster',
+            username: currentUserName,
+            message: message,
+            timestamp: new Date().toISOString()
+        };
+        
+        streamingSocket.send(JSON.stringify(messageData));
+        console.log('[SCRIPT] 已發送訊息給所有觀眾 payload=', messageData);
+        
+        // 不立即在本地顯示消息，讓 ChatSystem 處理服務器回傳的消息
+        // addMessage(currentUserName, message, 'broadcaster');
+        
+    } else {
+        console.warn('[SCRIPT] WebSocket 未連接，無法發送訊息');
+        addMessage('系統', '⚠️ 網路連接異常，訊息無法發送', 'system');
+    }
+    
+    messageInput.value = '';
+}
+
+// 滾動聊天室到底部
+function scrollChatToBottom() {
+    const chatMessages = document.getElementById('chatMessages');
+    if (chatMessages) {
+        // 強制滾動到底部（最直接的方法）
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        
+        console.log('聊天室強制滾動 - scrollTop:', chatMessages.scrollTop, 'scrollHeight:', chatMessages.scrollHeight);
+        
+        // 驗證滾動是否成功
+        setTimeout(() => {
+            if (chatMessages.scrollTop < chatMessages.scrollHeight - chatMessages.clientHeight - 10) {
+                console.warn('聊天室滾動可能失敗，再次嘗試');
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        }, 100);
+    }
+}
+
+// 處理Enter鍵發送
+function handleEnter(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        sendMessage();
+    }
+}
+
+// 顯示權限請求提示
+function showPermissionRequest() {
+    const videoContainer = document.querySelector('.video-container');
+    
+    // 檢查是否已經有提示
+    if (videoContainer.querySelector('.permission-request')) return;
+    
+    const permissionDiv = document.createElement('div');
+    permissionDiv.className = 'permission-request';
+    permissionDiv.innerHTML = `
+        <h3>🔐 需要權限</h3>
+        <p>請允許瀏覽器存取您的攝影機和麥克風來開始直播</p>
+        <button class="btn btn-primary" onclick="requestPermissions()">重新請求權限</button>
+    `;
+    
+    videoContainer.appendChild(permissionDiv);
+}
+
+// 重新請求權限
+async function requestPermissions() {
+    try {
+        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        addMessage('系統', '✅ 權限已獲得，請重新點擊開始直播');
+        
+        // 移除權限提示
+        const permissionRequest = document.querySelector('.permission-request');
+        if (permissionRequest) {
+            permissionRequest.remove();
+        }
+        
+    } catch (error) {
+        addMessage('系統', '❌ 權限請求失敗，請檢查瀏覽器設定');
+    }
+}
+
+// 模擬初始活動
+function simulateInitialActivity() {
+    // 模擬一些初始的聊天訊息
+    setTimeout(() => {
+        addMessage('系統', '👋 歡迎來到直播平台！');
+    }, 1000);
+    
+    setTimeout(() => {
+        addMessage('系統', '💡 提示：點擊開始直播來啟動您的攝影機');
+    }, 3000);
+}
+
+// 連接到直播服務器
+function connectToStreamingServer() {
+    // 如果已經有連接且狀態正常，則不重複連接
+    if (streamingSocket && (streamingSocket.readyState === WebSocket.OPEN || streamingSocket.readyState === WebSocket.CONNECTING)) {
+        console.log('WebSocket 已連接或正在連接中');
+        return;
+    }
+    
+    try {
+        // 根據當前協議選擇WebSocket協議
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        
+        console.log('嘗試連接到 WebSocket 服務器:', wsUrl);
+        streamingSocket = new WebSocket(wsUrl);
+        
+        streamingSocket.onopen = function() {
+            console.log('✅ 已連接到直播服務器');
+            addMessage('系統', '🔗 已連接到直播服務器');
+            
+            // 獲取主播用戶信息
+            const userInfo = getCurrentUserInfo();
+            
+            // 發送主播加入訊息，包含用戶信息
+            streamingSocket.send(JSON.stringify({
+                type: 'broadcaster_join',
+                broadcasterId: getBroadcasterId(),
+                userInfo: userInfo
+            }));
+        };
+        
+        streamingSocket.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            
+            // 強制調試所有消息
+            console.log('🚨 [FORCE DEBUG] 主播端收到消息:', data);
+            
+            if(data.type==='chat_message' || data.type==='chat'){
+                console.log('[CHAT_DEBUG] 收到聊天封包', data);
+            }
+            
+            // 特別關注 online_viewers 和 viewer_join 消息
+            if (data.type === 'online_viewers' || data.type === 'viewer_join') {
+                console.log('🎯 [CRITICAL] WebRTC相關消息:', data);
+                // 移除alert，改用console log，避免影響用戶體驗
+                console.log(`📱 [WebRTC] 收到關鍵消息: ${data.type} - 詳細信息見上方`);
+            }
+            
+            handleServerMessage(data);
+        };
+        
+        streamingSocket.onclose = function(event) {
+            console.log('❌ 與直播服務器斷開連接', {
+                code: event.code,
+                reason: event.reason,
+                wasClean: event.wasClean
+            });
+            addMessage('系統', `⚠️ 與直播服務器斷開連接 (Code: ${event.code})`);
+            
+            // 嘗試重新連接
+            setTimeout(() => {
+                console.log('🔄 嘗試重新連接...');
+                connectToStreamingServer();
+            }, 3000);
+        };
+        
+        streamingSocket.onerror = function(error) {
+            console.error('❌ WebSocket 錯誤:', error);
+            console.error('❌ WebSocket 狀態:', streamingSocket ? streamingSocket.readyState : 'undefined');
+            addMessage('系統', '❌ 連接直播服務器失敗，請檢查網路連線');
+            
+            // 檢查是否是連接被拒絕
+            if (streamingSocket && streamingSocket.readyState === WebSocket.CLOSED) {
+                console.error('❌ 連接被關閉，可能是伺服器未啟動');
+                addMessage('系統', '❌ 無法連接到伺服器，請確認伺服器已啟動');
+            }
+        };
+        
+        // 添加超時檢測
+        setTimeout(() => {
+            if (streamingSocket && streamingSocket.readyState === WebSocket.CONNECTING) {
+                console.warn('⚠️ WebSocket 連接超時');
+                streamingSocket.close();
+                addMessage('系統', '⚠️ 連接超時，請檢查網路或伺服器狀態');
+            }
+        }, 10000); // 10秒超時
+        
+    } catch (error) {
+        console.error('❌ 無法創建 WebSocket 連接:', error);
+        addMessage('系統', '❌ 無法連接到直播服務器: ' + error.message);
+    }
+}
+
+// 處理服務器訊息
+function handleServerMessage(data) {
+    console.log('🔔 主播端收到服務器消息:', data.type, data);
+    addMessage('系統', `📨 收到消息: ${data.type}`);
+    
+    switch (data.type) {
+        case 'broadcaster_joined':
+            addMessage('系統', '✅ 主播已成功加入直播間');
+            break;
+            
+        case 'viewer_join':
+            handleViewerJoin(data);
+            break;
+            
+        case 'viewers_need_connection':
+            handleViewersNeedConnection(data);
+            break;
+            
+        case 'online_viewers':
+            // 處理服務器返回的在線觀眾列表
+            console.log('🎯 處理在線觀眾列表消息');
+            addMessage('系統', `🎯 收到在線觀眾列表: ${data.viewers ? data.viewers.length : 0} 個`);
+            handleOnlineViewers(data);
+            break;
+            
+        case 'answer':
+            handleAnswer(data);
+            break;
+            
+        case 'ice_candidate':
+            handleIceCandidate(data);
+            break;
+            
+        case 'chat_message':
+            handleChatMessage(data);
+            break;
+        case 'chat': // 新的聊天協議處理 - 完全委託給ChatSystem
+            console.log('[SCRIPT] 收到 chat 消息，完全委託給ChatSystem處理:', data);
+            
+            // 檢查 ChatSystem 是否存在
+            if (window.chatSystem) {
+                console.log('[SCRIPT] ChatSystem存在，完全跳過script.js處理');
+                // 讓ChatSystem完全處理，script.js不再介入
+                return;
+            } else {
+                console.log('[SCRIPT] ChatSystem不存在，使用後備處理');
+                // 只有在ChatSystem完全不存在時才使用後備處理
+                handleChatMessage({
+                    type: 'chat_message',
+                    username: data.role === 'system' ? '系統' : data.username,
+                    message: data.text || data.message,
+                    text: data.text || data.message,
+                    isStreamer: data.role === 'broadcaster',
+                    isSystemMessage: data.role === 'system',
+                    timestamp: data.timestamp || Date.now()
+                });
+            }
+            break;
+            
+        case 'viewer_count_update':
+            updateViewerCount(data.count);
+            break;
+            
+        default:
+            console.log('未知訊息類型:', data.type);
+    }
+}
+
+// 處理服務器返回的在線觀眾列表
+function handleOnlineViewers(data) {
+    console.log('🚨 [FORCE DEBUG] handleOnlineViewers 被調用:', data);
+    console.log(`📊 [INFO] 觀眾數量: ${data.viewers ? data.viewers.length : 0}`);
+    
+    console.log('收到在線觀眾列表:', data.viewers);
+    console.log('當前直播狀態:', isStreaming, '本地媒體流:', localStream ? '已建立' : '未建立');
+    console.log('全局變量檢查:', {
+        'window.isStreaming': window.isStreaming,
+        'window.localStream': window.localStream ? '已建立' : '未建立',
+        'isStreaming': isStreaming,
+        'localStream': localStream ? '已建立' : '未建立'
+    });
+    
+    if (!isStreaming || !localStream) {
+        console.log('❌ 無法為觀眾建立連接：直播未開始或媒體流未建立');
+        addMessage('系統', '❌ 無法為觀眾建立連接：請確保直播已開始');
+        console.log(`❌ [ERROR] 條件檢查失敗: isStreaming=${isStreaming}, localStream=${localStream ? '存在' : '不存在'}`);
+        return;
+    }
+    
+    const viewers = data.viewers || [];
+    
+    if (viewers.length === 0) {
+        console.log('📺 目前沒有觀眾在線');
+        addMessage('系統', '📺 等待觀眾加入...');
+        return;
+    }
+    
+    console.log(`📺 為 ${viewers.length} 個在線觀眾建立連接...`);
+    addMessage('系統', `📺 正在為 ${viewers.length} 個觀眾建立連接...`);
+    
+    // 為每個在線觀眾建立 WebRTC 連接
+    viewers.forEach((viewerId, index) => {
+        if (!peerConnections.has(viewerId)) {
+            console.log(`🔄 為觀眾 ${viewerId.substr(-3)} 建立 WebRTC 連接...`);
+            addMessage('系統', `🔄 正在為觀眾 ${viewerId.substr(-3)} 建立連接...`);
+            
+            // 延遲建立連接，避免同時建立太多連接
+            setTimeout(() => {
+                try {
+                    console.log(`🚨 [FORCE DEBUG] 開始為觀眾 ${viewerId} 建立 PeerConnection`);
+                    createPeerConnection(viewerId);
+                    setTimeout(() => {
+                        console.log(`🚨 [FORCE DEBUG] 開始為觀眾 ${viewerId} 發送 Stream`);
+                        sendStreamToViewer(viewerId);
+                    }, 500); // 等待 PeerConnection 建立完成
+                } catch (error) {
+                    console.error(`為觀眾 ${viewerId.substr(-3)} 建立連接失敗:`, error);
+                    addMessage('系統', `❌ 為觀眾 ${viewerId.substr(-3)} 建立連接失敗`);
+                }
+            }, index * 500); // 順序延遲避免衝突
+        } else {
+            console.log(`ℹ️ 觀眾 ${viewerId.substr(-3)} 已有連接`);
+        }
+    });
+}
+
+// 處理觀眾加入
+function handleViewerJoin(data) {
+    console.log('觀眾加入:', data.viewerId);
+    console.log(`👥 觀眾 ${data.viewerId.substr(-3)} 已加入直播間`);
+    
+    // 詳細調試信息
+    console.log('當前直播狀態 isStreaming:', isStreaming);
+    console.log('本地媒體流 localStream:', localStream ? '已建立' : '未建立');
+    console.log('已有的 PeerConnection 數量:', peerConnections.size);
+    
+    // 如果正在直播，為新觀眾建立連接
+    if (isStreaming && localStream) {
+        // 檢查是否已經有連接
+        if (!peerConnections.has(data.viewerId)) {
+            console.log(`🔄 為觀眾 ${data.viewerId.substr(-3)} 建立視訊連接...`);
+            addMessage('系統', `🔄 正在為觀眾 ${data.viewerId.substr(-3)} 建立連接...`);
+            
+            // 建立 WebRTC 連接
+            createPeerConnection(data.viewerId);
+            
+            // 發送直播串流
+            sendStreamToViewer(data.viewerId);
+        } else {
+            addMessage('系統', `ℹ️ 觀眾 ${data.viewerId.substr(-3)} 已有連接`);
+        }
+    } else {
+        if (!isStreaming) {
+            console.log('⚠️ 主播尚未開始直播');
+            addMessage('系統', `⚠️ 觀眾 ${data.viewerId.substr(-3)} 加入，但直播尚未開始`);
+        }
+        if (!localStream) {
+            console.log('⚠️ 本地媒體流未建立');
+            addMessage('系統', `⚠️ 無法為觀眾建立連接：攝影機未啟用`);
+        }
+    }
+}
+
+// 處理觀眾需要連接
+function handleViewersNeedConnection(data) {
+    console.log('觀眾需要連接:', data.viewers);
+    console.log('當前直播狀態 isStreaming:', isStreaming);
+    console.log('本地媒體流 localStream:', localStream ? '已建立' : '未建立');
+    addMessage('系統', data.message);
+    
+    if (!isStreaming) {
+        console.log('⚠️ 直播尚未開始，無法建立觀眾連接');
+        addMessage('系統', '⚠️ 直播尚未開始，無法建立觀眾連接');
+        return;
+    }
+    
+    if (!localStream) {
+        console.log('⚠️ 本地媒體流未建立，無法建立觀眾連接');
+        addMessage('系統', '⚠️ 攝影機未啟用，無法建立觀眾連接');
+        return;
+    }
+    
+    // 為所有等待的觀眾建立連接
+    data.viewers.forEach(viewerId => {
+        if (!peerConnections.has(viewerId)) {
+            console.log('為觀眾', viewerId, '建立連接');
+            addMessage('系統', `🔄 正在為等待的觀眾 ${viewerId.substr(-3)} 建立連接...`);
+            createPeerConnection(viewerId);
+            sendStreamToViewer(viewerId);
+        } else {
+            console.log('觀眾', viewerId, '已有連接，跳過');
+        }
+    });
+}
+
+// 建立 WebRTC 連接
+function createPeerConnection(viewerId) {
+    try {
+        console.log('為觀眾', viewerId, '建立 WebRTC 連接');
+        const peerConnection = new RTCPeerConnection(rtcConfiguration);
+        
+        // 添加本地串流軌道
+        if (localStream) {
+            console.log('本地串流軌道數量:', localStream.getTracks().length);
+            
+            // 分別處理視訊和音訊軌道
+            const videoTracks = localStream.getVideoTracks();
+            const audioTracks = localStream.getAudioTracks();
+            
+            console.log(`視訊軌道: ${videoTracks.length}, 音訊軌道: ${audioTracks.length}`);
+            
+            // 添加視訊軌道
+            videoTracks.forEach((track, index) => {
+                try {
+                    const sender = peerConnection.addTrack(track, localStream);
+                    console.log(`✅ 已添加視訊軌道 ${index}:`, track.readyState, track.id);
+                } catch (error) {
+                    console.error(`❌ 添加視訊軌道 ${index} 失敗:`, error);
+                }
+            });
+            
+            // 添加音訊軌道
+            audioTracks.forEach((track, index) => {
+                try {
+                    const sender = peerConnection.addTrack(track, localStream);
+                    console.log(`✅ 已添加音訊軌道 ${index}:`, track.readyState, track.id);
+                } catch (error) {
+                    console.error(`❌ 添加音訊軌道 ${index} 失敗:`, error);
+                }
+            });
+            
+            addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
+            
+        } else {
+            console.error('❌ 本地串流不存在');
+            addMessage('系統', `❌ 無法為觀眾 ${viewerId.substr(-3)} 建立連接：本地串流不存在`);
+            return;
+        }
+        
+        // 處理 ICE 候選
+        peerConnection.onicecandidate = function(event) {
+            if (event.candidate && streamingSocket) {
+                console.log('發送 ICE 候選給觀眾:', viewerId);
+                streamingSocket.send(JSON.stringify({
+                    type: 'ice_candidate',
+                    candidate: event.candidate,
+                    broadcasterId: getBroadcasterId(),
+                    viewerId: viewerId
+                }));
+            }
+        };
+        
+        // 監聽連接狀態
+        peerConnection.onconnectionstatechange = function() {
+            const state = peerConnection.connectionState;
+            console.log(`觀眾 ${viewerId.substr(-3)} 連接狀態:`, state);
+            
+            switch (state) {
+                case 'connecting':
+                    addMessage('系統', `🔄 正在與觀眾 ${viewerId.substr(-3)} 建立連接...`);
+                    break;
+                case 'connected':
+                    console.log(`✅ 觀眾 ${viewerId.substr(-3)} 視訊連接成功`);
+                    addMessage('系統', `✅ 觀眾 ${viewerId.substr(-3)} 連接成功！`);
+                    break;
+                case 'disconnected':
+                    console.log(`⚠️ 觀眾 ${viewerId.substr(-3)} 連接中斷`);
+                    addMessage('系統', `⚠️ 觀眾 ${viewerId.substr(-3)} 連接中斷`);
+                    break;
+                case 'failed':
+                    console.log(`❌ 觀眾 ${viewerId.substr(-3)} 連接失敗`);
+                    addMessage('系統', `❌ 觀眾 ${viewerId.substr(-3)} 連接失敗，將嘗試重連...`);
+                    
+                    // 清理失敗的連接並嘗試重新建立
+                    setTimeout(() => {
+                        if (peerConnection.connectionState === 'failed') {
+                            console.log(`🔄 為觀眾 ${viewerId.substr(-3)} 重新建立連接...`);
+                            peerConnections.delete(viewerId);
+                            
+                            // 重新建立連接
+                            setTimeout(() => {
+                                if (isStreaming && localStream) {
+                                    createPeerConnection(viewerId);
+                                    setTimeout(() => sendStreamToViewer(viewerId), 1000);
+                                }
+                            }, 2000);
+                        }
+                    }, 3000);
+                    break;
+                case 'closed':
+                    console.log(`🔒 觀眾 ${viewerId.substr(-3)} 連接已關閉`);
+                    addMessage('系統', `🔒 觀眾 ${viewerId.substr(-3)} 已離開`);
+                    peerConnections.delete(viewerId);
+                    break;
+            }
+        };
+        
+        // 監聽 ICE 連接狀態
+        peerConnection.oniceconnectionstatechange = function() {
+            console.log('觀眾', viewerId, 'ICE 狀態:', peerConnection.iceConnectionState);
+            
+            if (peerConnection.iceConnectionState === 'failed') {
+                console.log(`❌ 觀眾 ${viewerId.substr(-3)} ICE 連接失敗`);
+            } else if (peerConnection.iceConnectionState === 'connected') {
+                console.log(`✅ 觀眾 ${viewerId.substr(-3)} ICE 連接成功`);
+            }
+        };
+        
+        // 監聽信令狀態
+        peerConnection.onsignalingstatechange = function() {
+            console.log('觀眾', viewerId, '信令狀態:', peerConnection.signalingState);
+        };
+        
+        // 儲存連接
+        peerConnections.set(viewerId, peerConnection);
+        console.log('WebRTC 連接已建立並儲存');
+        
+    } catch (error) {
+        console.error('建立 WebRTC 連接失敗:', error);
+        addMessage('系統', `❌ 為觀眾 ${viewerId.substr(-3)} 建立連接失敗`);
+    }
+}
+
+// 發送串流給觀眾
+async function sendStreamToViewer(viewerId) {
+    const peerConnection = peerConnections.get(viewerId);
+    if (!peerConnection) {
+        console.error('找不到觀眾的 PeerConnection:', viewerId);
+        addMessage('系統', `❌ 找不到觀眾 ${viewerId.substr(-3)} 的連接`);
+        return;
+    }
+    
+    try {
+        console.log('為觀眾', viewerId, '創建 WebRTC offer');
+        addMessage('系統', `🔄 正在為觀眾 ${viewerId.substr(-3)} 創建連接...`);
+        
+        // 創建 offer
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        
+        console.log('Offer 創建成功，準備發送給觀眾:', viewerId);
+        
+        // 發送 offer 給觀眾
+        if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
+            const offerMessage = {
+                type: 'offer',
+                offer: offer,
+                broadcasterId: getBroadcasterId(),
+                viewerId: viewerId
+            };
+            console.log('發送 offer 給觀眾:', viewerId, '- Offer SDP 長度:', offer.sdp.length);
+            streamingSocket.send(JSON.stringify(offerMessage));
+            addMessage('系統', `📤 已向觀眾 ${viewerId.substr(-3)} 發送連接請求`);
+        } else {
+            console.error('WebSocket 連接不可用，無法發送 offer');
+            addMessage('系統', `❌ 無法發送連接請求：WebSocket 未連接`);
+        }
+        
+    } catch (error) {
+        console.error('發送串流失敗:', error);
+        addMessage('系統', `❌ 發送串流給觀眾 ${viewerId.substr(-3)} 失敗: ${error.message}`);
+    }
+}
+
+// 處理觀眾的 answer
+async function handleAnswer(data) {
+    console.log('收到觀眾 answer:', data.viewerId);
+    const peerConnection = peerConnections.get(data.viewerId);
+    
+    if (peerConnection) {
+        try {
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+            console.log('已設置觀眾 answer 為遠端描述');
+            console.log(`✅ 觀眾 ${data.viewerId.substr(-3)} 連接回應已處理`);
+        } catch (error) {
+            console.log('設置觀眾 answer 失敗:', error);
+            console.log(`❌ 處理觀眾 ${data.viewerId.substr(-3)} 回應失敗`);
+        }
+    } else {
+        console.error('找不到觀眾的 WebRTC 連接:', data.viewerId);
+        addMessage('系統', `❌ 找不到觀眾 ${data.viewerId.substr(-3)} 的連接`);
+    }
+}
+
+// 處理 ICE 候選
+async function handleIceCandidate(data) {
+    console.log('收到觀眾 ICE 候選:', data.viewerId);
+    const peerConnection = peerConnections.get(data.viewerId);
+    
+    if (peerConnection && data.candidate) {
+        try {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+            console.log('已添加觀眾 ICE 候選');
+        } catch (error) {
+            console.error('添加觀眾 ICE 候選失敗:', error);
+            addMessage('系統', `❌ 處理觀眾 ${data.viewerId.substr(-3)} ICE 候選失敗`);
+        }
+    } else {
+        console.error('無法處理 ICE 候選:', data);
+    }
+}
+
+// 處理聊天訊息
+function handleChatMessage(data) {
+    // 獲取消息文本（支持新舊格式）
+    const messageText = data.text || data.message || '';
+    const userName = data.username || '未知用戶';
+    
+    if (data.viewerId && data.viewerId !== 'system') { 
+        // 來自觀眾的訊息
+        const viewerName = data.username || `觀眾${data.viewerId.substr(-3)}`;
+        addMessage(viewerName, messageText);
+        console.log('收到觀眾訊息:', viewerName, messageText);
+    } else if (data.isStreamer) {
+        // 來自主播的訊息（回顯確認）
+        console.log('收到主播訊息回顯:', userName, messageText);
+        // 主播的消息已經在發送時本地顯示了，不需要重複顯示
+    } else if (data.isSystemMessage || data.viewerId === 'system') {
+        // 系統消息
+        addMessage('系統', messageText);
+        console.log('收到系統訊息:', messageText);
+    } else {
+        // 其他消息
+        addMessage(userName, messageText);
+        console.log('收到其他訊息:', userName, messageText);
+    }
+}
+
+// 更新觀眾數量
+function updateViewerCount(count) {
+    viewerCount = count;
+    document.getElementById('viewerCount').textContent = count;
+    document.getElementById('chatViewerCount').textContent = count;
+}
+
+// 更新所有 WebRTC 連接的軌道
+async function updateAllPeerConnections() {
+    if (!localStream) return;
+    
+    try {
+        addMessage('系統', '🔄 正在更新所有觀眾的視訊軌道...');
+        
+        // 為每個觀眾重新建立連接
+        const viewerIds = Array.from(peerConnections.keys());
+        
+        for (const viewerId of viewerIds) {
+            // 關閉舊連接
+            const oldConnection = peerConnections.get(viewerId);
+            if (oldConnection) {
+                oldConnection.close();
+                peerConnections.delete(viewerId);
+            }
+            
+            // 建立新連接
+            createPeerConnection(viewerId);
+            await sendStreamToViewer(viewerId);
+        }
+        
+        addMessage('系統', '✅ 所有觀眾的視訊軌道已更新');
+    } catch (error) {
+        console.error('更新 WebRTC 連接失敗:', error);
+        addMessage('系統', '❌ 更新視訊軌道失敗');
+    }
+}
+
+// 更新單個 WebRTC 連接的軌道（用於視訊開關等）
+async function updatePeerConnectionTracks(viewerId) {
+    const peerConnection = peerConnections.get(viewerId);
+    if (!peerConnection || !localStream) return;
+    
+    try {
+        console.log('正在更新觀眾', viewerId, '的軌道...');
+        
+        // 獲取當前軌道
+        const currentTracks = localStream.getTracks();
+        const currentSenders = peerConnection.getSenders();
+        
+        // 檢查是否需要更新軌道
+        let needsUpdate = false;
+        
+        // 檢查軌道數量是否匹配
+        if (currentTracks.length !== currentSenders.length) {
+            needsUpdate = true;
+        } else {
+            // 檢查軌道內容是否匹配
+            for (let i = 0; i < currentTracks.length; i++) {
+                if (currentSenders[i] && currentSenders[i].track) {
+                    if (currentSenders[i].track.id !== currentTracks[i].id) {
+                        needsUpdate = true;
+                        break;
+                    }
+                } else {
+                    needsUpdate = true;
+                    break;
+                }
+            }
+        }
+        
+        if (!needsUpdate) {
+            console.log('觀眾', viewerId, '的軌道已是最新，無需更新');
+            return;
+        }
+        
+        // 智能軌道更新：只更新變化的軌道，保持音訊軌道
+        const audioTrack = currentTracks.find(track => track.kind === 'audio');
+        const videoTrack = currentTracks.find(track => track.kind === 'video');
+        
+        // 找到現有的軌道發送器
+        const existingAudioSender = currentSenders.find(sender => 
+            sender.track && sender.track.kind === 'audio'
+        );
+        const existingVideoSender = currentSenders.find(sender => 
+            sender.track && sender.track.kind === 'video'
+        );
+        
+        // 只更新視訊軌道，保持音訊軌道
+        if (videoTrack && videoTrack.readyState === 'live') {
+            if (existingVideoSender) {
+                // 替換現有視訊軌道
+                await existingVideoSender.replaceTrack(videoTrack);
+                console.log('已替換視訊軌道，軌道ID:', videoTrack.id);
+            } else {
+                // 添加新視訊軌道
+                peerConnection.addTrack(videoTrack, localStream);
+                console.log('已添加新視訊軌道，軌道ID:', videoTrack.id);
+            }
+        }
+        
+        // 確保音訊軌道存在且啟用
+        if (audioTrack && audioTrack.readyState === 'live') {
+            if (!existingAudioSender) {
+                peerConnection.addTrack(audioTrack, localStream);
+                console.log('已添加音訊軌道，軌道ID:', audioTrack.id);
+            } else if (existingAudioSender.track !== audioTrack) {
+                // 音訊軌道已更改，替換它
+                await existingAudioSender.replaceTrack(audioTrack);
+                console.log('已替換音訊軌道，軌道ID:', audioTrack.id);
+            } else {
+                console.log('音訊軌道保持不變，軌道ID:', audioTrack.id);
+            }
+        }
+        
+        // 重新協商連接
+        try {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            
+            // 發送新的 offer 給觀眾
+            if (streamingSocket) {
+                const offerMessage = {
+                    type: 'offer',
+                    offer: offer,
+                    broadcasterId: getBroadcasterId(),
+                    viewerId: viewerId
+                };
+                console.log('發送更新後的 offer 給觀眾:', viewerId);
+                streamingSocket.send(JSON.stringify(offerMessage));
+            }
+            
+            console.log('已更新觀眾', viewerId, '的軌道並重新協商');
+        } catch (error) {
+            console.error('重新協商失敗:', error);
+        }
+        
+    } catch (error) {
+        console.error('更新軌道失敗:', error);
+    }
+}
+
+// 頁面卸載時清理資源
+window.addEventListener('beforeunload', function() {
+    if (streamingSocket) {
+        streamingSocket.close();
+    }
+    
+    // 關閉所有 WebRTC 連接
+    peerConnections.forEach(connection => {
+        connection.close();
+    });
+    peerConnections.clear();
+});
+
+// 初始化聊天室功能
+function initializeChat() {
+    const chatMessages = document.getElementById('chatMessages');
+    const messageInput = document.getElementById('messageInput');
+    
+    if (chatMessages) {
+        console.log('初始化聊天室容器');
+        
+        // 確保容器有正確的滾動屬性
+        chatMessages.style.overflowY = 'auto';
+        chatMessages.style.overflowX = 'hidden';
+        
+        // 確保聊天室初始就滾動到底部
+        scrollChatToBottom();
+        
+        // 監聽新訊息添加，自動滾動
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                    console.log('檢測到新訊息，自動滾動');
+                    scrollChatToBottom();
+                }
+            });
+        });
+        
+        observer.observe(chatMessages, {
+            childList: true,
+            subtree: false
+        });
+        
+        // 監聽滾動事件，用於調試
+        chatMessages.addEventListener('scroll', () => {
+            console.log('聊天室滾動位置:', chatMessages.scrollTop, '/', chatMessages.scrollHeight);
+        });
+    }
+    
+    // 為輸入框添加實時滾動
+    if (messageInput) {
+        messageInput.addEventListener('input', () => {
+            // 當用戶正在輸入時也保持在底部
+            setTimeout(scrollChatToBottom, 50);
+        });
+        
+        // 當輸入框獲得焦點時，滾動到底部
+        messageInput.addEventListener('focus', () => {
+            setTimeout(scrollChatToBottom, 100);
+        });
+    }
+}
+
+// 頁面載入完成後初始化
+document.addEventListener('DOMContentLoaded', function() {
+    initializeChat();
+    console.log('聊天室功能已初始化');
+});
+
+// 分頁音訊捕獲功能
+async function captureTabWithAudio() {
+    try {
+        console.log('開始捕獲分頁音訊...');
+        addMessage('系統', '🎵 正在啟用分頁音訊分享...');
+        
+        // 請求分頁螢幕共享（包含音訊）
+        const stream = await navigator.mediaDevices.getDisplayMedia({ 
+            video: {
+                mediaSource: 'tab'
+            },
+            audio: {
+                echoCancellation: false,
+                noiseSuppression: false,
+                autoGainControl: false,
+                googEchoCancellation: false,
+                googAutoGainControl: false,
+                googNoiseSuppression: false,
+                googHighpassFilter: false,
+                googAudioMirroring: false
+            }
+        });
+        
+        // 檢查是否包含音訊軌道
+        const audioTracks = stream.getAudioTracks();
+        if (audioTracks.length === 0) {
+            addMessage('系統', '⚠️ 所選分頁沒有音訊，請選擇包含音訊的分頁（如YouTube等音樂網站）');
+            stream.getTracks().forEach(track => track.stop());
+            return null;
+        }
+        
+        console.log('分頁音訊軌道信息:', audioTracks[0].getSettings());
+        
+        // 停止視訊軌道（我們只需要音訊）
+        stream.getVideoTracks().forEach(track => track.stop());
+        
+        addMessage('系統', '✅ 分頁音訊已成功啟用，觀眾現在可以聽到背景音樂');
+        return stream;
+    } catch (error) {
+        console.error('捕獲分頁音訊失敗:', error);
+        if (error.name === 'NotAllowedError') {
+            addMessage('系統', '❌ 用戶拒絕了分頁音訊權限，請重試並允許音訊分享');
+        } else if (error.name === 'NotFoundError') {
+            addMessage('系統', '❌ 未找到音訊源，請確保選擇的分頁有音訊播放');
+        } else {
+            addMessage('系統', '❌ 啟用分頁音訊失敗，請確保使用支援的瀏覽器');
+        }
+        return null;
+    }
+}
+
+// 創建混音音訊流
+async function createMixedStream(tabStream) {
+    try {
+        console.log('開始創建混音音訊流...');
+        
+        // 關閉之前的音訊上下文
+        if (audioContext && audioContext.state !== 'closed') {
+            await audioContext.close();
+        }
+        
+        // 創建新的音訊上下文
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const destination = audioContext.createMediaStreamDestination();
+        
+        let hasAudio = false;
+        
+        // 處理分頁音訊（背景音樂）
+        if (tabStream) {
+            const tabAudioTracks = tabStream.getAudioTracks();
+            if (tabAudioTracks.length > 0) {
+                const tabSource = audioContext.createMediaStreamSource(tabStream);
+                const tabGain = audioContext.createGain();
+                tabGain.gain.value = 0.8; // 設置背景音樂音量
+                tabSource.connect(tabGain);
+                tabGain.connect(destination);
+                hasAudio = true;
+                
+                console.log('分頁音訊已連接到混音器，音量設為 80%');
+                addMessage('系統', '🎵 背景音樂已加入直播串流');
+            }
+        }
+        
+        // 處理麥克風音訊
+        if (localStream) {
+            const audioTracks = localStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+                const micStream = new MediaStream(audioTracks);
+                const micSource = audioContext.createMediaStreamSource(micStream);
+                const micGain = audioContext.createGain();
+                micGain.gain.value = 1.0; // 保持麥克風原音量
+                micSource.connect(micGain);
+                micGain.connect(destination);
+                hasAudio = true;
+                
+                console.log('麥克風音訊已連接到混音器');
+                addMessage('系統', '🎤 麥克風音訊已加入混音');
+            }
+        }
+        
+        if (!hasAudio) {
+            console.warn('沒有可用的音訊源');
+            addMessage('系統', '⚠️ 沒有檢測到音訊源');
+            return null;
+        }
+        
+        console.log('混音音訊流創建成功');
+        addMessage('系統', '✅ 音訊混音完成，觀眾現在可以同時聽到您的聲音和背景音樂');
+        return destination.stream;
+    } catch (error) {
+        console.error('創建混音音訊流失敗:', error);
+        addMessage('系統', '❌ 音訊混音失敗: ' + error.message);
+        return null;
+    }
+}
+
+// 更新WebRTC連接中的音訊軌道
+async function updateAudioTracks(newAudioStream) {
+    try {
+        console.log('更新WebRTC音訊軌道...');
+        
+        const audioTracks = newAudioStream.getAudioTracks();
+        if (audioTracks.length === 0) {
+            console.warn('新音訊流沒有音訊軌道');
+            return;
+        }
+        
+        const newAudioTrack = audioTracks[0];
+        
+        // 更新所有觀眾的WebRTC連接
+        for (const [viewerId, peerConnection] of peerConnections) {
+            try {
+                // 找到現有的音訊發送器
+                const audioSender = peerConnection.getSenders().find(sender => 
+                    sender.track && sender.track.kind === 'audio'
+                );
+                
+                if (audioSender) {
+                    // 替換音訊軌道
+                    await audioSender.replaceTrack(newAudioTrack);
+                    console.log(`已為觀眾 ${viewerId} 更新音訊軌道`);
+                } else {
+                    // 添加新的音訊軌道
+                    peerConnection.addTrack(newAudioTrack, newAudioStream);
+                    console.log(`已為觀眾 ${viewerId} 添加音訊軌道`);
+                }
+            } catch (error) {
+                console.error(`更新觀眾 ${viewerId} 的音訊軌道失敗:`, error);
+            }
+        }
+        
+        addMessage('系統', '🔄 音訊軌道已更新給所有觀眾');
+    } catch (error) {
+        console.error('更新音訊軌道失敗:', error);
+        addMessage('系統', '❌ 音訊軌道更新失敗');
+    }
+}
+
+// 切換分頁音訊功能
+async function toggleTabAudio() {
+    const tabAudioBtn = document.getElementById('tabAudioBtn');
+    
+    if (!tabAudioBtn) {
+        console.error('找不到分頁音訊按鈕');
+        return;
+    }
+    
+    if (!isTabAudioEnabled) {
+        // 啟用分頁音訊
+        try {
+            // 檢查是否正在直播
+            if (!isStreaming) {
+                addMessage('系統', '⚠️ 請先開始直播再啟用背景音樂分享');
+                return;
+            }
+            
+            addMessage('系統', '📻 準備啟用背景音樂分享...');
+            tabAudioStream = await captureTabWithAudio();
+            
+            if (tabAudioStream) {
+                isTabAudioEnabled = true;
+                tabAudioBtn.classList.add('active');
+                tabAudioBtn.style.background = 'linear-gradient(135deg, #4CAF50, #45a049)';
+                tabAudioBtn.innerHTML = '<i class="fas fa-volume-up"></i>';
+                
+                // 創建混音音訊流
+                mixedAudioStream = await createMixedStream(tabAudioStream);
+                
+                if (mixedAudioStream && isStreaming) {
+                    // 更新WebRTC連接中的音訊軌道
+                    await updateAudioTracks(mixedAudioStream);
+                    addMessage('系統', '🎉 背景音樂分享已成功啟用！觀眾現在可以聽到音樂了');
+                } else {
+                    throw new Error('混音音訊流創建失敗');
+                }
+            } else {
+                throw new Error('無法捕獲分頁音訊');
+            }
+        } catch (error) {
+            console.error('啟用分頁音訊失敗:', error);
+            addMessage('系統', '❌ 啟用背景音樂分享失敗: ' + error.message);
+            
+            // 重置狀態
+            isTabAudioEnabled = false;
+            if (tabAudioStream) {
+                tabAudioStream.getTracks().forEach(track => track.stop());
+                tabAudioStream = null;
+            }
+            tabAudioBtn.classList.remove('active');
+            tabAudioBtn.style.background = '';
+            tabAudioBtn.innerHTML = '<i class="fas fa-volume-off"></i>';
+        }
+    } else {
+        // 停用分頁音訊
+        try {
+            addMessage('系統', '🔇 正在停用背景音樂分享...');
+            
+            if (tabAudioStream) {
+                tabAudioStream.getTracks().forEach(track => track.stop());
+                tabAudioStream = null;
+            }
+            
+            if (audioContext && audioContext.state !== 'closed') {
+                await audioContext.close();
+                audioContext = null;
+            }
+            
+            if (mixedAudioStream) {
+                mixedAudioStream.getTracks().forEach(track => track.stop());
+                mixedAudioStream = null;
+            }
+            
+            isTabAudioEnabled = false;
+            tabAudioBtn.classList.remove('active');
+            tabAudioBtn.style.background = '';
+            tabAudioBtn.innerHTML = '<i class="fas fa-volume-off"></i>';
+            
+            // 恢復到原始麥克風音訊
+            if (localStream && isStreaming) {
+                await updateAudioTracks(localStream);
+            }
+            
+            addMessage('系統', '✅ 背景音樂分享已停用，恢復為純麥克風音訊');
+        } catch (error) {
+            console.error('停用分頁音訊失敗:', error);
+            addMessage('系統', '❌ 停用背景音樂分享時發生錯誤: ' + error.message);
+        }
+    }
+}
+
+// ========== 視頻編碼優化功能 ==========
+
+// 優化視頻編碼器設定，提高觀眾端解碼成功率
+function optimizeVideoEncodingForCompatibility() {
+    console.log('🔧 [編碼優化] 開始優化視頻編碼設定...');
+    
+    // 檢查發送端能力
+    if (window.RTCRtpSender && RTCRtpSender.getCapabilities) {
+        const videoCapabilities = RTCRtpSender.getCapabilities('video');
+        if (videoCapabilities && videoCapabilities.codecs) {
+            console.log('🎥 [發送端] 支援的視頻編解碼器:');
+            videoCapabilities.codecs.forEach(codec => {
+                console.log(`  ${codec.mimeType} - ${codec.clockRate || 'N/A'}Hz`);
+            });
+            
+            // 尋找最佳編解碼器
+            const preferredCodecs = [
+                'video/H264', // 最廣泛支援
+                'video/VP8',  // WebRTC 標準
+                'video/VP9'   // 較新但支援良好
+            ];
+            
+            const availableCodecs = videoCapabilities.codecs.filter(codec => 
+                preferredCodecs.some(preferred => codec.mimeType.includes(preferred))
+            );
+            
+            console.log('🎯 [編碼優化] 可用的首選編解碼器:', availableCodecs.length);
+            availableCodecs.forEach(codec => {
+                console.log(`  ✅ ${codec.mimeType}`);
+            });
+            
+            addMessage('系統', `🎥 檢測到 ${availableCodecs.length} 個兼容的視頻編解碼器`);
+        }
+    }
+    
+    return true;
+}
+
+// 為 PeerConnection 設定首選編解碼器
+function setPreferredVideoCodecs(peerConnection) {
+    if (!peerConnection || !RTCRtpSender.getCapabilities) {
+        return;
+    }
+    
+    try {
+        const transceivers = peerConnection.getTransceivers();
+        const videoTransceiver = transceivers.find(t => 
+            t.sender && t.sender.track && t.sender.track.kind === 'video'
+        );
+        
+        if (videoTransceiver) {
+            const capabilities = RTCRtpSender.getCapabilities('video');
+            if (capabilities && capabilities.codecs) {
+                // 按偏好排序編解碼器
+                const sortedCodecs = capabilities.codecs.sort((a, b) => {
+                    const preferenceOrder = [
+                        'video/H264',
+                        'video/VP8', 
+                        'video/VP9',
+                        'video/AV1'
+                    ];
+                    
+                    const aIndex = preferenceOrder.findIndex(p => a.mimeType.includes(p));
+                    const bIndex = preferenceOrder.findIndex(p => b.mimeType.includes(p));
+                    
+                    if (aIndex === -1) return 1;
+                    if (bIndex === -1) return -1;
+                    
+                    return aIndex - bIndex;
+                });
+                
+                // 設定編解碼器偏好
+                videoTransceiver.setCodecPreferences(sortedCodecs);
+                console.log('✅ [編碼優化] 已設定編解碼器偏好順序');
+                addMessage('系統', '✅ 視頻編碼器已優化');
+            }
+        }
+    } catch (error) {
+        console.warn('⚠️ [編碼優化] 設定編解碼器偏好失敗:', error);
+        // 不影響主要功能，繼續執行
+    }
+}
+
+// 在建立 PeerConnection 後呼叫編碼優化
+function createOptimizedPeerConnection(viewerId) {
+    try {
+        console.log('為觀眾', viewerId, '建立優化的 WebRTC 連接');
+        const peerConnection = new RTCPeerConnection(rtcConfiguration);
+        
+        // 添加本地串流軌道
+        if (localStream) {
+            console.log('本地串流軌道數量:', localStream.getTracks().length);
+            
+            const videoTracks = localStream.getVideoTracks();
+            const audioTracks = localStream.getAudioTracks();
+            
+            console.log(`視訊軌道: ${videoTracks.length}, 音訊軌道: ${audioTracks.length}`);
+            
+            // 添加視訊軌道
+            videoTracks.forEach((track, index) => {
+                try {
+                    const sender = peerConnection.addTrack(track, localStream);
+                    console.log(`✅ 已添加視訊軌道 ${index}:`, track.readyState, track.id);
+                    
+                    // 嘗試優化此發送器的編碼參數
+                    if (sender.setParameters) {
+                        sender.getParameters().then(params => {
+                            if (params.encodings && params.encodings.length > 0) {
+                                // 設定適中的碼率，確保兼容性
+                                params.encodings[0].maxBitrate = 2500000; // 2.5 Mbps
+                                params.encodings[0].maxFramerate = 30;
+                                
+                                return sender.setParameters(params);
+                            }
+                        }).then(() => {
+                            console.log(`✅ 已優化視訊軌道 ${index} 編碼參數`);
+                        }).catch(error => {
+                            console.warn(`⚠️ 優化視訊軌道 ${index} 編碼參數失敗:`, error);
+                        });
+                    }
+                } catch (error) {
+                    console.error(`❌ 添加視訊軌道 ${index} 失敗:`, error);
+                }
+            });
+            
+            // 添加音訊軌道
+            audioTracks.forEach((track, index) => {
+                try {
+                    const sender = peerConnection.addTrack(track, localStream);
+                    console.log(`✅ 已添加音訊軌道 ${index}:`, track.readyState, track.id);
+                } catch (error) {
+                    console.error(`❌ 添加音訊軌道 ${index} 失敗:`, error);
+                }
+            });
+            
+            addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
+            
+            // 延遲設定編解碼器偏好，確保軌道已添加
+            setTimeout(() => {
+                setPreferredVideoCodecs(peerConnection);
+            }, 100);
+            
+        } else {
+            console.error('❌ 本地串流不存在');
+            addMessage('系統', `❌ 無法為觀眾 ${viewerId.substr(-3)} 建立連接：本地串流不存在`);
+            return null;
+        }
+        
+        return peerConnection;
+        
+    } catch (error) {
+        console.error('建立優化 WebRTC 連接失敗:', error);
+        addMessage('系統', `❌ 為觀眾 ${viewerId.substr(-3)} 建立優化連接失敗`);
+        return null;
+    }
+}
+
+// 在應用啟動時執行編碼優化檢測
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        optimizeVideoEncodingForCompatibility();
+    }, 3000);
+});
+
+console.log('✅ 視頻編碼優化功能已載入');
+
+// 确保所有函数都在全局作用域中可用
+console.log('=== 检查全局函数可用性 ===');
+console.log('toggleStream:', typeof toggleStream);
+console.log('toggleVideo:', typeof toggleVideo);
+console.log('toggleAudio:', typeof toggleAudio);
+console.log('shareScreen:', typeof shareScreen);
+console.log('toggleTabAudio:', typeof toggleTabAudio);
+console.log('============================');

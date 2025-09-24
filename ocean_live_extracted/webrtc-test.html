@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 连接测试 - VibeLo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        video {
+            width: 100%;
+            max-width: 640px;
+            height: auto;
+            background: #000;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 WebRTC 连接测试</h1>
+        
+        <div id="status" class="status info">准备开始测试...</div>
+        
+        <div class="step">
+            <h3>测试步骤</h3>
+            <button onclick="startTest()">开始完整测试</button>
+            <button onclick="testWebRTCSupport()">测试 WebRTC 支持</button>
+            <button onclick="testWebSocket()">测试 WebSocket 连接</button>
+            <button onclick="clearLog()">清除日志</button>
+        </div>
+        
+        <div class="step">
+            <h3>测试视频</h3>
+            <video id="testVideo" autoplay playsinline muted></video>
+            <button onclick="startCamera()">开启摄像头</button>
+            <button onclick="stopCamera()">关闭摄像头</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let localStream = null;
+        
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${time}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function testWebRTCSupport() {
+            log('🔍 测试 WebRTC 支持...');
+            
+            if (!window.RTCPeerConnection) {
+                log('❌ 浏览器不支持 RTCPeerConnection');
+                updateStatus('浏览器不支持 WebRTC', 'error');
+                return false;
+            }
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                log('❌ 浏览器不支持 getUserMedia');
+                updateStatus('浏览器不支持摄像头/麦克风', 'error');
+                return false;
+            }
+            
+            log('✅ WebRTC 支持检查通过');
+            updateStatus('WebRTC 支持正常', 'success');
+            return true;
+        }
+
+        async function startCamera() {
+            try {
+                log('🎥 请求摄像头权限...');
+                localStream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                const testVideo = document.getElementById('testVideo');
+                testVideo.srcObject = localStream;
+                
+                log('✅ 摄像头启动成功');
+                log(`📹 视频轨道: ${localStream.getVideoTracks().length}`);
+                log(`🎤 音频轨道: ${localStream.getAudioTracks().length}`);
+                
+                localStream.getTracks().forEach((track, index) => {
+                    log(`   轨道 ${index}: ${track.kind} - ${track.label}`);
+                });
+                
+                updateStatus('摄像头测试成功', 'success');
+            } catch (error) {
+                log(`❌ 摄像头启动失败: ${error.message}`);
+                updateStatus('摄像头启动失败', 'error');
+            }
+        }
+
+        function stopCamera() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+                document.getElementById('testVideo').srcObject = null;
+                log('📹 摄像头已关闭');
+                updateStatus('摄像头已关闭', 'info');
+            }
+        }
+
+        function testWebSocket() {
+            log('🔌 测试 WebSocket 连接...');
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            log(`WebSocket URL: ${wsUrl}`);
+            
+            const socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function() {
+                log('✅ WebSocket 连接成功');
+                updateStatus('WebSocket 连接正常', 'success');
+                socket.close();
+            };
+            
+            socket.onerror = function(error) {
+                log(`❌ WebSocket 连接失败: ${error}`);
+                updateStatus('WebSocket 连接失败', 'error');
+            };
+            
+            socket.onclose = function() {
+                log('🔌 WebSocket 连接已关闭');
+            };
+        }
+
+        async function startTest() {
+            log('🚀 开始完整测试...');
+            updateStatus('正在测试...', 'info');
+            
+            // 测试 WebRTC 支持
+            if (!testWebRTCSupport()) {
+                return;
+            }
+            
+            // 测试 WebSocket
+            testWebSocket();
+            
+            // 测试摄像头
+            await startCamera();
+            
+            setTimeout(() => {
+                log('✅ 完整测试完成');
+                updateStatus('所有测试完成', 'success');
+            }, 3000);
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 页面加载时自动测试
+        window.addEventListener('load', function() {
+            log('📋 WebRTC 测试工具已加载');
+            testWebRTCSupport();
+        });
+    </script>
+</body>
+</html>
+

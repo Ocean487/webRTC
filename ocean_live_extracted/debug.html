@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeLo WebRTC 診斷工具</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .panel { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .panel h3 { margin: 0 0 15px 0; color: #333; }
+        .log { background: #000; color: #0f0; padding: 15px; border-radius: 4px; height: 200px; overflow-y: auto; font-family: monospace; font-size: 12px; }
+        .controls { margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .status { padding: 8px; border-radius: 4px; margin: 5px 0; }
+        .status.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .status.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .status.warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .status.info { background: #d1ecf1; color: #0c5460; border: 1px solid #b8daff; }
+        #localVideo, #remoteVideo { width: 300px; height: 225px; background: #000; border: 1px solid #ccc; }
+        .video-container { display: flex; gap: 20px; }
+        .video-panel { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 VibeLo WebRTC 診斷工具</h1>
+        
+        <div class="panel">
+            <h3>📡 WebSocket 連接狀態</h3>
+            <div id="wsStatus" class="status info">未連接</div>
+            <div class="controls">
+                <button class="btn-primary" onclick="connectWebSocket()">連接 WebSocket</button>
+                <button class="btn-danger" onclick="disconnectWebSocket()">斷開連接</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>📹 媒體設備測試</h3>
+            <div id="mediaStatus" class="status info">未測試</div>
+            <div class="controls">
+                <button class="btn-success" onclick="testMediaDevices()">測試攝影機和麥克風</button>
+                <button class="btn-danger" onclick="stopMediaTest()">停止測試</button>
+            </div>
+            <div class="video-container">
+                <div class="video-panel">
+                    <h4>本地視頻 (主播端)</h4>
+                    <video id="localVideo" autoplay muted></video>
+                </div>
+                <div class="video-panel">
+                    <h4>遠端視頻 (觀眾端)</h4>
+                    <video id="remoteVideo" autoplay></video>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>🔗 WebRTC 連接測試</h3>
+            <div id="rtcStatus" class="status info">未連接</div>
+            <div class="controls">
+                <button class="btn-primary" onclick="startBroadcaster()">啟動主播模式</button>
+                <button class="btn-warning" onclick="startViewer()">啟動觀眾模式</button>
+                <button class="btn-danger" onclick="stopRTC()">停止 WebRTC</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>📋 診斷日志</h3>
+            <div class="controls">
+                <button class="btn-warning" onclick="clearLog()">清空日志</button>
+                <button class="btn-primary" onclick="exportLog()">導出日志</button>
+            </div>
+            <div id="debugLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        let socket = null;
+        let localStream = null;
+        let peerConnection = null;
+        let isConnected = false;
+        let mode = null; // 'broadcaster' or 'viewer'
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logDiv = document.getElementById('debugLog');
+            const colorMap = {
+                info: '#0f0',
+                error: '#f00',
+                warning: '#ff0',
+                success: '#0f0'
+            };
+            logDiv.innerHTML += `<div style="color: ${colorMap[type] || '#0f0'}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[DEBUG] ${message}`);
+        }
+
+        function updateStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.className = `status ${type}`;
+            element.textContent = message;
+        }
+
+        function connectWebSocket() {
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}`;
+                
+                log(`正在連接到: ${wsUrl}`, 'info');
+                socket = new WebSocket(wsUrl);
+                
+                socket.onopen = function() {
+                    isConnected = true;
+                    log('✅ WebSocket 連接成功', 'success');
+                    updateStatus('wsStatus', '已連接', 'success');
+                };
+                
+                socket.onmessage = function(event) {
+                    const data = JSON.parse(event.data);
+                    log(`📨 收到消息: ${data.type}`, 'info');
+                    handleWebSocketMessage(data);
+                };
+                
+                socket.onclose = function() {
+                    isConnected = false;
+                    log('❌ WebSocket 連接關閉', 'error');
+                    updateStatus('wsStatus', '已斷開', 'error');
+                };
+                
+                socket.onerror = function(error) {
+                    log(`❌ WebSocket 錯誤: ${error}`, 'error');
+                    updateStatus('wsStatus', '連接錯誤', 'error');
+                };
+                
+            } catch (error) {
+                log(`❌ 無法建立 WebSocket 連接: ${error}`, 'error');
+                updateStatus('wsStatus', '連接失敗', 'error');
+            }
+        }
+
+        function disconnectWebSocket() {
+            if (socket) {
+                socket.close();
+                socket = null;
+            }
+        }
+
+        async function testMediaDevices() {
+            try {
+                log('🎥 正在請求攝影機和麥克風權限...', 'info');
+                
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 1280, height: 720 },
+                    audio: true
+                });
+                
+                localStream = stream;
+                document.getElementById('localVideo').srcObject = stream;
+                
+                log('✅ 媒體設備獲取成功', 'success');
+                log(`📹 視頻軌道: ${stream.getVideoTracks().length}`, 'info');
+                log(`🎤 音頻軌道: ${stream.getAudioTracks().length}`, 'info');
+                
+                updateStatus('mediaStatus', '媒體設備正常', 'success');
+                
+            } catch (error) {
+                log(`❌ 無法獲取媒體設備: ${error}`, 'error');
+                updateStatus('mediaStatus', '媒體設備錯誤', 'error');
+            }
+        }
+
+        function stopMediaTest() {
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+                document.getElementById('localVideo').srcObject = null;
+                log('🛑 媒體設備已停止', 'info');
+                updateStatus('mediaStatus', '已停止', 'warning');
+            }
+        }
+
+        function startBroadcaster() {
+            if (!isConnected) {
+                log('❌ 請先連接 WebSocket', 'error');
+                return;
+            }
+            
+            mode = 'broadcaster';
+            log('📡 啟動主播模式...', 'info');
+            
+            // 發送主播加入消息
+            const message = {
+                type: 'broadcaster_join',
+                broadcasterId: 'broadcaster_1',
+                userInfo: { username: 'debug_broadcaster', displayName: '調試主播' }
+            };
+            
+            socket.send(JSON.stringify(message));
+            log('📤 已發送主播加入消息', 'info');
+            
+            updateStatus('rtcStatus', '主播模式 - 等待觀眾', 'info');
+        }
+
+        function startViewer() {
+            if (!isConnected) {
+                log('❌ 請先連接 WebSocket', 'error');
+                return;
+            }
+            
+            mode = 'viewer';
+            const viewerId = 'viewer_debug_' + Math.random().toString(36).substring(7);
+            
+            log('👥 啟動觀眾模式...', 'info');
+            
+            // 發送觀眾加入消息
+            const message = {
+                type: 'viewer_join',
+                viewerId: viewerId,
+                userInfo: { displayName: '調試觀眾' }
+            };
+            
+            socket.send(JSON.stringify(message));
+            log('📤 已發送觀眾加入消息', 'info');
+            
+            updateStatus('rtcStatus', '觀眾模式 - 等待主播', 'info');
+        }
+
+        function handleWebSocketMessage(data) {
+            switch (data.type) {
+                case 'online_viewers':
+                    log(`📺 收到在線觀眾列表: ${data.viewers.length} 個`, 'success');
+                    if (mode === 'broadcaster' && data.viewers.length > 0) {
+                        // 主播收到觀眾列表，開始建立 WebRTC 連接
+                        startWebRTCConnection(data.viewers[0]);
+                    }
+                    break;
+                    
+                case 'viewer_join':
+                    log(`👥 新觀眾加入: ${data.viewerId}`, 'info');
+                    if (mode === 'broadcaster') {
+                        startWebRTCConnection(data.viewerId);
+                    }
+                    break;
+                    
+                case 'offer':
+                    log('📨 收到 WebRTC Offer', 'success');
+                    handleOffer(data);
+                    break;
+                    
+                case 'answer':
+                    log('📨 收到 WebRTC Answer', 'success');
+                    handleAnswer(data);
+                    break;
+                    
+                case 'ice_candidate':
+                    log('📨 收到 ICE Candidate', 'info');
+                    handleIceCandidate(data);
+                    break;
+                    
+                default:
+                    log(`📨 其他消息: ${data.type}`, 'info');
+            }
+        }
+
+        async function startWebRTCConnection(viewerId) {
+            try {
+                log(`🔗 為觀眾 ${viewerId} 建立 WebRTC 連接...`, 'info');
+                
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // 添加本地媒體流
+                if (localStream) {
+                    localStream.getTracks().forEach(track => {
+                        peerConnection.addTrack(track, localStream);
+                        log(`📎 已添加軌道: ${track.kind}`, 'info');
+                    });
+                }
+                
+                // 處理 ICE 候選
+                peerConnection.onicecandidate = function(event) {
+                    if (event.candidate) {
+                        log('📤 發送 ICE Candidate', 'info');
+                        socket.send(JSON.stringify({
+                            type: 'ice_candidate',
+                            candidate: event.candidate,
+                            broadcasterId: 'broadcaster_1',
+                            viewerId: viewerId
+                        }));
+                    }
+                };
+                
+                // 創建 Offer
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+                
+                log('📤 發送 WebRTC Offer', 'success');
+                socket.send(JSON.stringify({
+                    type: 'offer',
+                    offer: offer,
+                    broadcasterId: 'broadcaster_1',
+                    viewerId: viewerId
+                }));
+                
+                updateStatus('rtcStatus', '已發送 Offer - 等待回應', 'warning');
+                
+            } catch (error) {
+                log(`❌ WebRTC 連接失敗: ${error}`, 'error');
+                updateStatus('rtcStatus', 'WebRTC 連接失敗', 'error');
+            }
+        }
+
+        async function handleOffer(data) {
+            try {
+                log('🔗 處理 WebRTC Offer...', 'info');
+                
+                peerConnection = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // 處理遠端媒體流
+                peerConnection.ontrack = function(event) {
+                    log('📺 收到遠端媒體流', 'success');
+                    document.getElementById('remoteVideo').srcObject = event.streams[0];
+                    updateStatus('rtcStatus', '正在播放遠端視頻', 'success');
+                };
+                
+                // 處理 ICE 候選
+                peerConnection.onicecandidate = function(event) {
+                    if (event.candidate) {
+                        log('📤 發送 ICE Candidate', 'info');
+                        socket.send(JSON.stringify({
+                            type: 'ice_candidate',
+                            candidate: event.candidate,
+                            viewerId: 'viewer_debug'
+                        }));
+                    }
+                };
+                
+                await peerConnection.setRemoteDescription(data.offer);
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                log('📤 發送 WebRTC Answer', 'success');
+                socket.send(JSON.stringify({
+                    type: 'answer',
+                    answer: answer,
+                    viewerId: 'viewer_debug'
+                }));
+                
+            } catch (error) {
+                log(`❌ 處理 Offer 失敗: ${error}`, 'error');
+            }
+        }
+
+        async function handleAnswer(data) {
+            try {
+                await peerConnection.setRemoteDescription(data.answer);
+                log('✅ WebRTC 連接建立成功', 'success');
+                updateStatus('rtcStatus', 'WebRTC 連接成功', 'success');
+            } catch (error) {
+                log(`❌ 處理 Answer 失敗: ${error}`, 'error');
+            }
+        }
+
+        async function handleIceCandidate(data) {
+            try {
+                await peerConnection.addIceCandidate(data.candidate);
+                log('✅ ICE Candidate 已添加', 'info');
+            } catch (error) {
+                log(`❌ 添加 ICE Candidate 失敗: ${error}`, 'error');
+            }
+        }
+
+        function stopRTC() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            document.getElementById('remoteVideo').srcObject = null;
+            mode = null;
+            
+            log('🛑 WebRTC 連接已停止', 'info');
+            updateStatus('rtcStatus', '已停止', 'warning');
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+        }
+
+        function exportLog() {
+            const logContent = document.getElementById('debugLog').textContent;
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `webrtc-debug-${new Date().toISOString().slice(0, 19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 頁面載入時自動連接
+        window.addEventListener('load', function() {
+            log('🚀 診斷工具已載入', 'success');
+            log('📋 使用說明:', 'info');
+            log('1. 點擊「連接 WebSocket」建立服務器連接', 'info');
+            log('2. 點擊「測試攝影機和麥克風」獲取媒體權限', 'info');
+            log('3. 點擊「啟動主播模式」或「啟動觀眾模式」測試 WebRTC', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+  "name": "webrtc-livestream-platform",
+  "version": "1.0.0",
+  "description": "基於WebRTC的網頁直播平台，支援多人觀看和即時聊天",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "install-deps": "npm install"
+  },
+  "keywords": [
+    "webrtc",
+    "livestream",
+    "streaming",
+    "video",
+    "chat",
+    "realtime"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {
+    "bcrypt": "^5.1.1",
+    "express": "^4.21.2",
+    "express-session": "^1.18.2",
+    "sqlite3": "^5.1.7",
+    "uuid": "^9.0.1",
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/webrtc-livestream-platform.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yourusername/webrtc-livestream-platform/issues"
+  },
+  "homepage": "https://github.com/yourusername/webrtc-livestream-platform#readme"
+}

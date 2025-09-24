@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播测试说明 - VibeLo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+        .step h3 {
+            margin-top: 0;
+            color: #007bff;
+        }
+        .code {
+            background: #2d3748;
+            color: #e2e8f0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            margin: 10px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 直播系统测试指南</h1>
+        
+        <div class="warning">
+            <strong>⚠️ 重要提示：</strong> 如果看不到直播画面，请按照以下步骤进行诊断和修复。
+        </div>
+
+        <div class="step">
+            <h3>步骤 1: 启动服务器</h3>
+            <p>确保服务器正在运行：</p>
+            <div class="code">node server.js</div>
+            <p>或者使用批处理文件：</p>
+            <div class="code">start.bat</div>
+            <p>服务器应该在端口 3000 上运行。</p>
+        </div>
+
+        <div class="step">
+            <h3>步骤 2: 打开主播端</h3>
+            <p>在浏览器中打开主播页面：</p>
+            <div class="code">http://localhost:3000/livestream_platform.html</div>
+            <p>点击"开始直播"按钮，允许摄像头和麦克风权限。</p>
+            <div class="success">
+                <strong>✅ 成功标志：</strong> 看到自己的视频画面，状态显示"直播中"
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 3: 打开观众端</h3>
+            <p>在另一个浏览器标签页中打开观众页面：</p>
+            <div class="code">http://localhost:3000/viewer.html</div>
+            <p>或者使用测试页面：</p>
+            <div class="code">http://localhost:3000/test-viewer.html</div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 4: 诊断问题</h3>
+            <p>如果看不到直播画面，请打开浏览器开发者工具（F12）查看控制台：</p>
+            
+            <h4>4.1 检查 WebSocket 连接</h4>
+            <div class="code">
+                在控制台中输入：diagnoseViewerIssue()
+            </div>
+            
+            <h4>4.2 查看连接状态</h4>
+            <p>应该看到类似以下信息：</p>
+            <div class="code">
+                === 观众端诊断 ===
+                1. WebSocket连接状态: 1
+                2. WebRTC连接状态: 未建立
+                3. 远程视频元素: 存在
+                ...
+            </div>
+            
+            <h4>4.3 强制重新连接</h4>
+            <div class="code">
+                在控制台中输入：forceReconnect()
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 5: 常见问题解决</h3>
+            
+            <h4>问题 1: WebSocket 连接失败</h4>
+            <div class="error">
+                <strong>❌ 症状：</strong> 控制台显示 WebSocket 连接错误
+            </div>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>确保服务器正在运行</li>
+                <li>检查防火墙设置</li>
+                <li>尝试刷新页面</li>
+            </ul>
+
+            <h4>问题 2: 收到视频流但无法播放</h4>
+            <div class="error">
+                <strong>❌ 症状：</strong> 控制台显示"收到远程视频流"但没有画面
+            </div>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>点击视频区域尝试手动播放</li>
+                <li>检查浏览器自动播放设置</li>
+                <li>确保浏览器支持 WebRTC</li>
+            </ul>
+
+            <h4>问题 3: 主播开始直播但观众端没有反应</h4>
+            <div class="error">
+                <strong>❌ 症状：</strong> 主播显示"直播中"但观众端没有收到 stream_start 消息
+            </div>
+            <p><strong>解决方案：</strong></p>
+            <ul>
+                <li>检查主播端控制台是否有错误</li>
+                <li>确保主播端 WebSocket 连接正常</li>
+                <li>尝试重新开始直播</li>
+            </ul>
+        </div>
+
+        <div class="step">
+            <h3>步骤 6: 高级诊断</h3>
+            
+            <h4>6.1 检查网络连接</h4>
+            <div class="code">
+                在控制台中输入：console.log('WebSocket URL:', window.location.protocol + '//' + window.location.host)
+            </div>
+            
+            <h4>6.2 检查 WebRTC 支持</h4>
+            <div class="code">
+                在控制台中输入：console.log('WebRTC 支持:', !!window.RTCPeerConnection)
+            </div>
+            
+            <h4>6.3 检查媒体设备权限</h4>
+            <div class="code">
+                navigator.mediaDevices.getUserMedia({video: true, audio: true})
+                    .then(stream => console.log('媒体设备权限正常'))
+                    .catch(err => console.error('媒体设备权限错误:', err))
+            </div>
+        </div>
+
+        <div class="step">
+            <h3>步骤 7: 测试工具</h3>
+            <p>使用以下测试页面进行详细诊断：</p>
+            <button onclick="window.open('test-viewer.html', '_blank')">打开测试观众端</button>
+            <button onclick="window.open('viewer.html', '_blank')">打开正式观众端</button>
+            <button onclick="window.open('livestream_platform.html', '_blank')">打开主播端</button>
+        </div>
+
+        <div class="success">
+            <h3>🎉 成功标志</h3>
+            <p>当一切正常工作时，你应该看到：</p>
+            <ul>
+                <li>主播端：显示自己的视频画面，状态为"直播中"</li>
+                <li>观众端：显示主播的视频画面，可以听到声音</li>
+                <li>控制台：显示正常的连接和视频流信息</li>
+            </ul>
+        </div>
+
+        <div class="warning">
+            <strong>💡 提示：</strong> 如果问题仍然存在，请检查：
+            <ul>
+                <li>浏览器是否支持 WebRTC（Chrome、Firefox、Safari 等现代浏览器）</li>
+                <li>网络连接是否稳定</li>
+                <li>是否有防火墙或代理阻止 WebSocket 连接</li>
+                <li>是否在 HTTPS 环境下（某些浏览器要求）</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        console.log('📋 测试说明页面已加载');
+        console.log('💡 提示：打开浏览器开发者工具查看详细日志');
+    </script>
+</body>
+</html>
+

@@ -2,6 +2,14 @@
 
 // 通用的用戶下拉選單功能
 function toggleUserMenu() {
+    // 檢查用戶是否登入
+    const currentUser = localStorage.getItem('currentUser');
+    if (!currentUser) {
+        // 如果未登入，導向登入頁面
+        window.location.href = navigation.pages.login;
+        return; // 阻止後續選單顯示邏輯
+    }
+
     // 移除現有選單
     const existingMenu = document.querySelector('.user-dropdown');
     if (existingMenu) {
@@ -278,8 +286,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentPath = window.location.pathname.split('/').pop() || 'index.html';
     const navLinks = document.querySelectorAll('.nav-link');
     
+    // 處理導航連結的點擊事件和顯示文字
+    const currentUser = localStorage.getItem('currentUser');
     navLinks.forEach(link => {
         const href = link.getAttribute('href');
+
+        // 處理「開始直播」連結
+        if (href && href.includes(navigation.pages.livestream)) {
+            if (!currentUser) {
+                // 如果未登入，添加點擊事件導向登入頁面
+                link.addEventListener('click', (e) => {
+                    e.preventDefault(); // 阻止默認導航
+                    navigation.goToLogin(); // 導向登入頁面
+                });
+            } else {
+                // 如果已登入，確保連結行為正常
+                link.addEventListener('click', (e) => {
+                    e.preventDefault(); // 阻止默認導航
+                    window.location.href = navigation.pages.livestream; // 導向直播平台頁面
+                });
+            }
+        }
+
+        // 設置當前頁面的活動狀態
         if (href === currentPath) {
             link.classList.add('active');
         }
