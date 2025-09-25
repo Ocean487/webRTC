@@ -1064,6 +1064,32 @@ body {
     transform: scale(1.1);
 }
 
+/* 視頻特效按鈕樣式增強 */
+.effect-btn.active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4) !important;
+    transform: translateY(-1px);
+    position: relative;
+}
+
+.effect-btn.active::after {
+    content: '✓';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #4CAF50;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    z-index: 1;
+}
+
 /* 聊天室狀態列樣式 */
 .chat-status-bar {
     display: flex;
@@ -1111,4 +1137,219 @@ body {
 
 #chatStatusBar[data-state="disconnected"] .retry-hint {
     display: inline;
+}
+
+/* 登入權限檢測彈窗樣式 */
+.login-permission-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    backdrop-filter: blur(10px);
+    z-index: 10000;
+    animation: modalFadeIn 0.3s ease-out;
+}
+
+.login-permission-modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.95) 0%, 
+        rgba(255, 255, 255, 0.85) 100%);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 20px;
+    padding: 2.5rem;
+    max-width: 450px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+    transform: scale(0.8);
+    animation: modalScaleIn 0.3s ease-out forwards;
+}
+
+.modal-icon {
+    font-size: 4rem;
+    color: #667eea;
+    margin-bottom: 1.5rem;
+    text-shadow: 0 2px 10px rgba(102, 126, 234, 0.3);
+}
+
+.modal-title {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #2d3748;
+    margin-bottom: 1rem;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.modal-message {
+    font-size: 1.1rem;
+    color: #4a5568;
+    margin-bottom: 2rem;
+    line-height: 1.6;
+}
+
+.modal-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.modal-btn {
+    padding: 0.8rem 2rem;
+    border: none;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-width: 120px;
+    justify-content: center;
+}
+
+.modal-btn.primary {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.modal-btn.primary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.modal-btn.secondary {
+    background: rgba(255, 255, 255, 0.8);
+    color: #4a5568;
+    border: 2px solid #e2e8f0;
+}
+
+.modal-btn.secondary:hover {
+    background: rgba(255, 255, 255, 1);
+    border-color: #cbd5e0;
+    transform: translateY(-1px);
+}
+
+.modal-btn.danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+}
+
+.modal-btn.danger:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.6);
+}
+
+/* 測試帳號特殊樣式 */
+.test-account-warning {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(217, 119, 6, 0.1));
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem 0;
+    color: #92400e;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.test-account-warning i {
+    color: #f59e0b;
+    margin-right: 0.5rem;
+}
+
+/* 動畫效果 */
+@keyframes modalFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes modalScaleIn {
+    from { 
+        transform: scale(0.8) translateY(20px);
+        opacity: 0;
+    }
+    to { 
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 移動端適配 */
+@media (max-width: 768px) {
+    .modal-content {
+        padding: 2rem;
+        margin: 1rem;
+    }
+    
+    .modal-title {
+        font-size: 1.5rem;
+    }
+    
+    .modal-message {
+        font-size: 1rem;
+    }
+    
+    .modal-buttons {
+        flex-direction: column;
+    }
+    
+    .modal-btn {
+        width: 100%;
+    }
+}
+
+/* 動畫效果增強 */
+.modal-content:hover {
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35);
+}
+
+.modal-btn i {
+    transition: transform 0.2s ease;
+}
+
+.modal-btn:hover i {
+    transform: scale(1.1);
+}
+
+/* 視頻特效按鈕樣式增強 */
+.effect-btn.active {
+    background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%) !important;
+    box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4) !important;
+    transform: translateY(-1px);
+    position: relative;
+}
+
+.effect-btn.active::after {
+    content: '✓';
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #4CAF50;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    z-index: 1;
 }

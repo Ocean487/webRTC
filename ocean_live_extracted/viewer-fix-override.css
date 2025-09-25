@@ -1,0 +1,369 @@
+/* 觀眾頁面美化修復 - 覆蓋原有樣式 */
+
+/* 純黑色視頻區域 - 直接顯示等待文字 */
+.stream-video {
+    position: relative !important;
+    width: 100% !important;
+    min-height: 400px !important;
+    border-radius: 20px !important;
+    overflow: hidden !important;
+    background: #000000 !important;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+    margin-bottom: 30px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    color: white !important;
+    text-align: center !important;
+}
+
+/* 只在非直播狀態下顯示等待文字 */
+.stream-video:not(.live)::before {
+    content: "📺 等待主播開始直播" !important;
+    font-size: 28px !important;
+    font-weight: 600 !important;
+    margin-bottom: 15px !important;
+    z-index: 1 !important;
+}
+
+.stream-video:not(.live)::after {
+    content: "主播上線後，直播畫面會自動顯示在這裡" !important;
+    font-size: 16px !important;
+    opacity: 0.8 !important;
+    z-index: 1 !important;
+}
+
+/* 確保 HTML 占位符完全隱藏 */
+#videoPlaceholder {
+    display: none !important;
+}
+
+#videoPlaceholder h3,
+#videoPlaceholder p {
+    display: none !important;
+}
+
+/* 清理冗餘的 videoPlaceholder 樣式（已隱藏） */
+
+/* 隱藏載入動畫 */
+.loading-animation {
+    display: none !important;
+}
+
+/* 播放提示 - 永遠隱藏，不需要用戶點擊 */
+.play-prompt,
+#playPrompt {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* 遠程視頻樣式 - 初始完全隱藏 */
+#remoteVideo {
+    width: 100% !important;
+    height: 400px !important;
+    object-fit: cover !important;
+    border-radius: 20px !important;
+    background: #000 !important;
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    position: absolute !important;
+    top: -9999px !important;
+    left: -9999px !important;
+}
+
+/* 只有當明確設置為顯示且有 live 類別時才顯示 */
+.stream-video.live #remoteVideo {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+}
+
+/* 直播信息區域美化 - 透明底色 */
+.stream-header {
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(15px) !important;
+    border-radius: 20px !important;
+    padding: 30px !important;
+    margin-top: 30px !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.streamer-info {
+    display: flex !important;
+    align-items: center !important;
+    margin-bottom: 20px !important;
+}
+
+.streamer-avatar {
+    width: 60px !important;
+    height: 60px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #667eea, #764ba2) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    color: white !important;
+    font-size: 24px !important;
+    margin-right: 20px !important;
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4) !important;
+    border: 3px solid rgba(255, 255, 255, 0.9) !important;
+}
+
+.streamer-details h3 {
+    margin: 0 0 8px 0 !important;
+    font-size: 22px !important;
+    color: white !important;
+    font-weight: 700 !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+
+.stream-title {
+    margin: 0 !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 16px !important;
+    font-weight: 400 !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+}
+
+.stream-status {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 20px !important;
+}
+
+.status-text {
+    font-weight: 600 !important;
+    color: #ff9500 !important;
+    display: flex !important;
+    align-items: center !important;
+    font-size: 16px !important;
+    padding: 8px 16px !important;
+    background: rgba(255, 149, 0, 0.2) !important;
+    border-radius: 25px !important;
+    border: 2px solid rgba(255, 149, 0, 0.4) !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+}
+
+.status-text::before {
+    content: '●' !important;
+    margin-right: 10px !important;
+    animation: pulse 2s infinite !important;
+    font-size: 12px !important;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.6 !important; }
+    50% { opacity: 1 !important; }
+}
+
+.live-indicator {
+    display: none !important;
+    align-items: center !important;
+    background: linear-gradient(135deg, #ff4444, #ff6b6b) !important;
+    color: white !important;
+    padding: 10px 20px !important;
+    border-radius: 25px !important;
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
+    letter-spacing: 0.5px !important;
+}
+
+.live-indicator.active {
+    display: flex !important;
+}
+
+.live-dot {
+    width: 10px !important;
+    height: 10px !important;
+    background: white !important;
+    border-radius: 50% !important;
+    margin-right: 10px !important;
+    animation: blink 1s infinite !important;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1 !important; }
+    50% { opacity: 0.4 !important; }
+}
+
+.viewer-count {
+    display: flex !important;
+    align-items: center !important;
+    color: white !important;
+    font-size: 16px !important;
+    font-weight: 600 !important;
+    padding: 10px 20px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 25px !important;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+}
+
+.viewer-count i {
+    margin-right: 8px !important;
+    color: #667eea !important;
+    font-size: 18px !important;
+}
+
+/* 隱藏連接狀態指示器 */
+#connection-status {
+    display: none !important;
+}
+
+#connection-status i {
+    margin-right: 10px !important;
+    animation: statusPulse 2s infinite !important;
+    font-size: 14px !important;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 0.8 !important; transform: scale(1) !important; }
+    50% { opacity: 1 !important; transform: scale(1.1) !important; }
+}
+
+/* 隱藏調試信息 */
+#debug-info {
+    display: none !important;
+}
+
+#debug-info div {
+    margin-bottom: 5px !important;
+    padding: 2px 0 !important;
+}
+
+/* 聊天區域美化 - 透明底色 */
+.chat-section {
+    background: rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(15px) !important;
+    border-radius: 20px !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
+    color: white !important;
+}
+
+.chat-section h3 {
+    color: white !important;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5) !important;
+}
+
+.chat-section .chat-message {
+    color: white !important;
+}
+
+.chat-section input {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+    color: white !important;
+}
+
+.chat-section input::placeholder {
+    color: rgba(255, 255, 255, 0.7) !important;
+}
+
+.chat-section button {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 響應式設計增強 */
+@media (max-width: 768px) {
+    #videoPlaceholder {
+        height: 300px !important;
+        padding: 40px 20px !important;
+    }
+    
+    #videoPlaceholder h3 {
+        font-size: 28px !important;
+    }
+    
+    #videoPlaceholder p {
+        font-size: 16px !important;
+    }
+    
+    #remoteVideo {
+        height: 300px !important;
+    }
+    
+    .stream-header {
+        padding: 20px !important;
+        margin-top: 20px !important;
+    }
+    
+    .stream-status {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 15px !important;
+    }
+    
+    #connection-status {
+        top: 15px !important;
+        right: 15px !important;
+        font-size: 14px !important;
+        padding: 12px 20px !important;
+    }
+    
+    #debug-info {
+        bottom: 15px !important;
+        left: 15px !important;
+        font-size: 11px !important;
+        max-width: 250px !important;
+    }
+}
+
+/* 過渡動畫 */
+.stream-video, .stream-header, #connection-status, #debug-info {
+    transition: all 0.4s ease !important;
+}
+
+/* 當直播開始時隱藏等待文字並恢復正常佈局 */
+.stream-video.live::before,
+.stream-video.live::after {
+    display: none !important;
+}
+
+.stream-video.live {
+    display: block !important;
+    justify-content: initial !important;
+    align-items: initial !important;
+    text-align: initial !important;
+}
+
+.stream-video.live #remoteVideo {
+    display: block !important;
+    animation: slideIn 0.6s ease-in forwards !important;
+}
+
+@keyframes slideOut {
+    0% { 
+        opacity: 1 !important; 
+        transform: translateY(0) scale(1) !important; 
+    }
+    100% { 
+        opacity: 0 !important; 
+        transform: translateY(-20px) scale(0.95) !important; 
+        display: none !important; 
+    }
+}
+
+@keyframes slideIn {
+    0% { 
+        opacity: 0 !important; 
+        transform: translateY(20px) scale(1.05) !important; 
+    }
+    100% { 
+        opacity: 1 !important; 
+        transform: translateY(0) scale(1) !important; 
+    }
+}

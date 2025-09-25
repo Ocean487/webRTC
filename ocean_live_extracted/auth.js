@@ -73,11 +73,14 @@ async function handleLogin() {
     localStorage.setItem('currentUser', JSON.stringify(currentUser));
 
     // 檢查之前的頁面
-    let previousPage = sessionStorage.getItem('previousPage') || 'index.html';
+    let previousPage = sessionStorage.getItem('redirectAfterLogin') || sessionStorage.getItem('previousPage') || 'index.html';
     // 確保不會跳轉到preview頁面
     if (previousPage === 'preview.html') {
         previousPage = 'index.html';
     }
+    // 清除保存的跳轉信息
+    sessionStorage.removeItem('redirectAfterLogin');
+    sessionStorage.removeItem('previousPage');
     // 跳轉回之前的頁面或主頁
     window.location.href = previousPage;
 }

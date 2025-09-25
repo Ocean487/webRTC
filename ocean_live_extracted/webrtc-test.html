@@ -3,221 +3,294 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WebRTC 连接测试 - VibeLo</title>
+    <title>WebRTC 連接測試</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Microsoft JhengHei', sans-serif;
             margin: 20px;
-            background: #f0f0f0;
+            background-color: #f5f5f5;
         }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
+        .test-container {
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
         }
         .status {
             padding: 10px;
             margin: 10px 0;
             border-radius: 5px;
-            font-weight: bold;
         }
-        .status.success { background: #d4edda; color: #155724; }
-        .status.error { background: #f8d7da; color: #721c24; }
-        .status.info { background: #d1ecf1; color: #0c5460; }
-        .log {
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #log {
             background: #f8f9fa;
             border: 1px solid #dee2e6;
+            padding: 15px;
             border-radius: 5px;
-            padding: 10px;
-            margin: 10px 0;
-            max-height: 400px;
+            height: 300px;
             overflow-y: auto;
             font-family: monospace;
             font-size: 12px;
         }
-        button {
-            padding: 10px 20px;
-            margin: 5px;
-            border: none;
-            border-radius: 5px;
-            background: #007bff;
-            color: white;
-            cursor: pointer;
-        }
-        button:hover { background: #0056b3; }
-        .step {
-            background: #f8f9fa;
-            border-left: 4px solid #007bff;
-            padding: 15px;
-            margin: 15px 0;
-            border-radius: 0 5px 5px 0;
-        }
-        video {
-            width: 100%;
-            max-width: 640px;
-            height: auto;
-            background: #000;
-            border-radius: 10px;
-        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>🔧 WebRTC 连接测试</h1>
-        
-        <div id="status" class="status info">准备开始测试...</div>
-        
-        <div class="step">
-            <h3>测试步骤</h3>
-            <button onclick="startTest()">开始完整测试</button>
-            <button onclick="testWebRTCSupport()">测试 WebRTC 支持</button>
-            <button onclick="testWebSocket()">测试 WebSocket 连接</button>
-            <button onclick="clearLog()">清除日志</button>
-        </div>
-        
-        <div class="step">
-            <h3>测试视频</h3>
-            <video id="testVideo" autoplay playsinline muted></video>
-            <button onclick="startCamera()">开启摄像头</button>
-            <button onclick="stopCamera()">关闭摄像头</button>
-        </div>
-        
-        <div class="log" id="log"></div>
+    <h1>🔧 WebRTC 直播平台診斷測試</h1>
+    
+    <div class="test-container">
+        <h2>📊 系統狀態檢查</h2>
+        <button class="test-button" onclick="checkServerStatus()">檢查服務器狀態</button>
+        <button class="test-button" onclick="checkWebSocketConnection()">檢查WebSocket連接</button>
+        <button class="test-button" onclick="checkBroadcasterFunctions()">檢查主播函數</button>
+        <div id="systemStatus"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>🎯 WebRTC 連接測試</h2>
+        <button class="test-button" onclick="testBroadcasterConnection()">測試主播連接</button>
+        <button class="test-button" onclick="testViewerConnection()">測試觀眾連接</button>
+        <button class="test-button" onclick="testWebRTCFlow()">完整流程測試</button>
+        <div id="webrtcStatus"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>📝 測試日誌</h2>
+        <button class="test-button" onclick="clearLog()">清除日誌</button>
+        <div id="log"></div>
     </div>
 
     <script>
-        let localStream = null;
-        
-        function log(message) {
-            const logElement = document.getElementById('log');
-            const time = new Date().toLocaleTimeString();
-            logElement.innerHTML += `[${time}] ${message}\n`;
-            logElement.scrollTop = logElement.scrollHeight;
-            console.log(message);
-        }
-
-        function updateStatus(message, type = 'info') {
-            const statusElement = document.getElementById('status');
-            statusElement.textContent = message;
-            statusElement.className = `status ${type}`;
-        }
-
-        function testWebRTCSupport() {
-            log('🔍 测试 WebRTC 支持...');
-            
-            if (!window.RTCPeerConnection) {
-                log('❌ 浏览器不支持 RTCPeerConnection');
-                updateStatus('浏览器不支持 WebRTC', 'error');
-                return false;
-            }
-            
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-                log('❌ 浏览器不支持 getUserMedia');
-                updateStatus('浏览器不支持摄像头/麦克风', 'error');
-                return false;
-            }
-            
-            log('✅ WebRTC 支持检查通过');
-            updateStatus('WebRTC 支持正常', 'success');
-            return true;
-        }
-
-        async function startCamera() {
-            try {
-                log('🎥 请求摄像头权限...');
-                localStream = await navigator.mediaDevices.getUserMedia({
-                    video: true,
-                    audio: true
-                });
-                
-                const testVideo = document.getElementById('testVideo');
-                testVideo.srcObject = localStream;
-                
-                log('✅ 摄像头启动成功');
-                log(`📹 视频轨道: ${localStream.getVideoTracks().length}`);
-                log(`🎤 音频轨道: ${localStream.getAudioTracks().length}`);
-                
-                localStream.getTracks().forEach((track, index) => {
-                    log(`   轨道 ${index}: ${track.kind} - ${track.label}`);
-                });
-                
-                updateStatus('摄像头测试成功', 'success');
-            } catch (error) {
-                log(`❌ 摄像头启动失败: ${error.message}`);
-                updateStatus('摄像头启动失败', 'error');
-            }
-        }
-
-        function stopCamera() {
-            if (localStream) {
-                localStream.getTracks().forEach(track => track.stop());
-                localStream = null;
-                document.getElementById('testVideo').srcObject = null;
-                log('📹 摄像头已关闭');
-                updateStatus('摄像头已关闭', 'info');
-            }
-        }
-
-        function testWebSocket() {
-            log('🔌 测试 WebSocket 连接...');
-            
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            const wsUrl = `${protocol}//${window.location.host}`;
-            
-            log(`WebSocket URL: ${wsUrl}`);
-            
-            const socket = new WebSocket(wsUrl);
-            
-            socket.onopen = function() {
-                log('✅ WebSocket 连接成功');
-                updateStatus('WebSocket 连接正常', 'success');
-                socket.close();
-            };
-            
-            socket.onerror = function(error) {
-                log(`❌ WebSocket 连接失败: ${error}`);
-                updateStatus('WebSocket 连接失败', 'error');
-            };
-            
-            socket.onclose = function() {
-                log('🔌 WebSocket 连接已关闭');
-            };
-        }
-
-        async function startTest() {
-            log('🚀 开始完整测试...');
-            updateStatus('正在测试...', 'info');
-            
-            // 测试 WebRTC 支持
-            if (!testWebRTCSupport()) {
-                return;
-            }
-            
-            // 测试 WebSocket
-            testWebSocket();
-            
-            // 测试摄像头
-            await startCamera();
-            
-            setTimeout(() => {
-                log('✅ 完整测试完成');
-                updateStatus('所有测试完成', 'success');
-            }, 3000);
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.className = type;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
         }
 
         function clearLog() {
             document.getElementById('log').innerHTML = '';
         }
 
-        // 页面加载时自动测试
+        function setStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function checkServerStatus() {
+            log('🔍 檢查服務器狀態...');
+            try {
+                const response = await fetch('/api/session/check');
+                if (response.ok) {
+                    log('✅ 服務器正常運行', 'success');
+                    setStatus('systemStatus', '✅ 服務器正常運行', 'success');
+                } else {
+                    log(`❌ 服務器回應異常: ${response.status}`, 'error');
+                    setStatus('systemStatus', `❌ 服務器回應異常: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ 無法連接到服務器: ${error.message}`, 'error');
+                setStatus('systemStatus', `❌ 無法連接到服務器: ${error.message}`, 'error');
+            }
+        }
+
+        function checkWebSocketConnection() {
+            log('🔍 檢查WebSocket連接...');
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            try {
+                const ws = new WebSocket(wsUrl);
+                
+                ws.onopen = function() {
+                    log('✅ WebSocket連接成功', 'success');
+                    setStatus('systemStatus', '✅ WebSocket連接成功', 'success');
+                    ws.close();
+                };
+                
+                ws.onerror = function(error) {
+                    log('❌ WebSocket連接失敗', 'error');
+                    setStatus('systemStatus', '❌ WebSocket連接失敗', 'error');
+                };
+                
+                ws.onclose = function(event) {
+                    if (event.code !== 1000) {
+                        log(`⚠️ WebSocket異常關閉: ${event.code}`, 'warning');
+                    }
+                };
+                
+                // 5秒超時
+                setTimeout(() => {
+                    if (ws.readyState === WebSocket.CONNECTING) {
+                        log('⏰ WebSocket連接超時', 'warning');
+                        ws.close();
+                    }
+                }, 5000);
+                
+            } catch (error) {
+                log(`❌ WebSocket創建失敗: ${error.message}`, 'error');
+                setStatus('systemStatus', `❌ WebSocket創建失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function checkBroadcasterFunctions() {
+            log('🔍 檢查主播函數...');
+            const requiredFunctions = [
+                'getBroadcasterIdFromUrl',
+                'getBroadcasterId',
+                'loadCurrentUser',
+                'connectToStreamingServer'
+            ];
+            
+            let allFunctionsExist = true;
+            const missingFunctions = [];
+            
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    log(`✅ ${funcName} 函數存在`, 'success');
+                } else {
+                    log(`❌ ${funcName} 函數缺失`, 'error');
+                    missingFunctions.push(funcName);
+                    allFunctionsExist = false;
+                }
+            });
+            
+            if (allFunctionsExist) {
+                setStatus('systemStatus', '✅ 所有主播函數正常', 'success');
+            } else {
+                setStatus('systemStatus', `❌ 缺少函數: ${missingFunctions.join(', ')}`, 'error');
+            }
+        }
+
+        function testBroadcasterConnection() {
+            log('🎯 測試主播連接...');
+            
+            if (typeof getBroadcasterId === 'function') {
+                const broadcasterId = getBroadcasterId();
+                log(`📡 主播ID: ${broadcasterId}`, 'info');
+                
+                if (typeof connectToStreamingServer === 'function') {
+                    log('🔄 嘗試建立主播WebSocket連接...', 'info');
+                    // 這裡不實際調用，因為會影響現有連接
+                    log('✅ 主播連接函數可用', 'success');
+                    setStatus('webrtcStatus', '✅ 主播連接函數正常', 'success');
+                } else {
+                    log('❌ connectToStreamingServer 函數不可用', 'error');
+                    setStatus('webrtcStatus', '❌ 主播連接函數不可用', 'error');
+                }
+            } else {
+                log('❌ getBroadcasterId 函數不可用', 'error');
+                setStatus('webrtcStatus', '❌ 主播ID函數不可用', 'error');
+            }
+        }
+
+        function testViewerConnection() {
+            log('🎯 測試觀眾連接...');
+            
+            // 檢查觀眾端關鍵函數
+            const viewerFunctions = [
+                'connectWebSocket',
+                'initializePeerConnection',
+                'handleOffer'
+            ];
+            
+            let viewerFunctionsOk = true;
+            viewerFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    log(`✅ ${funcName} 函數存在`, 'success');
+                } else {
+                    log(`❌ ${funcName} 函數缺失`, 'error');
+                    viewerFunctionsOk = false;
+                }
+            });
+            
+            if (viewerFunctionsOk) {
+                setStatus('webrtcStatus', '✅ 觀眾連接函數正常', 'success');
+            } else {
+                setStatus('webrtcStatus', '❌ 觀眾連接函數有問題', 'error');
+            }
+        }
+
+        function testWebRTCFlow() {
+            log('🎯 開始完整WebRTC流程測試...');
+            
+            // 1. 檢查WebRTC支持
+            if (typeof RTCPeerConnection !== 'undefined') {
+                log('✅ WebRTC API 支持', 'success');
+                
+                // 2. 檢查STUN/TURN服務器
+                const testConfig = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                };
+                
+                try {
+                    const testPc = new RTCPeerConnection(testConfig);
+                    log('✅ RTCPeerConnection 創建成功', 'success');
+                    
+                    // 3. 測試ICE候選收集
+                    testPc.onicecandidate = function(event) {
+                        if (event.candidate) {
+                            log(`✅ ICE候選收集: ${event.candidate.type}`, 'success');
+                        } else {
+                            log('✅ ICE候選收集完成', 'success');
+                        }
+                    };
+                    
+                    // 創建數據通道觸發ICE收集
+                    testPc.createDataChannel('test');
+                    testPc.createOffer().then(offer => {
+                        return testPc.setLocalDescription(offer);
+                    }).then(() => {
+                        log('✅ WebRTC offer 創建成功', 'success');
+                        setStatus('webrtcStatus', '✅ WebRTC 環境正常', 'success');
+                    }).catch(error => {
+                        log(`❌ WebRTC offer 創建失敗: ${error.message}`, 'error');
+                        setStatus('webrtcStatus', `❌ WebRTC 環境異常: ${error.message}`, 'error');
+                    });
+                    
+                    // 5秒後清理
+                    setTimeout(() => {
+                        testPc.close();
+                    }, 5000);
+                    
+                } catch (error) {
+                    log(`❌ RTCPeerConnection 創建失敗: ${error.message}`, 'error');
+                    setStatus('webrtcStatus', `❌ WebRTC 環境異常: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ WebRTC API 不支持', 'error');
+                setStatus('webrtcStatus', '❌ WebRTC API 不支持', 'error');
+            }
+        }
+
+        // 頁面載入時自動檢查
         window.addEventListener('load', function() {
-            log('📋 WebRTC 测试工具已加载');
-            testWebRTCSupport();
+            log('🚀 WebRTC 診斷測試頁面已載入', 'info');
+            setTimeout(() => {
+                checkServerStatus();
+                checkBroadcasterFunctions();
+            }, 1000);
         });
     </script>
 </body>
 </html>
-

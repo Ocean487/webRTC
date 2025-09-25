@@ -5,6 +5,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>VibeLo 直播平台 - 專業直播解決方案</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
@@ -334,27 +339,57 @@
     </div>
 
     <!-- JavaScript 文件 - 按依赖顺序加载 -->
-    <script src="script.js"></script>
-    <script src="livestream-platform.js"></script>
-    <script src="chat-system.js"></script>
-    <script src="music-player.js"></script>
+            <script src="script.js"></script>
+            <script src="video-effects.js"></script>
+            <script src="network-monitor.js"></script>
+            <script src="webrtc-sync-fix.js"></script>
+            <script src="livestream-platform-fixed.js"></script>
+            <script src="chat-system.js"></script>
+            <script src="music-player.js"></script>
+            <script src="webrtc-diagnostics.js"></script>
+            <script src="connection-test.js"></script>
 
     <!-- 调试脚本 -->
     <script>
         // 忽略浏览器扩展相关的错误
         window.addEventListener('error', function (e) {
-            if (e.message && e.message.includes('message channel closed')) {
+            // 忽略瀏覽器擴展相關的錯誤
+            const extensionErrors = [
+                'message channel closed',
+                'Extension context invalidated',
+                'Immersive Translate',
+                'waitPluginDone timeout',
+                'inject.js'
+            ];
+            
+            if (e.message && extensionErrors.some(err => e.message.includes(err))) {
                 console.log('忽略浏览器扩展错误:', e.message);
+                e.preventDefault();
+                return false;
+            }
+            
+            // 忽略來自擴展腳本的錯誤
+            if (e.filename && (e.filename.includes('extension://') || e.filename.includes('inject.js'))) {
+                console.log('忽略擴展腳本錯誤:', e.filename);
                 e.preventDefault();
                 return false;
             }
         });
 
         window.addEventListener('unhandledrejection', function (e) {
-            if (e.reason && e.reason.message && e.reason.message.includes('message channel closed')) {
-                console.log('忽略浏览器扩展Promise错误:', e.reason.message);
-                e.preventDefault();
-                return false;
+            if (e.reason && e.reason.message) {
+                const extensionErrors = [
+                    'message channel closed',
+                    'Extension context invalidated',
+                    'Immersive Translate',
+                    'waitPluginDone timeout'
+                ];
+                
+                if (extensionErrors.some(err => e.reason.message.includes(err))) {
+                    console.log('忽略浏览器扩展Promise错误:', e.reason.message);
+                    e.preventDefault();
+                    return false;
+                }
             }
         });
 
@@ -388,25 +423,6 @@
 
             // 延迟检查，确保脚本完全加载
             setTimeout(checkAndSetup, 500);
-            
-            // 创建测试用户，让界面看起来正常
-            if (!window.currentUser) {
-                window.currentUser = {
-                    username: 'test_user',
-                    displayName: '测试主播',
-                    email: 'test@example.com',
-                    id: 'test_123'
-                };
-                
-                // 更新用户头像显示
-                const userAvatar = document.getElementById('userAvatar');
-                if (userAvatar) {
-                    userAvatar.innerHTML = '测';
-                    userAvatar.title = '测试主播';
-                }
-                
-                console.log('✅ 已创建测试用户用于界面显示');
-            }
 
             function setupEventListeners() {
                 // 设置直播按钮点击事件
@@ -419,26 +435,11 @@
                         console.log('🎬 直播按钮被点击');
 
                         try {
-                            // 检查是否有登录用户
+                            // 檢查是否已登入，如果沒有登入則跳轉到登入頁面
                             if (!window.currentUser) {
-                                console.log('⚠️ 用户未登录，但允许测试模式');
-                                // 创建临时测试用户
-                                window.currentUser = {
-                                    username: 'test_user',
-                                    displayName: '测试主播',
-                                    email: 'test@example.com',
-                                    id: 'test_123'
-                                };
-                                console.log('✅ 已创建测试用户:', window.currentUser);
-                                
-                                // 更新用户显示
-                                const userAvatar = document.getElementById('userAvatar');
-                                if (userAvatar) {
-                                    userAvatar.innerHTML = '测';
-                                    userAvatar.title = '测试主播';
-                                }
-                                
-                                // 继续执行直播功能
+                                console.log('⚠️ 用戶未登入，跳轉到登入頁面');
+                                window.location.href = '/login.html';
+                                return;
                             }
 
                             // 尝试调用直播函数
@@ -503,102 +504,53 @@
 
                 console.log('✅ 所有按钮事件监听器已设置完成');
 
-                // 设置用户头像点击事件
-                const userAvatar = document.getElementById('userAvatar');
-                if (userAvatar) {
-                    userAvatar.addEventListener('click', function () {
-                        console.log('用户头像被点击');
-                        console.log('头像被点击，显示用户菜单');
-                        
-                        // 创建简单的下拉菜单
-                        const existingMenu = document.querySelector('.user-dropdown');
-                        if (existingMenu) {
-                            existingMenu.remove();
-                        } else {
-                            const menu = document.createElement('div');
-                            menu.className = 'user-dropdown';
-                            menu.style.cssText = `
-                                position: absolute;
-                                top: 100%;
-                                right: 0;
-                                background: white;
-                                border-radius: 12px;
-                                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-                                padding: 1rem;
-                                min-width: 200px;
-                                z-index: 9999;
-                                margin-top: 0.5rem;
-                                opacity: 0;
-                                transform: translateY(-10px);
-                                transition: all 0.3s ease;
-                            `;
-                            
-                            const userName = window.currentUser ? window.currentUser.displayName : '主播';
-                            
-                            menu.innerHTML = `
-                                <div style="padding: 0.5rem 0; border-bottom: 1px solid #e5e7eb; margin-bottom: 0.5rem;">
-                                    <div style="font-weight: 600; color: #1f2937;">${userName}</div>
-                                </div>
-                                <a href="viewer.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; color: #4b5563; text-decoration: none; border-radius: 8px; transition: all 0.3s ease;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
-                                    <i class="fas fa-eye"></i> 觀看直播
-                                </a>
-                                <a href="index.html" style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; color: #4b5563; text-decoration: none; border-radius: 8px; transition: all 0.3s ease;" onmouseover="this.style.background='#f3f4f6'" onmouseout="this.style.background='transparent'">
-                                    <i class="fas fa-home"></i> 回到首頁
-                                </a>
-                                <div style="display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0; color: #dc2626; cursor: pointer; border-radius: 8px; transition: all 0.3s ease;" onclick="window.currentUser = null; alert('已登出测试模式')" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">
-                                    <i class="fas fa-sign-out-alt"></i> 登出
-                                </div>
-                            `;
-                            
-                            userAvatar.style.position = 'relative';
-                            userAvatar.appendChild(menu);
-                            
-                            // 显示动画
-                            setTimeout(() => {
-                                menu.style.opacity = '1';
-                                menu.style.transform = 'translateY(0)';
-                            }, 10);
-                            
-                            // 点击其他地方关闭菜单
-                            setTimeout(() => {
-                                function closeMenu(e) {
-                                    if (!menu.contains(e.target) && !userAvatar.contains(e.target)) {
-                                        menu.style.opacity = '0';
-                                        menu.style.transform = 'translateY(-10px)';
-                                        setTimeout(() => {
-                                            if (menu.parentNode) {
-                                                menu.remove();
-                                            }
-                                        }, 300);
-                                        document.removeEventListener('click', closeMenu);
-                                    }
-                                }
-                                document.addEventListener('click', closeMenu);
-                            }, 100);
-                        }
-                    });
-                    console.log('✅ 用户头像事件监听器已设置');
-                }
+                // 用戶頭像的點擊事件已在 livestream-platform.js 中設置
 
-                // 设置特效按钮事件
+                // 设置特效按钮事件 - 使用新的視頻特效處理器
                 const effectBtns = document.querySelectorAll('.effect-btn');
                 effectBtns.forEach(btn => {
                     btn.addEventListener('click', function () {
                         const effect = this.getAttribute('data-effect');
-                        console.log('特效按钮被点击:', effect);
-
-                        if (effect === 'backgroundBlur') {
+                        console.log('🎨 特效按钮被点击:', effect);
+                        
+                        // 移除其他按鈕的 active 狀態
+                        effectBtns.forEach(b => b.classList.remove('active'));
+                        
+                        // 特效對應關係
+                        const effectMap = {
+                            'blur': 'blur',
+                            'vintage': 'vintage', 
+                            'bw': 'blackwhite',
+                            'sepia': 'sepia',
+                            'bright': 'bright',
+                            'rainbow': 'rainbow',
+                            'clear': 'none'
+                        };
+                        
+                        const mappedEffect = effectMap[effect] || effect;
+                        
+                        if (effect === 'clear') {
+                            // 清除特效
+                            if (window.videoEffectsProcessor) {
+                                window.videoEffectsProcessor.setEffect('none');
+                                // 恢復原始視頻流
+                                restoreOriginalStream();
+                            }
+                            console.log('🧹 已清除所有特效');
+                        } else if (effect === 'backgroundBlur') {
+                            // 背景模糊使用專門的函數
                             if (typeof toggleBackgroundBlur === 'function') {
                                 toggleBackgroundBlur();
+                                this.classList.add('active');
                             } else {
                                 console.log('toggleBackgroundBlur 函数未加载');
                             }
+                        } else if (window.videoEffectsProcessor) {
+                            // 使用視頻特效處理器
+                            this.classList.add('active');
+                            applyVideoEffect(mappedEffect);
                         } else {
-                            if (typeof applyEffect === 'function') {
-                                applyEffect(effect);
-                            } else {
-                                console.log('applyEffect 函数未加载');
-                            }
+                            console.log('videoEffectsProcessor 未初始化');
                         }
                     });
                 });
@@ -627,8 +579,97 @@
                 }
 
                 console.log('✅ 所有特效和音乐按钮事件监听器已设置');
+                
+                // 執行網路環境檢測
+                setTimeout(() => {
+                    checkNetworkEnvironment();
+                }, 2000);
             }
         });
+        
+        // 網路環境檢測功能
+        function checkNetworkEnvironment() {
+            console.log('🔍 正在檢測網路環境...');
+            
+            // 創建臨時的 RTCPeerConnection 來檢測 NAT 類型
+            const tempConfig = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun.stunprotocol.org:3478' }
+                ]
+            };
+            
+            const tempPc = new RTCPeerConnection(tempConfig);
+            let hostCandidates = 0;
+            let srflxCandidates = 0;
+            let relayCandidates = 0;
+            
+            tempPc.onicecandidate = function(event) {
+                if (event.candidate) {
+                    const candidate = event.candidate;
+                    console.log('🔍 網路檢測候選:', candidate.type, candidate.candidate);
+                    
+                    if (candidate.type === 'host') {
+                        hostCandidates++;
+                    } else if (candidate.type === 'srflx') {
+                        srflxCandidates++;
+                    } else if (candidate.type === 'relay') {
+                        relayCandidates++;
+                    }
+                } else {
+                    // ICE 收集完成，分析結果
+                    console.log('📊 網路環境分析結果:');
+                    console.log(`   本地候選: ${hostCandidates}`);
+                    console.log(`   STUN候選: ${srflxCandidates}`);
+                    console.log(`   TURN候選: ${relayCandidates}`);
+                    
+                    let networkType = '';
+                    let recommendation = '';
+                    
+                    if (hostCandidates > 0 && srflxCandidates > 0) {
+                        networkType = '✅ 開放網路環境';
+                        recommendation = '網路環境良好，支援點對點直連';
+                    } else if (srflxCandidates > 0) {
+                        networkType = '🔄 NAT 網路環境';
+                        recommendation = '透過 NAT 連接，STUN 伺服器可協助穿透';
+                    } else if (hostCandidates > 0) {
+                        networkType = '🌐 本地網路環境';
+                        recommendation = '可能在內網環境，建議確認防火牆設置';
+                    } else {
+                        networkType = '⚠️ 受限網路環境';
+                        recommendation = '網路環境較嚴格，可能需要 TURN 中繼伺服器';
+                    }
+                    
+                    console.log(`🌐 網路類型: ${networkType}`);
+                    console.log(`💡 建議: ${recommendation}`);
+                    
+                    // 在聊天中顯示檢測結果
+                    if (typeof addMessage === 'function') {
+                        addMessage('系統', `${networkType} - ${recommendation}`);
+                    }
+                    
+                    // 清理臨時連接
+                    tempPc.close();
+                }
+            };
+            
+            // 創建數據通道來觸發 ICE 收集
+            tempPc.createDataChannel('test');
+            tempPc.createOffer().then(offer => {
+                return tempPc.setLocalDescription(offer);
+            }).catch(err => {
+                console.error('網路檢測失敗:', err);
+                tempPc.close();
+            });
+            
+            // 10秒後超時
+            setTimeout(() => {
+                if (tempPc.iceConnectionState !== 'closed') {
+                    console.log('⏰ 網路檢測超時');
+                    tempPc.close();
+                }
+            }, 10000);
+        }
     </script>
 </body>
 

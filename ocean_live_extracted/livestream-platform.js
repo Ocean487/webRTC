@@ -78,32 +78,6 @@ function diagnoseLiveStreamIssue() {
 // 在控制台中可以調用 diagnoseLiveStreamIssue() 來診斷問題
 window.diagnoseLiveStreamIssue = diagnoseLiveStreamIssue;
 
-// 臨時測試登入函數 - 僅用於診斷
-function createTestUser() {
-    console.log('創建測試用戶...');
-    currentUser = {
-        username: 'test_broadcaster',
-        displayName: '測試主播',
-        email: 'test@example.com',
-        avatar: null,
-        isLoggedIn: true
-    };
-    
-    // 更新UI
-    updateUserDisplay(currentUser);
-    enableBroadcastFeatures();
-    
-    // 建立WebSocket連接
-    if (!titleSocket || titleSocket.readyState !== WebSocket.OPEN) {
-        initTitleWebSocket();
-    }
-    
-    console.log('測試用戶已創建:', currentUser);
-    addMessage('系統', '🧪 測試用戶已創建，現在可以開始直播測試');
-}
-
-// 在控制台中可以調用 createTestUser() 來創建測試用戶
-window.createTestUser = createTestUser;
 
 // 初始化標題WebSocket連接
 function initTitleWebSocket() {
@@ -233,30 +207,20 @@ function handleTitleKeyPress(event) {
 }
 
 // 頁面載入時初始化標題和檢查登入狀態
-document.addEventListener('DOMContentLoaded', function() {
-    // 初始化標題
-    const titleInput = document.getElementById('streamTitleInput');
-    if (titleInput) {
-        titleInput.value = currentStreamTitle;
-    }
-    
-    // 檢查登入狀態
-    checkLoginStatus();
-    
-    // 初始化標題WebSocket連接
-    setTimeout(() => {
-        initTitleWebSocket();
-    }, 1000); // 等待1秒後建立連接，確保頁面完全加載
-});
+// 標題和連接初始化已移至 script.js 的 initializeBroadcaster() 統一處理
+// 避免多重初始化衝突
+// document.addEventListener('DOMContentLoaded', function() { ... });
 
 // 檢查登入狀態
 async function checkLoginStatus() {
     try {
+        // 檢查服務器登入狀態
         const response = await fetch('/api/user/current');
         const data = await response.json();
         
         if (data.success && data.user) {
             currentUser = data.user;
+            isTestMode = false;
             updateUserDisplay(currentUser);
             enableBroadcastFeatures();
             
@@ -266,13 +230,38 @@ async function checkLoginStatus() {
             }
         } else {
             currentUser = null;
-            showLoginRequired();
+            isTestMode = false;
+            // 強制跳轉到登入頁面
+            forceLoginRedirect();
         }
     } catch (error) {
         console.error('檢查登入狀態失敗:', error);
         currentUser = null;
-        showLoginRequired();
+        isTestMode = false;
+        // 網路錯誤時也強制跳轉到登入頁面
+        forceLoginRedirect();
     }
+}
+
+// 強制跳轉到登入頁面
+function forceLoginRedirect() {
+    console.log('用戶未登入，強制跳轉到登入頁面');
+    
+    // 保存當前頁面URL，登入後可以跳轉回來
+    sessionStorage.setItem('redirectAfterLogin', window.location.href);
+    
+    // 顯示登入提示訊息
+    if (typeof addMessage === 'function') {
+        addMessage('系統', '🔒 檢測到您尚未登入，即將跳轉到登入頁面...');
+    }
+    
+    // 顯示彈窗提示用戶
+    showLoginPermissionModal();
+    
+    // 延遲跳轉，讓用戶看到提示
+    setTimeout(() => {
+        window.location.href = '/login.html';
+    }, 2000);
 }
 
 // 顯示需要登入的提示並禁用直播功能
@@ -280,10 +269,15 @@ function showLoginRequired() {
     const userAvatar = document.getElementById('userAvatar');
     const streamBtn = document.getElementById('streamBtn');
     
-    // 設置預設頭像
+    // 設置預設頭像，並添加點擊事件
     if (userAvatar) {
         userAvatar.innerHTML = '<i class="fas fa-user"></i>';
-        userAvatar.title = '請先登入';
+        userAvatar.title = '點擊登入';
+        userAvatar.style.cursor = 'pointer';
+        // 添加點擊事件直接跳轉到登入頁面
+        userAvatar.onclick = function() {
+            window.location.href = '/login.html';
+        };
     }
     
     // 禁用直播按鈕
@@ -291,7 +285,7 @@ function showLoginRequired() {
         streamBtn.disabled = true;
         streamBtn.innerHTML = '<i class="fas fa-lock"></i> 請先登入';
         streamBtn.onclick = function() {
-            showLoginPermissionModal();
+            window.location.href = '/login.html';
         };
     }
     
@@ -305,7 +299,7 @@ function showLoginRequired() {
 function secureToggleStream() {
     // 檢查用戶是否已登入
     if (!currentUser) {
-        showLoginPermissionModal();
+        window.location.href = '/login.html';
         return;
     }
     
@@ -456,9 +450,9 @@ function resetModalContent() {
         if (title) title.textContent = '需要登入權限';
         if (messageElement) {
             messageElement.innerHTML = `
-                開始直播需要登入帳號，這樣可以確保平台安全並提供更好的用戶體驗。
+                您需要登入才能使用直播功能。
                 <br><br>
-                請先登入您的帳號，或者創建一個新帳號來開始直播。
+                系統將在 2 秒後自動跳轉到登入頁面，您也可以點擊下方按鈕立即跳轉。
             `;
         }
         if (buttons) {
@@ -471,6 +465,10 @@ function resetModalContent() {
                     <i class="fas fa-user-plus"></i>
                     免費註冊
                 </a>
+                <button onclick="enableTestMode()" class="modal-btn danger">
+                    <i class="fas fa-flask"></i>
+                    測試模式
+                </button>
             `;
         }
     }
@@ -585,6 +583,7 @@ function startLoginStatusMonitoring() {
             if (!wasLoggedIn && isLoggedIn) {
                 // 用戶剛登入
                 currentUser = data.user;
+                isTestMode = false;
                 updateUserDisplay(currentUser);
                 enableBroadcastFeatures();
                 closeLoginModal(); // 關閉可能顯示的登入彈窗
@@ -596,6 +595,7 @@ function startLoginStatusMonitoring() {
             } else if (wasLoggedIn && !isLoggedIn) {
                 // 用戶登出了
                 currentUser = null;
+                isTestMode = false;
                 showLoginRequired();
                 
                 if (window.addMessage) {
@@ -628,6 +628,79 @@ function enableBroadcastFeatures() {
     }
 }
 
+// 啟用測試模式
+function enableTestMode() {
+    currentUser = testUser;
+    isTestMode = true;
+    
+    // 保存測試用戶到本地存儲
+    localStorage.setItem('testUser', JSON.stringify(testUser));
+    
+    updateUserDisplay(currentUser);
+    enableBroadcastFeatures();
+    closeLoginModal();
+    
+    // 顯示測試模式提示
+    showTestModeWarning();
+    
+    if (typeof addMessage === 'function') {
+        addMessage('系統', '🧪 已啟用測試模式，現在可以開始直播測試');
+    }
+}
+
+// 顯示測試模式警告
+function showTestModeWarning() {
+    const modal = document.getElementById('loginPermissionModal');
+    if (modal) {
+        const icon = modal.querySelector('.modal-icon i');
+        const title = modal.querySelector('.modal-title');
+        const messageElement = modal.querySelector('.modal-message');
+        const buttons = modal.querySelector('.modal-buttons');
+        
+        if (icon) icon.className = 'fas fa-flask';
+        if (title) title.textContent = '測試模式已啟用';
+        if (messageElement) {
+            messageElement.innerHTML = `
+                <div class="test-account-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <strong>注意：</strong>您正在使用測試帳號模式。測試帳號無法登出，只能通過清除瀏覽器數據來重置。
+                    <br><br>
+                    測試模式僅用於功能測試，不建議在正式環境中使用。
+                </div>
+            `;
+        }
+        if (buttons) {
+            buttons.innerHTML = `
+                <button onclick="closeLoginModal()" class="modal-btn primary">
+                    <i class="fas fa-check"></i>
+                    我知道了
+                </button>
+                <button onclick="clearTestMode()" class="modal-btn danger">
+                    <i class="fas fa-trash"></i>
+                    清除測試數據
+                </button>
+            `;
+        }
+        
+        modal.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// 清除測試模式
+function clearTestMode() {
+    localStorage.removeItem('testUser');
+    currentUser = null;
+    isTestMode = false;
+    
+    showLoginRequired();
+    closeLoginModal();
+    
+    if (typeof addMessage === 'function') {
+        addMessage('系統', '🧹 測試模式已清除，請重新登入');
+    }
+}
+
 // 獲取當前直播標題
 function getCurrentStreamTitle() {
     return currentStreamTitle || '未命名直播';
@@ -635,10 +708,24 @@ function getCurrentStreamTitle() {
 
 // 用戶管理功能
 let currentUser = null;
+let isTestMode = false;
+const testUser = {
+    username: 'test_user',
+    displayName: '測試主播',
+    email: 'test@example.com',
+    id: 'test_123',
+    isTestAccount: true
+};
 
 // 切換用戶選單
 function toggleUserMenu() {
     console.log('toggleUserMenu 被調用');
+    
+    // 如果沒有登入，直接跳轉到登入頁面
+    if (!currentUser) {
+        window.location.href = '/login.html';
+        return;
+    }
     
     // 移除現有選單
     const existingMenu = document.querySelector('.user-dropdown');
@@ -672,9 +759,10 @@ function toggleUserMenu() {
     menu.style.transform = 'translateY(-10px)';
     menu.style.transition = 'all 0.15s ease-out';
     
-    menu.innerHTML = `
+    let menuContent = `
         <div class="menu-user-info">
             <div class="menu-user-name">${currentUserName}</div>
+            ${isTestMode ? '<div style="font-size: 0.8rem; color: #f59e0b;">測試模式</div>' : ''}
         </div>
         <a href="#" onclick="openStreamManagement(); event.preventDefault();" class="menu-link">
             <i class="fas fa-video"></i>
@@ -688,11 +776,26 @@ function toggleUserMenu() {
             <i class="fas fa-home"></i>
             回到首頁
         </a>
-        <a href="#" onclick="logout(); event.preventDefault();" class="menu-link logout">
-            <i class="fas fa-sign-out-alt"></i>
-            登出
-        </a>
     `;
+
+    // 如果不是測試模式，顯示登出選項
+    if (!isTestMode) {
+        menuContent += `
+            <a href="#" onclick="logout(); event.preventDefault();" class="menu-link logout">
+                <i class="fas fa-sign-out-alt"></i>
+                登出
+            </a>
+        `;
+    } else {
+        menuContent += `
+            <a href="#" onclick="clearTestMode(); event.preventDefault();" class="menu-link logout">
+                <i class="fas fa-trash"></i>
+                清除測試數據
+            </a>
+        `;
+    }
+
+    menu.innerHTML = menuContent;
     
     // 確保userAvatar是一個容器，如果不是則包裝它
     let container = userAvatar;
@@ -732,9 +835,9 @@ function toggleUserMenu() {
 // 獲取當前用戶名稱
 function getCurrentUserName() {
     if (currentUser) {
-        return currentUser.displayName || currentUser.username || '主播';
+        return currentUser.displayName || currentUser.username || '用戶';
     }
-    return '主播';
+    return '未登入';
 }
 
 // 載入當前用戶信息（舊版本函數，保留兼容性）
@@ -762,6 +865,12 @@ function updateUserDisplay(user) {
     
     // 設置用戶信息
     userAvatar.title = user.displayName;
+    userAvatar.style.cursor = 'pointer';
+    
+    // 移除之前的點擊事件，添加正常的用戶選單功能
+    userAvatar.onclick = function() {
+        toggleUserMenu();
+    };
     
     // 儲存當前用戶到全局變數
     window.currentUser = user;
@@ -819,10 +928,8 @@ async function logout() {
     }
 }
 
-// 頁面載入時初始化
-document.addEventListener('DOMContentLoaded', function() {
-    loadCurrentUser();
-});
+// 用戶載入已移至 script.js 的 initializeBroadcaster() 統一處理
+// document.addEventListener('DOMContentLoaded', function() { loadCurrentUser(); });
 
 // 檢查關鍵函數是否已加載
 function checkScriptLoading() {
@@ -864,7 +971,8 @@ function waitForScriptsToLoad() {
     });
 }
 
-// 初始化聊天系統為主播模式
+// 聊天系統初始化已移至 script.js 的 initializeBroadcaster() 統一處理
+/*
 document.addEventListener('DOMContentLoaded', async function() {
     // 等待腳本加載完成
     console.log('等待腳本加載...');
@@ -875,48 +983,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         showErrorModal('頁面初始化失敗，請重新整理頁面。如果問題持續，請檢查網路連線。');
     }
     
-    // 先檢查用戶登入狀態
-    try {
-        const response = await fetch('/api/user/current');
-        const data = await response.json();
-        
-        if (data.success && data.user) {
-            currentUser = data.user;
-            if (typeof updateUserDisplay === 'function') {
-                updateUserDisplay(currentUser);
-            }
-            if (typeof enableBroadcastFeatures === 'function') {
-                enableBroadcastFeatures();
-            }
-            
-            // 歡迎信息
-            if (window.addMessage) {
-                addMessage('系統', `🎉 歡迎，${currentUser.displayName}！您可以開始直播了`);
-            }
-        } else {
-            showLoginRequired();
-            
-            // 提示未登入
-            if (window.addMessage) {
-                addMessage('系統', '👋 歡迎來到VibeLo！請登入以開始直播');
-            }
-        }
-        
-        // 啟動登入狀態監控
-        if (typeof startLoginStatusMonitoring === 'function') {
-            startLoginStatusMonitoring();
-        }
-        
-        // 設置彈窗相關事件
-        if (typeof setupModalEvents === 'function') {
-            setupModalEvents();
-        }
-        
-    } catch (error) {
-        console.error('檢查登入狀態失敗:', error);
-        if (typeof showLoginRequired === 'function') {
-            showLoginRequired();
-        }
+    // 啟動登入狀態監控
+    if (typeof startLoginStatusMonitoring === 'function') {
+        startLoginStatusMonitoring();
+    }
+    
+    // 設置彈窗相關事件
+    if (typeof setupModalEvents === 'function') {
+        setupModalEvents();
     }
     
     // 延遲初始化聊天系統，等待主播WebSocket連接建立

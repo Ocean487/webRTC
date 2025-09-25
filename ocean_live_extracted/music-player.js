@@ -62,7 +62,9 @@ function onYouTubeIframeAPIReady() {
             'rel': 0,
             'showinfo': 0,
             'modestbranding': 1,
-            'fs': 1
+            'fs': 1,
+            'origin': window.location.origin, // 修復 HTTPS 跨域問題
+            'enablejsapi': 1
         },
         events: {
             'onReady': onYouTubePlayerReady,

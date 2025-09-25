@@ -288,11 +288,24 @@ class ChatSystem {
             return;
         }
         
-        const text = this.messageInput.value.trim();
-        console.log('[ChatSystem] 輸入文本:', text);
+        // 增強的文本獲取邏輯，修復 HTTPS 環境下的問題
+        let text = '';
+        if (this.messageInput) {
+            text = this.messageInput.value ? this.messageInput.value.trim() : '';
+            console.log('[ChatSystem] 輸入框元素:', this.messageInput);
+            console.log('[ChatSystem] 原始值:', this.messageInput.value);
+            console.log('[ChatSystem] 處理後文本:', text);
+        } else {
+            console.error('[ChatSystem] 輸入框元素不存在');
+            return;
+        }
         
-        if (!text) {
-            console.warn('[ChatSystem] 文本為空');
+        if (!text || text.length === 0) {
+            console.warn('[ChatSystem] 文本為空或無效');
+            // 在 HTTPS 環境下，嘗試重新聚焦輸入框
+            if (this.messageInput) {
+                this.messageInput.focus();
+            }
             return;
         }
         
@@ -526,6 +539,24 @@ class ChatSystem {
         this.socket = null;
         this.messageHandler = null;
         this.isConnected = false;
+    }
+    
+    // 更新用戶名
+    updateUsername(newUsername) {
+        console.log('[ChatSystem] 更新用戶名:', this.username, '->', newUsername);
+        this.username = newUsername;
+    }
+    
+    // 設置WebSocket連接
+    setSocket(newSocket) {
+        console.log('[ChatSystem] 設置新的WebSocket連接');
+        this.socket = newSocket;
+        this.setupWebSocketHandlers();
+        
+        // 如果連接已經開啟，發送身份識別
+        if (this.socket.readyState === WebSocket.OPEN) {
+            this.sendIdentification();
+        }
     }
 }
 

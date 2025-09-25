@@ -12,25 +12,12 @@ let currentQuality = '720';
 let dataTransferInterval = null;
 let currentAudioOutput = null; // 當前音訊輸出端
 
-// 主播ID相關
-let myBroadcasterId = null;
+// 主播ID相關 - 使用 livestream-platform.js 中宣告的版本
 
-// 獲取主播ID的函數
+// 獲取主播ID的函數 - 使用 livestream-platform.js 中的版本
 function getBroadcasterId() {
     if (!myBroadcasterId) {
-        // 先嘗試從URL參數獲取
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlBroadcasterId = urlParams.get('broadcaster');
-        
-        if (urlBroadcasterId) {
-            myBroadcasterId = urlBroadcasterId;
-        } else if (window.currentUser && window.currentUser.id) {
-            // 基於當前用戶ID生成
-            myBroadcasterId = `broadcaster_${window.currentUser.id}`;
-        } else {
-            // 最後備份：使用時間戳
-            myBroadcasterId = `broadcaster_${Date.now()}`;
-        }
+        myBroadcasterId = getBroadcasterIdFromUrl();
     }
     return myBroadcasterId;
 }
@@ -62,27 +49,136 @@ const constraints = {
     }
 };
 
-// WebRTC 連接配置 - 增強編解碼器支援
+// WebRTC 連接配置 - 增強 NAT 穿透和防火牆支援
 const rtcConfiguration = {
     iceServers: [
+        // 多個 STUN 服務器提供冗餘 - Google 免費服務
         { urls: 'stun:stun.l.google.com:19302' },
         { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun2.l.google.com:19302' },
+        { urls: 'stun:stun3.l.google.com:19302' },
+        { urls: 'stun:stun4.l.google.com:19302' },
+        
+        // 其他供應商的 STUN 服務器
         { urls: 'stun:stun.services.mozilla.com' },
-        { urls: 'stun:stun.l.google.com:19305' }
+        { urls: 'stun:stun.stunprotocol.org:3478' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.nextcloud.com:443' },
+        
+        // OpenRelay 免費 TURN 服務器 - UDP
+        {
+            urls: 'turn:openrelay.metered.ca:80',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turn:openrelay.metered.ca:443',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        // OpenRelay 免費 TURN 服務器 - TCP（防火牆友好）
+        {
+            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        {
+            urls: 'turns:openrelay.metered.ca:443?transport=tcp',
+            username: 'openrelayproject',
+            credential: 'openrelayproject'
+        },
+        
+        // 備用免費 TURN 服務器
+        {
+            urls: 'turn:a.relay.metered.ca:80',
+            username: 'a6d6f890e1a6c2f20a0a4806',
+            credential: 'CGlPcFU3d2o5OCtSR2s='
+        },
+        {
+            urls: 'turn:a.relay.metered.ca:443',
+            username: 'a6d6f890e1a6c2f20a0a4806', 
+            credential: 'CGlPcFU3d2o5OCtSR2s='
+        }
     ],
-    iceCandidatePoolSize: 10,
-    bundlePolicy: 'max-bundle',
-    rtcpMuxPolicy: 'require'
+    iceCandidatePoolSize: 32,           // 更大的候選池以處理複雜網路
+    bundlePolicy: 'max-bundle',         // 最大化束結策略減少延遲
+    rtcpMuxPolicy: 'require',           // 要求 RTCP 復用節省埠口
+    iceTransportPolicy: 'all',          // 允許所有傳輸類型（UDP/TCP）
+    
+    // 額外的企業級配置
+    enableDtlsSrtp: true,               // 啟用 DTLS-SRTP 加密
+    
+    // 針對嚴格 NAT 環境的優化
+    sdpSemantics: 'unified-plan',       // 使用統一計劃 SDP
+    
+    // ICE 連接參數優化
+    iceCheckingTimeout: 5000,           // ICE 檢查超時 5 秒
+    iceDisconnectedTimeout: 20000,      // ICE 斷線超時 20 秒
+    iceFailedTimeout: 30000,            // ICE 失敗超時 30 秒
+    iceRestartTimeout: 20000,           // ICE 重啟超時 20 秒
+    
+    // 強制使用 IPv4（避免 IPv6 問題）
+    iceTransportPolicy: 'all',
+    iceCandidatePoolSize: 32
 };
 
-// 初始化
-document.addEventListener('DOMContentLoaded', function() {
+// 統一初始化函數
+async function initializeBroadcaster() {
+    console.log('🚀 開始初始化主播端...');
+    
+    // 首先載入用戶資料
+    if (typeof loadCurrentUser === 'function') {
+        const userLoaded = await loadCurrentUser();
+        
+        // 如果用戶未登入，停止初始化
+        if (!userLoaded) {
+            console.log('❌ 用戶未登入，停止初始化直播功能');
+            return;
+        }
+    }
+    
+    // 檢查用戶是否已登入
+    if (!currentUser || currentUser.isGuest) {
+        console.log('❌ 用戶未登入或為訪客，停止初始化直播功能');
+        return;
+    }
+    
+    console.log('✅ 用戶已登入，繼續初始化直播功能');
+    
+    // 初始化設備和基本功能
     loadDevices();
     checkAudioOutputSupport();
     simulateInitialActivity();
-    // 在頁面載入時就建立 WebSocket 連接以支援聊天功能
+    
+    // 初始化標題輸入
+    const titleInput = document.getElementById('streamTitleInput');
+    if (titleInput && typeof currentStreamTitle !== 'undefined') {
+        titleInput.value = currentStreamTitle;
+    }
+    
+    // 統一建立 WebSocket 連接（替代多個連接）
     connectToStreamingServer();
-});
+    
+    // 初始化聊天（統一處理，避免重複）
+    initializeChat();
+    
+    // 初始化標題 WebSocket（延遲，避免衝突）
+    setTimeout(() => {
+        if (typeof initTitleWebSocket === 'function') {
+            initTitleWebSocket();
+        }
+    }, 2000);
+    
+    // 延遲視頻編碼優化
+    setTimeout(() => {
+        optimizeVideoEncodingForCompatibility();
+    }, 3000);
+    
+    console.log('✅ 主播端初始化完成');
+}
+
+// 主初始化
+document.addEventListener('DOMContentLoaded', initializeBroadcaster);
 
 // 確保音訊軌道正確啟用
 function ensureAudioTracksEnabled(stream) {
@@ -180,6 +276,13 @@ async function loadDevices() {
 
 // 開始/停止直播
 async function toggleStream() {
+    // 檢查用戶是否已登入
+    if (!currentUser || currentUser.isGuest) {
+        console.log('❌ 用戶未登入，無法使用直播功能');
+        addMessage('系統', '❌ 請先登入才能使用直播功能');
+        return;
+    }
+    
     if (!isStreaming) {
         await startStream();
     } else {
@@ -189,6 +292,13 @@ async function toggleStream() {
 
 // 開始直播
 async function startStream() {
+    // 檢查用戶是否已登入
+    if (!currentUser || currentUser.isGuest) {
+        console.log('❌ 用戶未登入，無法開始直播');
+        addMessage('系統', '❌ 請先登入才能開始直播');
+        return;
+    }
+    
     try {
         // 簡化的流獲取 - 只獲取攝影機和麥克風
         // YouTube音訊將通過系統音效混入
@@ -1243,35 +1353,26 @@ function getCurrentUser() {
 
 // 獲取當前用戶完整信息
 function getCurrentUserInfo() {
-    // 首先檢查全局變數 currentUser (可能是從API載入或設置的訪客身份)
+    // 首先檢查全局變數 currentUser (必須是已登入用戶)
     if (window.currentUser || currentUser) {
         const user = window.currentUser || currentUser;
+        
+        // 如果是訪客，返回null
+        if (user.isGuest) {
+            console.log('❌ 訪客無法使用主播功能');
+            return null;
+        }
+        
         return {
             displayName: user.displayName || user.username,
             avatarUrl: user.avatarUrl || user.avatar || null,
-            isLoggedIn: !user.isGuest,
-            isGuest: user.isGuest || false
-        };
-    }
-    
-    // 其次檢查localStorage中的用戶信息
-    const storedUser = JSON.parse(localStorage.getItem('currentUser') || 'null');
-    if (storedUser) {
-        return {
-            displayName: storedUser.username,
-            avatarUrl: storedUser.avatar || null,
             isLoggedIn: true,
             isGuest: false
         };
-    } 
+    }
     
-    // 最後返回預設的主播身份
-    return {
-        displayName: '主播',
-        avatarUrl: null,
-        isLoggedIn: false,
-        isGuest: false
-    };
+    console.log('❌ 未找到已登入用戶');
+    return null;
 }
 
 // 發送訊息 - 僅作為後備，優先使用ChatSystem
@@ -1407,6 +1508,12 @@ function simulateInitialActivity() {
 
 // 連接到直播服務器
 function connectToStreamingServer() {
+    // 檢查用戶是否已登入
+    if (!currentUser || currentUser.isGuest) {
+        console.log('❌ 用戶未登入，無法連接直播服務器');
+        return;
+    }
+    
     // 如果已經有連接且狀態正常，則不重複連接
     if (streamingSocket && (streamingSocket.readyState === WebSocket.OPEN || streamingSocket.readyState === WebSocket.CONNECTING)) {
         console.log('WebSocket 已連接或正在連接中');
@@ -1427,6 +1534,12 @@ function connectToStreamingServer() {
             
             // 獲取主播用戶信息
             const userInfo = getCurrentUserInfo();
+            
+            if (!userInfo) {
+                console.log('❌ 無法獲取用戶信息，斷開連接');
+                streamingSocket.close();
+                return;
+            }
             
             // 發送主播加入訊息，包含用戶信息
             streamingSocket.send(JSON.stringify({
@@ -1737,16 +1850,39 @@ function createPeerConnection(viewerId) {
             return;
         }
         
-        // 處理 ICE 候選
+        // 處理 ICE 候選 - 增強 NAT 穿透診斷
         peerConnection.onicecandidate = function(event) {
             if (event.candidate && streamingSocket) {
-                console.log('發送 ICE 候選給觀眾:', viewerId);
+                const candidate = event.candidate;
+                console.log('🎯 發送 ICE 候選給觀眾:', viewerId.substr(-3), {
+                    type: candidate.type,
+                    protocol: candidate.protocol,
+                    address: candidate.address,
+                    port: candidate.port,
+                    priority: candidate.priority,
+                    candidate: candidate.candidate.substring(0, 50) + '...'
+                });
+                
+                // 分析候選類型以判斷 NAT 穿透狀況
+                if (candidate.type === 'host') {
+                    console.log('✅ 本地候選 (直連可能)');
+                } else if (candidate.type === 'srflx') {
+                    console.log('🔄 伺服器反射候選 (STUN 通過 NAT)');
+                } else if (candidate.type === 'relay') {
+                    console.log('🔀 中繼候選 (TURN 伺服器)');
+                    if (typeof addMessage === 'function') {
+                        addMessage('系統', '🔀 使用 TURN 中繼伺服器，可能因 NAT/防火牆限制');
+                    }
+                }
+                
                 streamingSocket.send(JSON.stringify({
                     type: 'ice_candidate',
                     candidate: event.candidate,
                     broadcasterId: getBroadcasterId(),
                     viewerId: viewerId
                 }));
+            } else if (!event.candidate) {
+                console.log('✅ ICE 候選收集完成 for 觀眾:', viewerId.substr(-3));
             }
         };
         
@@ -2111,9 +2247,9 @@ function initializeChat() {
         });
         
         // 監聽滾動事件，用於調試
-        chatMessages.addEventListener('scroll', () => {
-            console.log('聊天室滾動位置:', chatMessages.scrollTop, '/', chatMessages.scrollHeight);
-        });
+        // chatMessages.addEventListener('scroll', () => {
+        //     // console.log('聊天室滾動位置:', chatMessages.scrollTop, '/', chatMessages.scrollHeight);
+        // });
     }
     
     // 為輸入框添加實時滾動
@@ -2128,13 +2264,38 @@ function initializeChat() {
             setTimeout(scrollChatToBottom, 100);
         });
     }
+    
+    // 創建 ChatSystem 實例
+    if (typeof ChatSystem !== 'undefined') {
+        console.log('🚀 創建主播端 ChatSystem 實例');
+        
+        // 獲取主播用戶信息
+        let username = '主播';
+        if (currentUser && currentUser.displayName) {
+            username = currentUser.displayName;
+        } else if (currentUser && currentUser.username) {
+            username = currentUser.username;
+        }
+        
+        // 創建 ChatSystem 實例
+        window.chatSystem = new ChatSystem({
+            isStreamer: true,
+            username: username,
+            socket: streamingSocket, // 使用現有的 WebSocket 連接
+            selectors: {
+                chatContainer: '#chatMessages',
+                messageInput: '#messageInput',
+                sendButton: '.btn-send'
+            }
+        });
+        
+        console.log('✅ 主播端 ChatSystem 已創建');
+    } else {
+        console.warn('⚠️ ChatSystem 類別未定義，聊天功能可能無法正常工作');
+    }
 }
 
-// 頁面載入完成後初始化
-document.addEventListener('DOMContentLoaded', function() {
-    initializeChat();
-    console.log('聊天室功能已初始化');
-});
+// 聊天初始化已移至 initializeBroadcaster() 統一處理
 
 // 分頁音訊捕獲功能
 async function captureTabWithAudio() {
@@ -2543,20 +2704,155 @@ function createOptimizedPeerConnection(viewerId) {
     }
 }
 
-// 在應用啟動時執行編碼優化檢測
-document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        optimizeVideoEncodingForCompatibility();
-    }, 3000);
-});
+// 視頻編碼優化已移至 initializeBroadcaster() 統一處理
 
 console.log('✅ 視頻編碼優化功能已載入');
 
 // 确保所有函数都在全局作用域中可用
+// 應用視頻特效 - 基於 WebRTC 教學和 Webcam Toy 概念
+function applyVideoEffect(effectType) {
+    console.log(`🎨 應用視頻特效: ${effectType}`);
+    
+    if (!window.videoEffectsProcessor) {
+        console.error('視頻特效處理器未初始化');
+        addMessage('系統', '❌ 特效系統未就緒');
+        return;
+    }
+    
+    const localVideo = document.getElementById('localVideo');
+    if (!localVideo || !localVideo.srcObject) {
+        console.error('本地視頻元素或流不存在');
+        addMessage('系統', '❌ 請先開始直播才能使用特效');
+        return;
+    }
+    
+    try {
+        // 設置視頻源
+        window.videoEffectsProcessor.setVideoSource(localVideo);
+        
+        // 應用特效
+        window.videoEffectsProcessor.setEffect(effectType);
+        
+        // 開始處理
+        window.videoEffectsProcessor.startProcessing();
+        
+        // 等待一小段時間後獲取處理後的流
+        setTimeout(() => {
+            const processedStream = window.videoEffectsProcessor.getProcessedStream();
+            if (processedStream) {
+                // 替換本地視頻顯示
+                localVideo.srcObject = processedStream;
+                
+                // 更新所有觀眾的流
+                updateStreamForAllViewers(processedStream);
+                
+                addMessage('系統', `🎨 已套用 ${getEffectDisplayName(effectType)} 特效`);
+                console.log(`✅ 特效 ${effectType} 已成功應用`);
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('應用特效時出錯:', error);
+        addMessage('系統', `❌ 特效應用失敗: ${error.message}`);
+    }
+}
+
+// 恢復原始視頻流
+function restoreOriginalStream() {
+    console.log('🔄 恢復原始視頻流');
+    
+    if (window.videoEffectsProcessor) {
+        window.videoEffectsProcessor.stopProcessing();
+    }
+    
+    // 重新獲取原始媒體流
+    if (localStream) {
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = localStream;
+            
+            // 更新所有觀眾的流
+            updateStreamForAllViewers(localStream);
+            
+            addMessage('系統', '🔄 已恢復原始畫面');
+            console.log('✅ 原始視頻流已恢復');
+        }
+    }
+}
+
+// 更新所有觀眾的視頻流
+async function updateStreamForAllViewers(newStream) {
+    console.log('📡 更新所有觀眾的視頻流');
+    
+    if (!newStream) {
+        console.error('新視頻流不存在');
+        return;
+    }
+    
+    // 更新全局流
+    const videoTrack = newStream.getVideoTracks()[0];
+    if (videoTrack) {
+        // 更新所有 PeerConnection 的視頻軌道
+        for (const [viewerId, peerConnection] of peerConnections) {
+            const sender = peerConnection.getSenders().find(s => 
+                s.track && s.track.kind === 'video'
+            );
+            
+            if (sender) {
+                try {
+                    await sender.replaceTrack(videoTrack);
+                    console.log(`✅ 已為觀眾 ${viewerId.substr(-3)} 更新視頻軌道`);
+                } catch (error) {
+                    console.error(`❌ 更新觀眾 ${viewerId.substr(-3)} 視頻軌道失敗:`, error);
+                }
+            }
+        }
+    }
+}
+
+// 獲取特效顯示名稱
+function getEffectDisplayName(effectType) {
+    const displayNames = {
+        'none': '無特效',
+        'vintage': '復古濾鏡',
+        'blackwhite': '黑白濾鏡',
+        'sepia': '懷舊濾鏡',
+        'invert': '反轉濾鏡',
+        'edge': '邊緣檢測',
+        'emboss': '浮雕效果',
+        'blur': '模糊效果',
+        'bright': '亮度增強',
+        'rainbow': '彩虹效果'
+    };
+    
+    return displayNames[effectType] || effectType;
+}
+
+// 兼容性函數
+function applyEffect(effectType) {
+    applyVideoEffect(effectType);
+}
+
 console.log('=== 检查全局函数可用性 ===');
 console.log('toggleStream:', typeof toggleStream);
 console.log('toggleVideo:', typeof toggleVideo);
 console.log('toggleAudio:', typeof toggleAudio);
 console.log('shareScreen:', typeof shareScreen);
 console.log('toggleTabAudio:', typeof toggleTabAudio);
+console.log('applyVideoEffect:', typeof applyVideoEffect);
+console.log('🎨 視頻特效功能已就緒');
 console.log('============================');
+
+// 更新直播標題顯示
+function updateStreamTitle() {
+    const titleInput = document.getElementById('streamTitleInput');
+    const streamTitle = document.getElementById('streamTitle');
+    
+    if (titleInput && streamTitle) {
+        const currentTitle = titleInput.value.trim() || '精彩直播中';
+        streamTitle.textContent = currentTitle;
+        console.log('✅ 直播標題已更新:', currentTitle);
+    } else {
+        console.warn('⚠️ 找不到標題相關元素');
+    }
+}
