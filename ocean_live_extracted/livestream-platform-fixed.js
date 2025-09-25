@@ -28,8 +28,50 @@ let myBroadcasterId = null;
 let currentStreamTitle = '';
 let titleSocket = null; // 專門用於標題更新的WebSocket連接
 
+// 嘗試直接創建WebSocket連接
+function tryDirectWebSocketConnection() {
+    console.log('🔧 嘗試直接創建WebSocket連接');
+    
+    try {
+        // 根據當前協議選擇WebSocket協議
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}`;
+        
+        console.log('嘗試連接到 WebSocket 服務器:', wsUrl);
+        const newSocket = new WebSocket(wsUrl);
+        
+        newSocket.onopen = function() {
+            console.log('✅ 直接連接成功');
+            window.streamingSocket = newSocket;
+            
+            // 發送標題更新
+            if (currentStreamTitle) {
+                newSocket.send(JSON.stringify({
+                    type: 'title_update',
+                    title: currentStreamTitle,
+                    timestamp: Date.now()
+                }));
+                console.log('✅ 直接連接後成功發送標題更新');
+            }
+        };
+        
+        newSocket.onerror = function(error) {
+            console.error('❌ 直接連接失敗:', error);
+        };
+        
+        newSocket.onclose = function(event) {
+            console.log('❌ 直接連接關閉:', event.code, event.reason);
+        };
+        
+    } catch (error) {
+        console.error('❌ 無法創建直接連接:', error);
+    }
+}
+
 // 更新直播標題
 function updateStreamTitle() {
+    console.log('🔍 [DEBUG] updateStreamTitle 被調用');
+    
     const titleInput = document.getElementById('streamTitleInput');
     const currentTitleDisplay = document.getElementById('currentTitleDisplay');
     
@@ -43,6 +85,9 @@ function updateStreamTitle() {
                 }
                 console.log('直播標題已更新:', currentStreamTitle);
                 
+                // 檢查WebSocket連接狀態
+                console.log('🔍 [DEBUG] streamingSocket狀態:', window.streamingSocket ? window.streamingSocket.readyState : 'undefined');
+                
                 // 使用主要的streamingSocket發送更新
                 if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
                     window.streamingSocket.send(JSON.stringify({
@@ -50,9 +95,34 @@ function updateStreamTitle() {
                         title: currentStreamTitle,
                         timestamp: Date.now()
                     }));
-                    console.log('已通過streamingSocket發送標題更新到觀眾端');
+                    console.log('✅ 已通過streamingSocket發送標題更新到觀眾端');
                 } else {
-                    console.warn('streamingSocket未連接，無法發送標題更新');
+                    console.warn('❌ streamingSocket未連接，無法發送標題更新');
+                    console.log('🔍 [DEBUG] 嘗試重新連接...');
+                    
+                    // 嘗試重新連接
+                    if (typeof connectToStreamingServer === 'function') {
+                        connectToStreamingServer();
+                        
+                        // 延遲重試發送
+                        setTimeout(() => {
+                            if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
+                                window.streamingSocket.send(JSON.stringify({
+                                    type: 'title_update',
+                                    title: currentStreamTitle,
+                                    timestamp: Date.now()
+                                }));
+                                console.log('✅ 重連後成功發送標題更新');
+                            } else {
+                                console.error('❌ 重連失敗，標題更新無法發送');
+                                // 嘗試直接創建新的WebSocket連接
+                                tryDirectWebSocketConnection();
+                            }
+                        }, 2000);
+                    } else {
+                        console.warn('❌ connectToStreamingServer 函數不存在，嘗試直接連接');
+                        tryDirectWebSocketConnection();
+                    }
                 }
             } else {
                 if (currentTitleDisplay) {
@@ -105,9 +175,15 @@ async function checkLoginStatus() {
 
 // 載入當前用戶
 async function loadCurrentUser() {
+    console.log('🔍 [DEBUG] loadCurrentUser 開始執行');
+    
     try {
+        console.log('🔍 [DEBUG] 發送 API 請求到 /api/user/current');
         const response = await fetch('/api/user/current');
+        console.log('🔍 [DEBUG] API 響應狀態:', response.status);
+        
         const data = await response.json();
+        console.log('🔍 [DEBUG] API 響應數據:', data);
         
         if (data.success && data.user) {
             currentUser = data.user;
@@ -116,11 +192,13 @@ async function loadCurrentUser() {
             return true;
         } else {
             console.log('❌ 用戶未登入，強制重定向到登入頁面');
+            console.log('🔍 [DEBUG] API 響應失敗原因:', data);
             forceLoginRedirect();
             return false;
         }
     } catch (error) {
         console.error('載入用戶失敗:', error);
+        console.log('🔍 [DEBUG] API 請求異常:', error.message);
         forceLoginRedirect();
         return false;
     }

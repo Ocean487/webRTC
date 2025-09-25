@@ -129,6 +129,7 @@ async function initializeBroadcaster() {
     // 首先載入用戶資料
     if (typeof loadCurrentUser === 'function') {
         const userLoaded = await loadCurrentUser();
+        console.log('🔍 [DEBUG] loadCurrentUser 結果:', userLoaded);
         
         // 如果用戶未登入，停止初始化
         if (!userLoaded) {
@@ -138,6 +139,7 @@ async function initializeBroadcaster() {
     }
     
     // 檢查用戶是否已登入
+    console.log('🔍 [DEBUG] 檢查 currentUser:', currentUser);
     if (!currentUser || currentUser.isGuest) {
         console.log('❌ 用戶未登入或為訪客，停止初始化直播功能');
         return;
@@ -157,6 +159,7 @@ async function initializeBroadcaster() {
     }
     
     // 統一建立 WebSocket 連接（替代多個連接）
+    console.log('🔍 [DEBUG] 準備調用 connectToStreamingServer');
     connectToStreamingServer();
     
     // 初始化聊天（統一處理，避免重複）
@@ -381,6 +384,8 @@ async function startStream() {
         
         // 等待 WebSocket 連接建立後通知服務器直播已開始
         setTimeout(() => {
+            console.log('🔍 [DEBUG] 檢查 streamingSocket 狀態:', streamingSocket ? streamingSocket.readyState : 'undefined');
+            
             if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
                 // 獲取直播標題
                 const titleInput = document.getElementById('streamTitleInput');
@@ -408,6 +413,32 @@ async function startStream() {
                 
                 addMessage('系統', `🔄 直播已開始，標題: ${finalTitle}`);
                 addMessage('系統', '🔄 正在為現有觀眾建立連接...');
+            } else {
+                console.warn('⚠️ streamingSocket 未連接，嘗試重新連接');
+                connectToStreamingServer();
+                
+                // 延遲重試發送 stream_start
+                setTimeout(() => {
+                    if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
+                        const titleInput = document.getElementById('streamTitleInput');
+                        const streamTitle = titleInput ? titleInput.value.trim() : '';
+                        const finalTitle = streamTitle || '精彩直播中';
+                        
+                        streamingSocket.send(JSON.stringify({
+                            type: 'stream_start',
+                            title: finalTitle,
+                            message: '主播已開始直播',
+                            timestamp: Date.now(),
+                            requestViewers: true
+                        }));
+                        
+                        console.log('✅ 重連後成功發送 stream_start');
+                        addMessage('系統', `🔄 直播已開始，標題: ${finalTitle}`);
+                    } else {
+                        console.error('❌ 重連失敗，無法發送 stream_start');
+                        addMessage('系統', '❌ 無法通知服務器直播開始，請檢查網路連接');
+                    }
+                }, 3000);
             }
         }, 1000);
 
@@ -1508,11 +1539,18 @@ function simulateInitialActivity() {
 
 // 連接到直播服務器
 function connectToStreamingServer() {
+    console.log('🔍 [DEBUG] connectToStreamingServer 被調用');
+    console.log('🔍 [DEBUG] currentUser:', currentUser);
+    console.log('🔍 [DEBUG] currentUser.isGuest:', currentUser ? currentUser.isGuest : 'undefined');
+    
     // 檢查用戶是否已登入
     if (!currentUser || currentUser.isGuest) {
         console.log('❌ 用戶未登入，無法連接直播服務器');
+        console.log('🔍 [DEBUG] 用戶狀態檢查失敗，停止連接');
         return;
     }
+    
+    console.log('✅ 用戶已登入，繼續連接流程');
     
     // 如果已經有連接且狀態正常，則不重複連接
     if (streamingSocket && (streamingSocket.readyState === WebSocket.OPEN || streamingSocket.readyState === WebSocket.CONNECTING)) {

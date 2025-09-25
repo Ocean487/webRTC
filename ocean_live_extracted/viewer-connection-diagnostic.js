@@ -53,7 +53,7 @@
         
         const urlParams = new URLSearchParams(window.location.search);
         const streamerParam = urlParams.get('streamer');
-        const targetStreamerId = window.targetStreamerId || getStreamerIdFromUrl();
+        const targetStreamerId = window.targetStreamerId || (typeof getStreamerIdFromUrl === 'function' ? getStreamerIdFromUrl() : streamerParam || 'default');
         
         const params = {
             hasStreamerParam: !!streamerParam,

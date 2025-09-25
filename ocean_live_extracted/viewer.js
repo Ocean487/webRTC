@@ -380,6 +380,7 @@ function handleWebSocketMessage(data) {
         case 'stream_start':
             window.receivedStreamStart = true;
             console.log('✅ 收到 stream_start 消息');
+            console.log('🔍 [DEBUG] stream_start 數據:', data);
             handleStreamStarted(data);
             updateConnectionStatus();
             break;
@@ -450,7 +451,7 @@ function handleWebSocketMessage(data) {
 
 // 處理直播開始
 function handleStreamStarted(data) {
-    console.log('直播開始:', data);
+    console.log('🎬 [DEBUG] handleStreamStarted 被調用:', data);
     
     const streamVideo = document.getElementById('streamVideo');
     const videoPlaceholder = document.getElementById('videoPlaceholder');
@@ -458,6 +459,14 @@ function handleStreamStarted(data) {
     const streamTitle = document.getElementById('streamTitle');
     const streamerName = document.getElementById('streamerName');
     const statusText = document.getElementById('statusText');
+    
+    console.log('🔍 [DEBUG] DOM元素檢查:');
+    console.log('  - streamVideo:', !!streamVideo);
+    console.log('  - videoPlaceholder:', !!videoPlaceholder);
+    console.log('  - liveIndicator:', !!liveIndicator);
+    console.log('  - streamTitle:', !!streamTitle);
+    console.log('  - streamerName:', !!streamerName);
+    console.log('  - statusText:', !!statusText);
     
     // 添加 live 類別以顯示視頻
     if (streamVideo) {
@@ -478,11 +487,46 @@ function handleStreamStarted(data) {
         console.log('✅ 已更新主播名稱:', streamerName.textContent);
     }
     
-    // 更新狀態文字
+    // 更新狀態文字 - 使用已宣告的statusText變數
     if (statusText) {
+        console.log('🔍 [DEBUG] statusText 元素存在，準備更新');
+        console.log('🔍 [DEBUG] 更新前 - 文字內容:', statusText.textContent);
+        console.log('🔍 [DEBUG] 更新前 - CSS類別:', statusText.className);
+        
         statusText.textContent = '直播中';
         statusText.className = 'status-text live';
+        
+        // 強制覆蓋內聯樣式
+        statusText.style.color = 'white';
+        statusText.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
+        statusText.style.fontWeight = '700';
+        
         console.log('✅ 已更新狀態文字為直播中');
+        console.log('🔍 [DEBUG] 更新後 - 文字內容:', statusText.textContent);
+        console.log('🔍 [DEBUG] 更新後 - CSS類別:', statusText.className);
+        
+        // 檢查計算樣式
+        const computedStyle = window.getComputedStyle(statusText);
+        console.log('🔍 [DEBUG] 計算樣式 - 背景色:', computedStyle.backgroundColor);
+        console.log('🔍 [DEBUG] 計算樣式 - 文字色:', computedStyle.color);
+        console.log('🔍 [DEBUG] 計算樣式 - 字重:', computedStyle.fontWeight);
+        console.log('🔍 [DEBUG] 計算樣式 - 顯示:', computedStyle.display);
+    } else {
+        console.error('❌ statusText 元素不存在！');
+        console.log('🔍 [DEBUG] 嘗試重新查找 statusText 元素...');
+        const retryStatusText = document.getElementById('statusText');
+        if (retryStatusText) {
+            console.log('✅ 重新查找成功，更新狀態');
+            retryStatusText.textContent = '直播中';
+            retryStatusText.className = 'status-text live';
+            
+            // 強制覆蓋內聯樣式
+            retryStatusText.style.color = 'white';
+            retryStatusText.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
+            retryStatusText.style.fontWeight = '700';
+        } else {
+            console.error('❌ 重新查找也失敗，statusText 元素確實不存在');
+        }
     }
     
     // 更新直播標題
@@ -505,6 +549,11 @@ function handleStreamStarted(data) {
     }
     
     displaySystemMessage('🎉 主播已開始直播！');
+    
+    // 強制修復狀態文字顯示
+    setTimeout(() => {
+        forceFixStatusText();
+    }, 100);
     
     // 立即初始化 WebRTC 連接
     console.log('🔄 直播開始，立即初始化 WebRTC 連接');
@@ -892,9 +941,22 @@ function initializePeerConnection() {
                     console.log('✅ 靜音自動播放成功');
                     
                     // 延遲後嘗試取消靜音
-                    setTimeout(() => {
-                        remoteVideo.muted = false;
-                        console.log('✅ 已取消靜音');
+                    setTimeout(async () => {
+                        try {
+                            // 檢查瀏覽器是否允許自動取消靜音
+                            if (remoteVideo.muted) {
+                                // 嘗試播放以觸發用戶互動檢查
+                                await remoteVideo.play();
+                                remoteVideo.muted = false;
+                                console.log('✅ 已取消靜音');
+                            }
+                        } catch (unmuteError) {
+                            console.warn('⚠️ 取消靜音失敗，保持靜音模式:', unmuteError.message);
+                            // 顯示提示用戶點擊取消靜音
+                            displaySystemMessage('🔊 請點擊視頻取消靜音以聽到聲音');
+                            // 啟用用戶互動處理
+                            enableAudioOnUserInteraction();
+                        }
                     }, 1000);
                     
                 displaySystemMessage('🎬 視頻已開始播放');
@@ -1955,6 +2017,67 @@ window.debugConnection = function() {
     
     displaySystemMessage(status);
 };
+
+// 強制修復狀態文字顯示
+function forceFixStatusText() {
+    console.log('🔧 強制修復狀態文字顯示');
+    
+    // 重新獲取元素確保正確性
+    const statusText = document.getElementById('statusText');
+    if (statusText) {
+        console.log('🔍 找到 statusText 元素');
+        console.log('🔍 當前文字內容:', statusText.textContent);
+        console.log('🔍 當前類別:', statusText.className);
+        
+        // 強制設置文字內容和樣式
+        statusText.textContent = '直播中';
+        statusText.className = 'status-text live';
+        statusText.style.color = 'white';
+        statusText.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
+        statusText.style.fontWeight = '700';
+        
+        console.log('✅ 強制修復完成');
+        console.log('🔍 修復後文字內容:', statusText.textContent);
+        console.log('🔍 修復後類別:', statusText.className);
+        
+        return true;
+    } else {
+        console.error('❌ 找不到 statusText 元素');
+        return false;
+    }
+}
+
+// 處理用戶互動以啟用音頻
+function enableAudioOnUserInteraction() {
+    const remoteVideo = document.getElementById('remoteVideo');
+    if (!remoteVideo) return;
+    
+    // 添加點擊事件監聽器
+    const enableAudio = async () => {
+        try {
+            if (remoteVideo.muted) {
+                remoteVideo.muted = false;
+                console.log('✅ 用戶互動後成功取消靜音');
+                displaySystemMessage('🔊 音頻已啟用');
+                
+                // 移除事件監聽器
+                remoteVideo.removeEventListener('click', enableAudio);
+                document.removeEventListener('click', enableAudio);
+                document.removeEventListener('keydown', enableAudio);
+            }
+        } catch (error) {
+            console.warn('⚠️ 用戶互動後取消靜音失敗:', error);
+        }
+    };
+    
+    // 添加多種用戶互動事件
+    remoteVideo.addEventListener('click', enableAudio);
+    document.addEventListener('click', enableAudio);
+    document.addEventListener('keydown', enableAudio);
+    
+    // 顯示提示
+    displaySystemMessage('🔊 點擊任意位置啟用音頻');
+}
 
 console.log('✅ 观众端核心功能已加载完成');
 

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狀態文字測試工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status-text {
+            font-weight: 600;
+            color: #ff9500;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            padding: 8px 16px;
+            background: rgba(255, 149, 0, 0.2);
+            border-radius: 25px;
+            border: 2px solid rgba(255, 149, 0, 0.4);
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+            margin: 10px 0;
+        }
+        .status-text.live {
+            background: rgba(244, 67, 54, 0.9) !important;
+            color: white !important;
+            border: 2px solid rgba(244, 67, 54, 0.8) !important;
+            font-weight: 700 !important;
+        }
+        #testLog {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 狀態文字測試工具</h1>
+    
+    <div class="test-container">
+        <h2>📊 狀態指示器</h2>
+        <div id="statusText" class="status-text">等待直播中</div>
+        <button class="test-button" onclick="testLiveStatus()">設置為直播中</button>
+        <button class="test-button" onclick="testWaitingStatus()">設置為等待中</button>
+        <button class="test-button" onclick="checkStatus()">檢查狀態</button>
+    </div>
+    
+    <div class="test-container">
+        <h2>📝 測試日誌</h2>
+        <div id="testLog"></div>
+    </div>
+
+    <script>
+        function log(message) {
+            const logDiv = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}<br>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function testLiveStatus() {
+            log('🎯 設置為直播中狀態...');
+            
+            const statusText = document.getElementById('statusText');
+            if (statusText) {
+                statusText.textContent = '直播中';
+                statusText.className = 'status-text live';
+                statusText.style.color = 'white';
+                statusText.style.backgroundColor = 'rgba(244, 67, 54, 0.9)';
+                statusText.style.fontWeight = '700';
+                
+                log('✅ 已設置為直播中狀態');
+                log(`文字內容: "${statusText.textContent}"`);
+                log(`CSS類別: "${statusText.className}"`);
+                
+                // 檢查計算樣式
+                const computedStyle = window.getComputedStyle(statusText);
+                log(`背景色: ${computedStyle.backgroundColor}`);
+                log(`文字色: ${computedStyle.color}`);
+                log(`字重: ${computedStyle.fontWeight}`);
+            } else {
+                log('❌ 找不到 statusText 元素');
+            }
+        }
+
+        function testWaitingStatus() {
+            log('🎯 設置為等待狀態...');
+            
+            const statusText = document.getElementById('statusText');
+            if (statusText) {
+                statusText.textContent = '等待直播中';
+                statusText.className = 'status-text';
+                statusText.style.color = '#ffa500';
+                statusText.style.backgroundColor = 'rgba(255, 149, 0, 0.2)';
+                statusText.style.fontWeight = '500';
+                
+                log('✅ 已設置為等待狀態');
+                log(`文字內容: "${statusText.textContent}"`);
+                log(`CSS類別: "${statusText.className}"`);
+            } else {
+                log('❌ 找不到 statusText 元素');
+            }
+        }
+
+        function checkStatus() {
+            log('🔍 檢查當前狀態...');
+            
+            const statusText = document.getElementById('statusText');
+            if (statusText) {
+                log(`文字內容: "${statusText.textContent}"`);
+                log(`CSS類別: "${statusText.className}"`);
+                log(`內聯樣式: color=${statusText.style.color}, background=${statusText.style.backgroundColor}`);
+                
+                const computedStyle = window.getComputedStyle(statusText);
+                log(`計算樣式: color=${computedStyle.color}, background=${computedStyle.backgroundColor}`);
+            } else {
+                log('❌ 找不到 statusText 元素');
+            }
+        }
+
+        // 頁面載入時自動檢查
+        window.addEventListener('load', function() {
+            log('🚀 狀態文字測試工具已載入');
+            checkStatus();
+        });
+    </script>
+</body>
+</html>
