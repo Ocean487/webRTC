@@ -14,6 +14,73 @@
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
     <link rel="stylesheet" href="livestream-platform.css">
+    
+    <style>
+        /* 用戶下拉選單樣式 */
+        .user-avatar {
+            position: relative;
+            cursor: pointer;
+        }
+        
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15);
+            padding: 1rem 0;
+            min-width: 200px;
+            z-index: 1000;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+        }
+
+        .user-dropdown.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .menu-user-info {
+            padding: 0.75rem 1.5rem;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-user-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9rem;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1.5rem;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .menu-link:hover {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+        }
+
+        .menu-link.logout {
+            border-top: 1px solid #f0f0f0;
+            margin-top: 0.5rem;
+            color: #e74c3c;
+        }
+
+        .menu-link.logout:hover {
+            background: rgba(231, 76, 60, 0.1);
+        }
+    </style>
 </head>
 
 <body>
@@ -29,7 +96,6 @@
                 <a href="index.html" class="nav-link">首頁</a>
                 <a href="browse.html" class="nav-link">瀏覽直播</a>
                 <a href="livestream_platform.html" class="nav-link active">開始直播</a>
-                <a href="viewer.html" class="nav-link">觀看直播</a>
                 <a href="contact.html" class="nav-link">聯絡我們</a>
             </div>
 
@@ -38,7 +104,7 @@
                     <div class="status-dot" id="statusDot"></div>
                     <span id="statusText">上線</span>
                 </div>
-                <div class="user-avatar" id="userAvatar">
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
                     <i class="fas fa-user"></i>
                 </div>
             </div>
@@ -339,13 +405,13 @@
     </div>
 
     <!-- JavaScript 文件 - 按依赖顺序加载 -->
-            <script src="script.js"></script>
+    <script src="script.js"></script>
             <script src="video-effects.js"></script>
             <script src="network-monitor.js"></script>
             <script src="webrtc-sync-fix.js"></script>
             <script src="livestream-platform-fixed.js"></script>
-            <script src="chat-system.js"></script>
-            <script src="music-player.js"></script>
+    <script src="chat-system.js"></script>
+    <script src="music-player.js"></script>
             <script src="webrtc-diagnostics.js"></script>
             <script src="connection-test.js"></script>
 
@@ -386,9 +452,9 @@
                 ];
                 
                 if (extensionErrors.some(err => e.reason.message.includes(err))) {
-                    console.log('忽略浏览器扩展Promise错误:', e.reason.message);
-                    e.preventDefault();
-                    return false;
+                console.log('忽略浏览器扩展Promise错误:', e.reason.message);
+                e.preventDefault();
+                return false;
                 }
             }
         });
@@ -669,6 +735,109 @@
                     tempPc.close();
                 }
             }, 10000);
+        }
+
+        // 用戶下拉選單功能
+        function toggleUserMenu() {
+            console.log('toggleUserMenu 被調用');
+            
+            // 移除現有選單
+            const existingMenu = document.querySelector('.user-dropdown');
+            if (existingMenu) {
+                console.log('移除現有選單');
+                existingMenu.style.opacity = '0';
+                existingMenu.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    if (existingMenu.parentNode) {
+                        existingMenu.remove();
+                    }
+                }, 150);
+                return;
+            }
+
+            // 創建新選單
+            const userAvatar = document.getElementById('userAvatar');
+            if (!userAvatar) {
+                console.error('找不到 userAvatar 元素');
+                return;
+            }
+            
+            console.log('創建新選單');
+            const currentUser = JSON.parse(localStorage.getItem('currentUser')) || window.currentUser;
+            const currentUserName = currentUser ? currentUser.displayName : '訪客';
+            console.log('當前用戶:', currentUserName);
+
+            const dropdown = document.createElement('div');
+            dropdown.className = 'user-dropdown';
+            dropdown.innerHTML = `
+                <div class="menu-user-info">
+                    <div class="menu-user-name">${currentUserName}</div>
+                </div>
+                <a href="index.html" class="menu-link">
+                    <i class="fas fa-home"></i>
+                    首頁
+                </a>
+                <a href="browse.html" class="menu-link">
+                    <i class="fas fa-eye"></i>
+                    瀏覽直播
+                </a>
+                <a href="about.html" class="menu-link">
+                    <i class="fas fa-info-circle"></i>
+                    關於平台
+                </a>
+                ${currentUser ? `
+                <a href="#" onclick="logout(); event.preventDefault();" class="menu-link logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    登出
+                </a>
+                ` : `
+                <a href="login.html" class="menu-link">
+                    <i class="fas fa-sign-in-alt"></i>
+                    登入
+                </a>
+                `}
+            `;
+
+            userAvatar.appendChild(dropdown);
+            console.log('選單已添加到 DOM');
+
+            // 顯示動畫
+            setTimeout(() => {
+                dropdown.classList.add('show');
+                console.log('選單顯示動畫已觸發');
+            }, 10);
+
+            // 點擊外部關閉選單
+            document.addEventListener('click', function closeMenu(e) {
+                if (!userAvatar.contains(e.target)) {
+                    console.log('點擊外部，關閉選單');
+                    dropdown.style.opacity = '0';
+                    dropdown.style.transform = 'translateY(-10px)';
+                    setTimeout(() => {
+                        if (dropdown.parentNode) {
+                            dropdown.remove();
+                        }
+                    }, 150);
+                    document.removeEventListener('click', closeMenu);
+                }
+            });
+        }
+
+        // 登出功能
+        async function logout() {
+            try {
+                await fetch('/api/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+            } catch (error) {
+                console.error('登出請求失敗:', error);
+            }
+            
+            localStorage.removeItem('currentUser');
+            window.location.href = 'preview.html';
         }
     </script>
 </body>

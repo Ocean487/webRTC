@@ -4,6 +4,14 @@ function getBroadcasterIdFromUrl() {
     const urlBroadcasterId = urlParams.get('broadcaster');
     
     if (urlBroadcasterId) {
+        // 如果是 'current'，使用當前用戶ID
+        if (urlBroadcasterId === 'current') {
+            if (currentUser && currentUser.id) {
+                return `broadcaster_${currentUser.id}`;
+            }
+            // 如果沒有當前用戶，使用時間戳
+            return `broadcaster_${Date.now()}`;
+        }
         return urlBroadcasterId;
     }
     
@@ -972,8 +980,6 @@ function waitForScriptsToLoad() {
 }
 
 // 聊天系統初始化已移至 script.js 的 initializeBroadcaster() 統一處理
-/*
-document.addEventListener('DOMContentLoaded', async function() {
     // 等待腳本加載完成
     console.log('等待腳本加載...');
     const scriptsLoaded = await waitForScriptsToLoad();
@@ -1506,3 +1512,6 @@ function setupModalEvents() {
 window.addEventListener('beforeunload', function() {
     stopLoginStatusMonitoring();
 });
+* / 
+ 
+ 

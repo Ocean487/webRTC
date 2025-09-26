@@ -85,15 +85,17 @@
     left: auto !important;
 }
 
-/* 直播信息區域美化 - 透明底色 */
-.stream-header {
-    background: rgba(255, 255, 255, 0.15) !important;
-    backdrop-filter: blur(15px) !important;
-    border-radius: 20px !important;
-    padding: 30px !important;
-    margin-top: 30px !important;
-    box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+/* 直播信息區域美化 - 透明底色 - 僅在平板和桌面端生效 */
+@media (min-width: 769px) {
+    .stream-header {
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(15px) !important;
+        border-radius: 20px !important;
+        padding: 30px !important;
+        margin-top: 30px !important;
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }
 }
 
 .streamer-info {
@@ -141,86 +143,66 @@
     gap: 20px !important;
 }
 
-.status-text {
-    font-weight: 600 !important;
-    color: #ff9500 !important;
-    display: flex !important;
-    align-items: center !important;
-    font-size: 16px !important;
-    padding: 8px 16px !important;
-    background: rgba(255, 149, 0, 0.2) !important;
-    border-radius: 25px !important;
-    border: 2px solid rgba(255, 149, 0, 0.4) !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+/* 狀態文字樣式 - 僅在平板和桌面端生效 */
+@media (min-width: 769px) {
+    .status-text {
+        font-weight: 600 !important;
+        color: #ff9500 !important;
+        display: flex !important;
+        align-items: center !important;
+        font-size: 16px !important;
+        padding: 8px 16px !important;
+        background: rgba(255, 149, 0, 0.2) !important;
+        border-radius: 25px !important;
+        border: 2px solid rgba(255, 149, 0, 0.4) !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+    }
 }
 
-.status-text.live {
-    background: rgba(244, 67, 54, 0.9) !important;
-    color: white !important;
-    border: 2px solid rgba(244, 67, 54, 0.8) !important;
-    font-weight: 700 !important;
-}
+/* 直播狀態樣式 - 僅在平板和桌面端生效 */
+@media (min-width: 769px) {
+    .status-text.live {
+        background: rgba(244, 67, 54, 0.9) !important;
+        color: white !important;
+        border: 2px solid rgba(244, 67, 54, 0.8) !important;
+        font-weight: 700 !important;
+    }
 
-.status-text::before {
-    content: '●' !important;
-    margin-right: 10px !important;
-    animation: pulse 2s infinite !important;
-    font-size: 12px !important;
-}
+    .status-text::before {
+        content: '●' !important;
+        margin-right: 10px !important;
+        animation: pulse 2s infinite !important;
+        font-size: 12px !important;
+    }
 
-@keyframes pulse {
-    0%, 100% { opacity: 0.6 !important; }
-    50% { opacity: 1 !important; }
-}
+    @keyframes pulse {
+        0%, 100% { opacity: 0.6 !important; }
+        50% { opacity: 1 !important; }
+    }
 
-.live-indicator {
-    display: none !important;
-    align-items: center !important;
-    background: linear-gradient(135deg, #ff4444, #ff6b6b) !important;
-    color: white !important;
-    padding: 10px 20px !important;
-    border-radius: 25px !important;
-    font-size: 14px !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    box-shadow: 0 4px 15px rgba(255, 68, 68, 0.4) !important;
-    letter-spacing: 0.5px !important;
-}
 
-.live-indicator.active {
-    display: flex !important;
-}
+    @keyframes blink {
+        0%, 100% { opacity: 1 !important; }
+        50% { opacity: 0.4 !important; }
+    }
 
-.live-dot {
-    width: 10px !important;
-    height: 10px !important;
-    background: white !important;
-    border-radius: 50% !important;
-    margin-right: 10px !important;
-    animation: blink 1s infinite !important;
-}
+    .viewer-count {
+        display: flex !important;
+        align-items: center !important;
+        color: white !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        padding: 10px 20px !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 25px !important;
+        text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
+    }
 
-@keyframes blink {
-    0%, 100% { opacity: 1 !important; }
-    50% { opacity: 0.4 !important; }
-}
-
-.viewer-count {
-    display: flex !important;
-    align-items: center !important;
-    color: white !important;
-    font-size: 16px !important;
-    font-weight: 600 !important;
-    padding: 10px 20px !important;
-    background: rgba(255, 255, 255, 0.1) !important;
-    border-radius: 25px !important;
-    text-shadow: 0 1px 2px rgba(0,0,0,0.5) !important;
-}
-
-.viewer-count i {
-    margin-right: 8px !important;
-    color: #667eea !important;
-    font-size: 18px !important;
+    .viewer-count i {
+        margin-right: 8px !important;
+        color: #667eea !important;
+        font-size: 18px !important;
+    }
 }
 
 /* 隱藏連接狀態指示器 */
@@ -284,8 +266,8 @@
     border: 1px solid rgba(255, 255, 255, 0.3) !important;
 }
 
-/* 響應式設計增強 */
-@media (max-width: 768px) {
+/* 響應式設計增強 - 僅在平板和桌面端生效 */
+@media (min-width: 769px) {
     #videoPlaceholder {
         height: 300px !important;
         padding: 40px 20px !important;

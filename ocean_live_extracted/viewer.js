@@ -18,7 +18,7 @@ function getStreamerIdFromUrl() {
 let targetStreamerId = getStreamerIdFromUrl();
 
 // 初始化
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     console.log('=== VibeLo 观众端初始化 ===');
     
     // 檢查 HTTPS 安全上下文
@@ -32,7 +32,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.warn('⚠️ 運行在 HTTP 環境中，建議使用 HTTPS');
     }
     
-    loadCurrentUser();
+    // 先載入用戶資訊
+    await loadCurrentUser();
+    console.log('🔍 [DEBUG] 載入用戶後的 currentUser:', currentUser);
     
     // 延遲初始化聊天系統，確保用戶信息已設置
     setTimeout(() => {
@@ -50,14 +52,41 @@ document.addEventListener('DOMContentLoaded', function() {
     displaySystemMessage('歡迎來到直播間！等待主播開始直播...');
 });
 
-// 載入當前用戶（觀看者頁面默認訪客模式）
-function loadCurrentUser() {
-    // 觀看者頁面直接以訪客模式運行，不檢查登入狀態
-    console.log('觀看者頁面：以訪客模式運行');
-            showGuestMode();
+// 載入當前用戶
+async function loadCurrentUser() {
+    console.log('觀看者頁面：檢查登入狀態');
     
-    // 注意：如果需要檢查登入狀態，可以通過用戶點擊頭像或選單來觸發
-    // 這樣可以避免頁面載入時的 401 錯誤
+    try {
+        console.log('🔍 [DEBUG] 發送 API 請求到 /api/user');
+        const response = await fetch('/api/user');
+        console.log('🔍 [DEBUG] API 響應狀態:', response.status);
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('🔍 [DEBUG] API 響應數據:', data);
+            
+            if (data.success && data.user) {
+                currentUser = data.user;
+                updateUserDisplay(currentUser);
+                console.log('✅ 檢測到已登入用戶:', currentUser.displayName);
+                
+                // 同步到 localStorage 以便其他功能使用
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                return;
+            } else {
+                console.log('❌ API 響應失敗或無用戶資料:', data);
+            }
+        } else {
+            console.log('❌ API 請求失敗，狀態碼:', response.status);
+        }
+    } catch (error) {
+        console.log('⚠️ 檢查登入狀態失敗，使用訪客模式:', error.message);
+    }
+    
+    // 如果未登入或檢查失敗，使用訪客模式
+    console.log('觀看者頁面：使用訪客模式');
+    localStorage.removeItem('currentUser');
+    showGuestMode();
 }
 
 // 更新用戶顯示
@@ -90,71 +119,12 @@ function showGuestMode() {
     console.log('已設置為訪客模式');
 }
 
-// 顯示訪客登入選項
-function showGuestLoginOptions() {
-    const userAvatar = document.getElementById('userAvatar');
-    if (!userAvatar) return;
-    
-    // 移除現有選單
-    const existingMenu = document.querySelector('.user-dropdown');
-    if (existingMenu) {
-        existingMenu.remove();
-        return;
-    }
-    
-    // 創建訪客登入選項選單
-    const menu = document.createElement('div');
-    menu.className = 'user-dropdown';
-    menu.style.opacity = '0';
-    menu.style.transform = 'translateY(-10px)';
-    menu.style.transition = 'all 0.15s ease-out';
-    
-    menu.innerHTML = `
-        <div class="menu-user-info">
-            <div class="menu-user-name">訪客模式</div>
-            <div style="font-size: 0.8rem; color: #6b7280;">點擊登入以獲得更好體驗</div>
-        </div>
-        <div class="menu-link" onclick="checkLoginStatusManually()">
-            <i class="fas fa-sync"></i>
-            檢查登入狀態
-        </div>
-        <a href="login.html" class="menu-link">
-            <i class="fas fa-sign-in-alt"></i>
-            前往登入
-        </a>
-        <a href="index.html" class="menu-link">
-            <i class="fas fa-home"></i>
-            回到首頁
-        </a>
-    `;
-    
-    userAvatar.style.position = 'relative';
-    userAvatar.appendChild(menu);
-    
-    // 显示动画
-    setTimeout(() => {
-        menu.style.opacity = '1';
-        menu.style.transform = 'translateY(0)';
-    }, 10);
-    
-    // 点击其他地方关闭菜单
-    setTimeout(() => {
-        function closeMenu(e) {
-            if (!userAvatar.contains(e.target)) {
-                menu.remove();
-                document.removeEventListener('click', closeMenu);
-            }
-        }
-        document.addEventListener('click', closeMenu);
-    }, 100);
-}
-
 // 手動檢查登入狀態（只在用戶主動請求時執行）
 async function checkLoginStatusManually() {
     console.log('用戶主動檢查登入狀態');
     
     try {
-        const response = await fetch('/api/user/current');
+        const response = await fetch('/api/user');
         if (response.ok) {
             const data = await response.json();
             if (data.success && data.user) {
@@ -259,7 +229,12 @@ function connectWebSocket() {
             initializePeerConnection();
             
             // 準備用戶信息
-            const userInfo = currentUser || { 
+            const userInfo = currentUser && !currentUser.isGuest ? {
+                displayName: currentUser.displayName,
+                avatarUrl: currentUser.avatarUrl || null,
+                isLoggedIn: true,
+                isGuest: false
+            } : { 
                 displayName: `觀眾${viewerId.substr(-3)}`, 
                 avatarUrl: null,
                 isGuest: true
@@ -344,10 +319,13 @@ function handleWebSocketMessage(data) {
             // 處理分配的用戶信息
             if (data.userInfo) {
                 console.log('👤 收到分配的用戶信息:', data.userInfo);
-                // 更新當前用戶信息（如果是Ghost用戶）
-                if (data.userInfo.isGuest && data.userInfo.displayName) {
+                // 只有在當前為訪客模式時才更新為 Ghost 用戶
+                if (data.userInfo.isGuest && data.userInfo.displayName && (!currentUser || currentUser.isGuest)) {
+                    console.log('🔄 更新為 Ghost 用戶:', data.userInfo.displayName);
                     currentUser = data.userInfo;
                     updateUserDisplay(currentUser);
+                } else if (currentUser && !currentUser.isGuest) {
+                    console.log('✅ 保持已登入用戶狀態，忽略 Ghost 分配');
                 }
             }
             
@@ -455,7 +433,6 @@ function handleStreamStarted(data) {
     
     const streamVideo = document.getElementById('streamVideo');
     const videoPlaceholder = document.getElementById('videoPlaceholder');
-    const liveIndicator = document.getElementById('liveIndicator');
     const streamTitle = document.getElementById('streamTitle');
     const streamerName = document.getElementById('streamerName');
     const statusText = document.getElementById('statusText');
@@ -463,7 +440,6 @@ function handleStreamStarted(data) {
     console.log('🔍 [DEBUG] DOM元素檢查:');
     console.log('  - streamVideo:', !!streamVideo);
     console.log('  - videoPlaceholder:', !!videoPlaceholder);
-    console.log('  - liveIndicator:', !!liveIndicator);
     console.log('  - streamTitle:', !!streamTitle);
     console.log('  - streamerName:', !!streamerName);
     console.log('  - statusText:', !!statusText);
@@ -475,10 +451,6 @@ function handleStreamStarted(data) {
     }
     
     if (videoPlaceholder) videoPlaceholder.style.display = 'none';
-    if (liveIndicator) {
-        liveIndicator.style.display = 'flex';
-        console.log('✅ 已顯示直播指示器');
-    }
     
     // 更新主播名稱為直播狀態
     if (streamerName) {
@@ -606,13 +578,11 @@ function handleStreamStatus(data) {
     const statusText = document.getElementById('statusText');
     const streamTitle = document.getElementById('streamTitle');
     const videoPlaceholder = document.getElementById('videoPlaceholder');
-    const liveIndicator = document.getElementById('liveIndicator');
     
     if (data.status === 'live') {
         // 直播進行中
-        if (statusText) statusText.textContent = '';
+        if (statusText) statusText.textContent = '直播中';
         if (videoPlaceholder) videoPlaceholder.style.display = 'none';
-        if (liveIndicator) liveIndicator.style.display = 'flex';
         
         // 更新標題
         if (streamTitle && data.title) {
@@ -675,13 +645,11 @@ function handleStreamEnded() {
     console.log('直播結束');
     
     const videoPlaceholder = document.getElementById('videoPlaceholder');
-    const liveIndicator = document.getElementById('liveIndicator');
     const remoteVideo = document.getElementById('remoteVideo');
     const playPrompt = document.getElementById('playPrompt');
     const streamTitle = document.getElementById('streamTitle');
     
     if (videoPlaceholder) videoPlaceholder.style.display = 'block';
-    if (liveIndicator) liveIndicator.style.display = 'none';
     if (remoteVideo) remoteVideo.style.display = 'none';
     if (playPrompt) playPrompt.style.display = 'none';
     
@@ -1062,7 +1030,12 @@ function initializePeerConnection() {
                             type: 'viewer_join',
                             viewerId: viewerId,
                             streamerId: targetStreamerId,
-                            userInfo: currentUser || { displayName: `觀眾${viewerId.substr(-3)}`, avatarUrl: null }
+                            userInfo: currentUser && !currentUser.isGuest ? {
+                                displayName: currentUser.displayName,
+                                avatarUrl: currentUser.avatarUrl || null,
+                                isLoggedIn: true,
+                                isGuest: false
+                            } : { displayName: `觀眾${viewerId.substr(-3)}`, avatarUrl: null, isGuest: true }
                         }));
                         
                         displaySystemMessage(`🔄 正在重新連接... (${reconnectAttempts}/${maxReconnectAttempts})`);
@@ -1275,7 +1248,7 @@ function updateConnectionStatus() {
         statusText.textContent = '视频连接中...';
         statusText.className = 'status-text connecting';
     } else if (peerConnection.connectionState === 'connected') {
-        statusText.textContent = '';
+        statusText.textContent = '直播中';
         statusText.className = 'status-text live';
     } else if (peerConnection.connectionState === 'failed') {
         statusText.textContent = '视频连接失败，正在重试...';
@@ -1368,12 +1341,15 @@ function updateViewerCount(count) {
 function toggleUserMenu() {
     console.log('toggleUserMenu 被調用，currentUser:', currentUser);
     
-    // 如果是訪客模式，提供登入選項
+    // 如果是訪客模式，直接跳轉到登入頁面
     if (!currentUser || currentUser.isGuest) {
-        console.log('訪客點擊頭像，提供登入選項');
-        showGuestLoginOptions();
+        console.log('訪客點擊頭像，跳轉到登入頁面');
+        window.location.href = 'login.html';
         return;
     }
+    
+    // 已登入用戶顯示下拉選單
+    console.log('已登入用戶點擊頭像，顯示下拉選單');
     
     // 移除現有選單
     const existingMenu = document.querySelector('.user-dropdown');
@@ -1398,7 +1374,7 @@ function toggleUserMenu() {
     
     console.log('創建新的下拉選單');
     
-    const currentUserName = getCurrentUserName() || 'Ghost_觀眾';
+    const currentUserName = getCurrentUserName() || '觀眾';
     
     // 創建下拉選單 - 已登入觀眾版本
     const menu = document.createElement('div');
@@ -1407,43 +1383,31 @@ function toggleUserMenu() {
     menu.style.transform = 'translateY(-10px)';
     menu.style.transition = 'all 0.15s ease-out';
     
-    // 根據用戶類型顯示不同的選單
-    if (currentUser.isGuest) {
-        // 訪客選單
-        menu.innerHTML = `
-            <div class="menu-user-info">
-                <div class="menu-user-name">${currentUserName}</div>
-                <div style="font-size: 0.8rem; color: #6b7280;">訪客模式</div>
-            </div>
-            <a href="login.html" class="menu-link">
-                <i class="fas fa-sign-in-alt"></i>
-                登入以直播
-            </a>
-            <a href="index.html" class="menu-link">
-                <i class="fas fa-home"></i>
-                回到首頁
-            </a>
-        `;
-    } else {
-    // 已登入觀眾選單
     menu.innerHTML = `
         <div class="menu-user-info">
             <div class="menu-user-name">${currentUserName}</div>
         </div>
-        <a href="livestream_platform.html" class="menu-link">
-            <i class="fas fa-video"></i>
-            我要直播
-        </a>
         <a href="index.html" class="menu-link">
             <i class="fas fa-home"></i>
-            回到首頁
+            首頁
+        </a>
+        <a href="browse.html" class="menu-link">
+            <i class="fas fa-eye"></i>
+            瀏覽直播
+        </a>
+        <a href="livestream_platform.html" class="menu-link">
+            <i class="fas fa-video"></i>
+            開始直播
+        </a>
+        <a href="about.html" class="menu-link">
+            <i class="fas fa-info-circle"></i>
+            關於平台
         </a>
         <div class="menu-link" onclick="logout()">
             <i class="fas fa-sign-out-alt"></i>
             登出
         </div>
     `;
-    }
     
     userAvatar.style.position = 'relative';
     userAvatar.appendChild(menu);
@@ -1653,7 +1617,12 @@ window.forceReconnect = function() {
                 type: 'viewer_join',
                 viewerId: viewerId,
                 streamerId: targetStreamerId,
-                userInfo: currentUser || { displayName: `观众${viewerId.substr(-3)}`, avatarUrl: null }
+                userInfo: currentUser && !currentUser.isGuest ? {
+                    displayName: currentUser.displayName,
+                    avatarUrl: currentUser.avatarUrl || null,
+                    isLoggedIn: true,
+                    isGuest: false
+                } : { displayName: `观众${viewerId.substr(-3)}`, avatarUrl: null, isGuest: true }
             }));
             console.log('已发送重新加入请求');
         }
@@ -1683,7 +1652,12 @@ setInterval(function() {
                 type: 'viewer_join',
                 viewerId: viewerId,
                 streamerId: targetStreamerId,
-                userInfo: currentUser || { displayName: `观众${viewerId.substr(-3)}`, avatarUrl: null }
+                userInfo: currentUser && !currentUser.isGuest ? {
+                    displayName: currentUser.displayName,
+                    avatarUrl: currentUser.avatarUrl || null,
+                    isLoggedIn: true,
+                    isGuest: false
+                } : { displayName: `观众${viewerId.substr(-3)}`, avatarUrl: null, isGuest: true }
             }));
         }
         
@@ -1791,7 +1765,12 @@ window.requestStream = function() {
         type: 'viewer_join',
         viewerId: viewerId,
         streamerId: targetStreamerId,
-        userInfo: currentUser || { displayName: `觀眾${viewerId.substr(-3)}`, avatarUrl: null },
+        userInfo: currentUser && !currentUser.isGuest ? {
+            displayName: currentUser.displayName,
+            avatarUrl: currentUser.avatarUrl || null,
+            isLoggedIn: true,
+            isGuest: false
+        } : { displayName: `觀眾${viewerId.substr(-3)}`, avatarUrl: null, isGuest: true },
         timestamp: Date.now()
     };
     

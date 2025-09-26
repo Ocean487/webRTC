@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RWD 測試工具 - VibeLo</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .device-selector {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .device-btn {
+            padding: 10px 20px;
+            border: 2px solid #007bff;
+            background: white;
+            color: #007bff;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .device-btn:hover,
+        .device-btn.active {
+            background: #007bff;
+            color: white;
+        }
+        
+        .preview-frame {
+            width: 100%;
+            height: 600px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .preview-frame iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            transform-origin: top left;
+            transition: transform 0.3s ease;
+        }
+        
+        .device-info {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        .device-info h3 {
+            margin: 0 0 10px 0;
+            color: #495057;
+        }
+        
+        .device-info p {
+            margin: 5px 0;
+            color: #6c757d;
+        }
+        
+        .test-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .test-btn {
+            padding: 8px 16px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .test-btn:hover {
+            background: #218838;
+        }
+        
+        .test-btn.secondary {
+            background: #6c757d;
+        }
+        
+        .test-btn.secondary:hover {
+            background: #5a6268;
+        }
+        
+        .status-indicator {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status-indicator.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status-indicator.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        
+        @media (max-width: 768px) {
+            .device-selector {
+                flex-direction: column;
+            }
+            
+            .device-btn {
+                width: 100%;
+            }
+            
+            .preview-frame {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>📱 VibeLo 觀眾端 RWD 測試工具</h1>
+    
+    <div class="test-container">
+        <h2>🎯 設備預覽</h2>
+        
+        <div class="device-selector">
+            <button class="device-btn active" data-device="desktop" data-width="100%" data-height="600px">
+                🖥️ 桌面端 (100%)
+            </button>
+            <button class="device-btn" data-device="laptop" data-width="1024px" data-height="600px">
+                💻 筆電 (1024px)
+            </button>
+            <button class="device-btn" data-device="tablet" data-width="768px" data-height="600px">
+                📱 平板 (768px)
+            </button>
+            <button class="device-btn" data-device="mobile" data-width="375px" data-height="600px">
+                📱 手機 (375px)
+            </button>
+            <button class="device-btn" data-device="mobile-small" data-width="320px" data-height="600px">
+                📱 小手機 (320px)
+            </button>
+            <button class="device-btn" data-device="mobile-large" data-width="414px" data-height="600px">
+                📱 大手機 (414px)
+            </button>
+        </div>
+        
+        <div class="device-info">
+            <h3 id="deviceName">桌面端預覽</h3>
+            <p id="deviceSize">寬度: 100% | 高度: 600px</p>
+            <p id="deviceDescription">完整桌面端體驗，適合大螢幕顯示</p>
+        </div>
+        
+        <div class="preview-frame">
+            <iframe id="previewFrame" src="viewer.html" title="觀眾端預覽"></iframe>
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <h2>🧪 測試功能</h2>
+        
+        <div class="test-buttons">
+            <button class="test-btn" onclick="refreshPreview()">🔄 重新載入預覽</button>
+            <button class="test-btn" onclick="openInNewTab()">🔗 在新分頁開啟</button>
+            <button class="test-btn secondary" onclick="testOrientation()">🔄 測試橫向模式</button>
+            <button class="test-btn secondary" onclick="testTouch()">👆 測試觸控</button>
+            <button class="test-btn secondary" onclick="testDarkMode()">🌙 測試深色模式</button>
+        </div>
+        
+        <div class="status-indicator success" id="statusIndicator">
+            ✅ RWD 測試工具已就緒
+        </div>
+    </div>
+    
+    <div class="test-container">
+        <h2>📊 RWD 功能說明</h2>
+        
+        <h3>📱 手機端 (320px - 767px)</h3>
+        <ul>
+            <li>垂直佈局，直播和聊天區域上下排列</li>
+            <li>固定頂部導航欄</li>
+            <li>較小的視頻高度 (200px)</li>
+            <li>全寬聊天輸入框</li>
+            <li>觸控優化 (44px 最小觸控目標)</li>
+        </ul>
+        
+        <h3>📱 平板端 (768px - 1023px)</h3>
+        <ul>
+            <li>水平佈局，直播和聊天區域左右排列</li>
+            <li>適中的視頻高度 (300px)</li>
+            <li>聊天區域最小寬度 300px</li>
+            <li>平衡的內容分佈</li>
+        </ul>
+        
+        <h3>🖥️ 桌面端 (1024px+)</h3>
+        <ul>
+            <li>最佳觀看體驗</li>
+            <li>較大的視頻高度 (400px)</li>
+            <li>聊天區域最小寬度 350px</li>
+            <li>最大寬度限制 1400px</li>
+        </ul>
+        
+        <h3>🖥️ 超寬螢幕 (1400px+)</h3>
+        <ul>
+            <li>最大寬度限制 1600px</li>
+            <li>更大的視頻高度 (500px)</li>
+            <li>聊天區域最小寬度 400px</li>
+        </ul>
+        
+        <h3>🎨 特殊功能</h3>
+        <ul>
+            <li>深色模式支援</li>
+            <li>減少動畫 (用戶偏好)</li>
+            <li>高DPI螢幕優化</li>
+            <li>橫向手機模式</li>
+            <li>打印樣式</li>
+        </ul>
+    </div>
+
+    <script>
+        let currentDevice = 'desktop';
+        let isLandscape = false;
+        
+        // 設備信息
+        const deviceInfo = {
+            desktop: {
+                name: '桌面端預覽',
+                size: '寬度: 100% | 高度: 600px',
+                description: '完整桌面端體驗，適合大螢幕顯示'
+            },
+            laptop: {
+                name: '筆電預覽',
+                size: '寬度: 1024px | 高度: 600px',
+                description: '筆電螢幕尺寸，平衡的顯示效果'
+            },
+            tablet: {
+                name: '平板預覽',
+                size: '寬度: 768px | 高度: 600px',
+                description: '平板設備，水平佈局顯示'
+            },
+            mobile: {
+                name: '手機預覽',
+                size: '寬度: 375px | 高度: 600px',
+                description: '標準手機尺寸，垂直佈局顯示'
+            },
+            'mobile-small': {
+                name: '小手機預覽',
+                size: '寬度: 320px | 高度: 600px',
+                description: '小尺寸手機，緊湊佈局'
+            },
+            'mobile-large': {
+                name: '大手機預覽',
+                size: '寬度: 414px | 高度: 600px',
+                description: '大尺寸手機，如 iPhone Plus'
+            }
+        };
+        
+        // 設備選擇
+        document.querySelectorAll('.device-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // 移除所有active類別
+                document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
+                // 添加active類別到當前按鈕
+                this.classList.add('active');
+                
+                // 獲取設備信息
+                const device = this.dataset.device;
+                const width = this.dataset.width;
+                const height = this.dataset.height;
+                
+                currentDevice = device;
+                
+                // 更新預覽框架
+                const iframe = document.getElementById('previewFrame');
+                const frame = iframe.parentElement;
+                
+                if (width === '100%') {
+                    frame.style.width = '100%';
+                    iframe.style.transform = 'scale(1)';
+                } else {
+                    const scale = Math.min(1, window.innerWidth / parseInt(width));
+                    frame.style.width = width;
+                    iframe.style.transform = `scale(${scale})`;
+                }
+                
+                frame.style.height = height;
+                
+                // 更新設備信息
+                const info = deviceInfo[device];
+                document.getElementById('deviceName').textContent = info.name;
+                document.getElementById('deviceSize').textContent = info.size;
+                document.getElementById('deviceDescription').textContent = info.description;
+                
+                updateStatus(`已切換到 ${info.name}`);
+            });
+        });
+        
+        // 重新載入預覽
+        function refreshPreview() {
+            const iframe = document.getElementById('previewFrame');
+            iframe.src = iframe.src;
+            updateStatus('預覽已重新載入');
+        }
+        
+        // 在新分頁開啟
+        function openInNewTab() {
+            window.open('viewer.html', '_blank');
+            updateStatus('已在新分頁開啟觀眾端');
+        }
+        
+        // 測試橫向模式
+        function testOrientation() {
+            isLandscape = !isLandscape;
+            const iframe = document.getElementById('previewFrame');
+            const frame = iframe.parentElement;
+            
+            if (isLandscape) {
+                frame.style.width = '600px';
+                frame.style.height = '400px';
+                iframe.style.transform = 'scale(1)';
+                updateStatus('已切換到橫向模式');
+            } else {
+                // 恢復當前設備設定
+                const activeBtn = document.querySelector('.device-btn.active');
+                const width = activeBtn.dataset.width;
+                const height = activeBtn.dataset.height;
+                
+                frame.style.width = width;
+                frame.style.height = height;
+                
+                if (width !== '100%') {
+                    const scale = Math.min(1, window.innerWidth / parseInt(width));
+                    iframe.style.transform = `scale(${scale})`;
+                } else {
+                    iframe.style.transform = 'scale(1)';
+                }
+                
+                updateStatus('已恢復到直向模式');
+            }
+        }
+        
+        // 測試觸控
+        function testTouch() {
+            updateStatus('觸控測試：請在預覽區域測試觸控操作');
+            
+            // 添加觸控測試樣式
+            const iframe = document.getElementById('previewFrame');
+            iframe.style.border = '3px solid #007bff';
+            
+            setTimeout(() => {
+                iframe.style.border = '2px solid #ddd';
+                updateStatus('觸控測試完成');
+            }, 3000);
+        }
+        
+        // 測試深色模式
+        function testDarkMode() {
+            updateStatus('深色模式測試：請檢查預覽區域是否支援深色模式');
+            
+            // 發送深色模式測試消息到iframe
+            const iframe = document.getElementById('previewFrame');
+            iframe.contentWindow.postMessage({type: 'testDarkMode'}, '*');
+        }
+        
+        // 更新狀態指示器
+        function updateStatus(message) {
+            const indicator = document.getElementById('statusIndicator');
+            indicator.textContent = message;
+            indicator.className = 'status-indicator info';
+            
+            setTimeout(() => {
+                indicator.textContent = '✅ RWD 測試工具已就緒';
+                indicator.className = 'status-indicator success';
+            }, 2000);
+        }
+        
+        // 監聽來自iframe的消息
+        window.addEventListener('message', function(event) {
+            if (event.data.type === 'darkModeTest') {
+                updateStatus('深色模式測試完成');
+            }
+        });
+        
+        // 頁面載入完成
+        window.addEventListener('load', function() {
+            updateStatus('RWD 測試工具已載入完成');
+        });
+    </script>
+</body>
+</html>

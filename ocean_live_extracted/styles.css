@@ -482,11 +482,11 @@ body {
     margin-bottom: 1rem;
 }
 
-.stream-thumbnail {
+/* .stream-thumbnail {
     width: 100%;
     height: 100%;
     object-fit: cover;
-}
+} */
 
 .stream-info-overlay {
     position: absolute;
@@ -1166,7 +1166,7 @@ body {
 
 .share-btn {
     background: rgba(255, 255, 255, 0.1);
-    color: white;
+    color: rgb(0, 0, 0);
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 

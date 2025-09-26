@@ -283,13 +283,26 @@ wss.on('connection', function connection(ws, req) {
 // 處理主播加入
 function handleBroadcasterJoin(ws, message) {
     console.log('主播已加入');
+    console.log('🔍 [DEBUG] 收到的 userInfo:', message.userInfo);
+    
     const userInfo = message.userInfo || {
         displayName: '主播',
         avatarUrl: null,
         isLoggedIn: false
     };
     
-    const broadcasterId = message.broadcasterId || `broadcaster_${Date.now()}`;
+    console.log('🔍 [DEBUG] 最終使用的 userInfo:', userInfo);
+    
+    // 使用用戶ID作為主播ID，如果沒有則使用時間戳
+    let broadcasterId = message.broadcasterId;
+    
+    // 如果broadcasterId包含用戶ID，提取用戶ID
+    if (broadcasterId && broadcasterId.startsWith('broadcaster_')) {
+        const userId = broadcasterId.replace('broadcaster_', '');
+        broadcasterId = userId; // 使用實際的用戶ID
+    } else if (!broadcasterId) {
+        broadcasterId = `broadcaster_${Date.now()}`;
+    }
     
     broadcaster = {
         ws: ws,
@@ -1375,28 +1388,47 @@ app.get('/api/live-streams', async (req, res) => {
                     .filter(conn => conn.type === 'viewer' && conn.streamerId === userId)
                     .length;
                 
-                // 獲取用戶資訊
-                try {
-                    const user = await db.getUserById(userId);
-                    if (user) {
+                // 優先使用WebSocket中的用戶資訊
+                console.log('🔍 [DEBUG] 處理直播流:', userId, 'userInfo:', streamerData.userInfo);
+                
+                if (streamerData.userInfo && streamerData.userInfo.displayName) {
+                    console.log('✅ 使用 WebSocket userInfo.displayName:', streamerData.userInfo.displayName);
+                    liveStreams.push({
+                        userId: userId,
+                        username: streamerData.userInfo.displayName,
+                        viewerCount: viewerCount,
+                        startTime: streamerData.startTime || new Date(),
+                        status: 'live'
+                    });
+                } else {
+                    // 備用：從資料庫獲取用戶資訊
+                    console.log('⚠️ WebSocket userInfo 不可用，嘗試從資料庫獲取用戶資訊');
+                    try {
+                        const user = await db.getUserById(userId);
+                        if (user) {
+                            console.log('✅ 從資料庫獲取用戶資訊:', user.displayName || user.username);
+                            liveStreams.push({
+                                userId: userId,
+                                username: user.displayName || user.username,
+                                viewerCount: viewerCount,
+                                startTime: streamerData.startTime || new Date(),
+                                status: 'live'
+                            });
+                        } else {
+                            console.log('❌ 資料庫中找不到用戶:', userId);
+                        }
+                    } catch (userError) {
+                        console.error('獲取用戶資訊失敗:', userError);
+                        // 使用預設資訊
+                        console.log('⚠️ 使用預設用戶名:', `用戶${userId.substring(0, 8)}`);
                         liveStreams.push({
                             userId: userId,
-                            username: user.username,
+                            username: `用戶${userId.substring(0, 8)}`,
                             viewerCount: viewerCount,
                             startTime: streamerData.startTime || new Date(),
                             status: 'live'
                         });
                     }
-                } catch (userError) {
-                    console.error('獲取用戶資訊失敗:', userError);
-                    // 使用預設資訊
-                    liveStreams.push({
-                        userId: userId,
-                        username: `用戶${userId.substring(0, 8)}`,
-                        viewerCount: viewerCount,
-                        startTime: streamerData.startTime || new Date(),
-                        status: 'live'
-                    });
                 }
             }
         }

@@ -11,6 +11,16 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 自動跳轉到預覽頁面 -->
+    <script>
+        // 檢查是否為根路徑訪問（只檢查 / 路徑）
+        if (window.location.pathname === '/') {
+            // 立即跳轉到預覽頁面
+            window.location.replace('preview.html');
+        }
+    </script>
+    
     <style>
         * {
             margin: 0;
@@ -333,8 +343,153 @@
 
         .activity-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* 直播卡片樣式 - 與browse.html一致 */
+        .stream-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .stream-card:hover {
+            transform: translateY(-5px);
+            border-color: #ff6b35;
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.2);
+        }
+
+        .stream-thumbnail {
+            position: relative;
+            aspect-ratio: 16/9;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .stream-thumbnail .live-indicator {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: #ff6b35;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stream-thumbnail .live-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .stream-thumbnail .viewer-count {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stream-info {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .streamer-profile {
+            display: flex;
+            align-items: center;
             gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .streamer-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .streamer-details h3 {
+            color: #1f2937;
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .streamer-details p {
+            color: #6b7280;
+            margin: 0.3rem 0 0 0;
+            font-size: 0.9rem;
+        }
+
+        .stream-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
+            color: rgb(255, 255, 255);
+        }
+
+        .action-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+        }
+
+        .action-btn.secondary {
+            background: rgba(253, 249, 25, 0.856);
+            color: rgb(0, 0, 0);
+            border: 1px solid rgba(245, 228, 74, 0.699);
+        }
+
+        .action-btn.secondary:hover {
+            background: rgba(253, 249, 25, 0.856);
+            color: rgb(0, 0, 0);
+            border: 1px solid rgba(245, 228, 74, 0.699);
         }
 
         .activity-item {
@@ -514,13 +669,12 @@
             <div class="nav-links">
                 <a href="index.html" class="nav-link active">首頁</a>
                 <a href="browse.html" class="nav-link">瀏覽直播</a>
-                <a href="livestream_platform.html" class="nav-link">直播管理</a>
-                <a href="viewer.html" class="nav-link">觀看直播</a>
+                <a href="livestream_platform.html?broadcaster=current" class="nav-link">開始直播</a>
                 <a href="about.html" class="nav-link">關於</a>
             </div>
             
             <div class="user-menu">
-                <a href="livestream_platform.html" class="start-stream-btn">
+                <a href="livestream_platform.html?broadcaster=current" class="start-stream-btn">
                     <i class="fas fa-video"></i>
                     開始直播
                 </a>
@@ -540,11 +694,11 @@
                     <h1>歡迎來到 <span style="color: #667eea;">VibeLo</span></h1>
                     <p>專業的直播平台，讓您的創意與世界分享。開始您的直播之旅，與觀眾建立更深層的連結。</p>
                     <div class="quick-actions">
-                        <a href="livestream_platform.html" class="action-btn">
+                        <a href="livestream_platform.html?broadcaster=current" class="action-btn">
                             <i class="fas fa-video"></i>
                             立即開播
                         </a>
-                        <a href="viewer.html" class="action-btn secondary">
+                        <a href="browse.html" class="action-btn secondary">
                             <i class="fas fa-eye"></i>
                             觀看直播
                         </a>
@@ -577,7 +731,7 @@
                     </div>
                     <h3>高品質直播</h3>
                     <p>支援高清畫質直播，提供穩定的串流服務，讓您的內容以最佳品質呈現給觀眾。</p>
-                    <a href="livestream_platform.html" class="feature-btn">開始直播</a>
+                    <a href="livestream_platform.html?broadcaster=current" class="feature-btn">開始直播</a>
                 </div>
                 
                 <div class="feature-card">
@@ -586,7 +740,7 @@
                     </div>
                     <h3>即時互動</h3>
                     <p>即時聊天室功能，與觀眾進行零延遲互動，建立更親密的社群連結。</p>
-                    <a href="viewer.html" class="feature-btn">體驗互動</a>
+                    <a href="browse.html" class="feature-btn">體驗互動</a>
                 </div>
                 
                 <div class="feature-card">
@@ -595,7 +749,7 @@
                     </div>
                     <h3>數據分析</h3>
                     <p>詳細的觀看數據和分析報告，幫助您了解觀眾喜好，優化直播內容。</p>
-                    <a href="livestream_platform.html" class="feature-btn">查看數據</a>
+                    <a href="livestream_platform.html?broadcaster=current" class="feature-btn">查看數據</a>
                 </div>
             </div>
         </section>
@@ -616,6 +770,7 @@
             </div>
         </section>
     </main>
+
 
     <script>
         // 載入用戶資訊
@@ -638,6 +793,19 @@
 
         // 切換用戶選單
         function toggleUserMenu() {
+            // 檢查是否為訪客模式
+            const userAvatar = document.getElementById('userAvatar');
+            if (!userAvatar) {
+                console.error('用戶頭像元素未找到');
+                return;
+            }
+            
+            // 如果頭像顯示的是預設圖標（訪客模式），直接跳轉到登入頁面
+            if (userAvatar.innerHTML.includes('fa-user') && !userAvatar.title) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
             // 移除現有選單
             const existingMenu = document.querySelector('.user-dropdown');
             if (existingMenu) {
@@ -648,13 +816,6 @@
                         existingMenu.remove();
                     }
                 }, 150);
-                return;
-            }
-            
-            // 獲取當前用戶名稱
-            const userAvatar = document.getElementById('userAvatar');
-            if (!userAvatar) {
-                console.error('用戶頭像元素未找到');
                 return;
             }
             
@@ -671,11 +832,11 @@
                 <div class="menu-user-info">
                     <div class="menu-user-name">${currentUserName}</div>
                 </div>
-                <a href="livestream_platform.html" class="menu-link">
+                <a href="livestream_platform.html?broadcaster=current" class="menu-link">
                     <i class="fas fa-video"></i>
-                    直播管理
+                    開始直播
                 </a>
-                <a href="viewer.html" class="menu-link">
+                <a href="browse.html" class="menu-link">
                     <i class="fas fa-eye"></i>
                     觀看直播
                 </a>
@@ -749,6 +910,7 @@
             window.location.href = 'preview.html';
         }
 
+
         // 更新統計數據
         function updateStats() {
             // 模擬統計數據
@@ -763,8 +925,8 @@
                 const data = await response.json();
                 
                 if (!data.success || !data.user) {
-                    // 如果未登入，跳轉到預覽頁面
-                    window.location.href = 'preview.html';
+                    // 如果未登入，允許訪客模式，不跳轉
+                    console.log('訪客模式');
                     return;
                 }
                 
@@ -772,7 +934,8 @@
                 localStorage.setItem('currentUser', JSON.stringify(data.user));
             } catch (error) {
                 console.error('檢查認證狀態失敗:', error);
-                window.location.href = 'preview.html';
+                // 允許訪客模式，不跳轉
+                console.log('訪客模式');
             }
         }
 
@@ -809,25 +972,36 @@
                 if (data.success && data.streams && data.streams.length > 0) {
                     // 顯示直播列表
                     grid.innerHTML = data.streams.map(stream => `
-                        <div class="live-stream-item" onclick="watchStream('${stream.userId}')">
-                            <div class="live-streamer-info">
-                                <div class="live-avatar">${stream.username.substring(0, 2).toUpperCase()}</div>
-                                <div class="live-details">
-                                    <h4>${stream.username}</h4>
-                                    <div class="live-status">
-                                        <div class="live-dot"></div>
-                                        <span>正在直播</span>
-                                        <span>・${stream.viewerCount || 0} 觀眾</span>
+                        <div class="stream-card" onclick="watchStream('${stream.userId}')">
+                            <div class="stream-thumbnail">
+                                <div class="live-indicator">
+                                    <div class="live-dot"></div>
+                                    LIVE
+                                </div>
+                                <div class="viewer-count">
+                                    <i class="fas fa-eye"></i>
+                                    ${stream.viewerCount || 0}
+                                </div>
+                                <i class="fas fa-video" style="font-size: 3rem; color: rgba(255,255,255,0.3);"></i>
+                            </div>
+                            <div class="stream-info">
+                                <div class="streamer-profile">
+                                    <div class="streamer-avatar">${stream.username.substring(0, 2).toUpperCase()}</div>
+                                    <div class="streamer-details">
+                                        <h3>${stream.username}</h3>
+                                        <p>正在直播中</p>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="live-actions">
-                                <button class="watch-btn" onclick="event.stopPropagation(); watchStream('${stream.userId}')">
-                                    <i class="fas fa-play"></i> 觀看
-                                </button>
-                                <button class="share-btn" onclick="event.stopPropagation(); shareStream('${stream.userId}', '${stream.username}')">
-                                    <i class="fas fa-share"></i> 分享
-                                </button>
+                                <div class="stream-actions">
+                                    <button class="action-btn primary" onclick="event.stopPropagation(); watchStream('${stream.userId}')">
+                                        <i class="fas fa-play"></i>
+                                        觀看
+                                    </button>
+                                    <button class="action-btn secondary" onclick="event.stopPropagation(); shareStream('${stream.userId}', '${stream.username}')">
+                                        <i class="fas fa-share"></i>
+                                        分享
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     `).join('');
@@ -836,7 +1010,7 @@
                     grid.innerHTML = `
                         <div class="no-streams-message">
                             <h3><i class="fas fa-video-slash"></i> 目前沒有直播</h3>
-                            <p>沒有用戶正在直播，<a href="livestream_platform.html" style="color: #4ecdc4;">點擊這裡開始你的直播</a></p>
+                            <p>沒有用戶正在直播，<a href="livestream_platform.html?broadcaster=current" style="color: #4ecdc4;">點擊這裡開始你的直播</a></p>
                         </div>
                     `;
                 }
@@ -853,13 +1027,7 @@
 
         // 觀看直播
         function watchStream(userId) {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) {
-                alert('請先登入才能觀看直播');
-                window.location.href = 'login.html';
-                return;
-            }
-            
+            // 允許訪客模式觀看，不需要登入
             // 跳轉到觀看頁面
             window.location.href = `viewer.html?streamer=${userId}`;
         }

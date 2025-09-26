@@ -1384,9 +1384,14 @@ function getCurrentUser() {
 
 // 獲取當前用戶完整信息
 function getCurrentUserInfo() {
+    console.log('🔍 [DEBUG] getCurrentUserInfo 被調用');
+    console.log('🔍 [DEBUG] window.currentUser:', window.currentUser);
+    console.log('🔍 [DEBUG] currentUser:', currentUser);
+    
     // 首先檢查全局變數 currentUser (必須是已登入用戶)
     if (window.currentUser || currentUser) {
         const user = window.currentUser || currentUser;
+        console.log('🔍 [DEBUG] 找到用戶:', user);
         
         // 如果是訪客，返回null
         if (user.isGuest) {
@@ -1394,12 +1399,15 @@ function getCurrentUserInfo() {
             return null;
         }
         
-        return {
+        const userInfo = {
             displayName: user.displayName || user.username,
             avatarUrl: user.avatarUrl || user.avatar || null,
             isLoggedIn: true,
             isGuest: false
         };
+        
+        console.log('✅ 返回用戶資訊:', userInfo);
+        return userInfo;
     }
     
     console.log('❌ 未找到已登入用戶');
@@ -1572,6 +1580,7 @@ function connectToStreamingServer() {
             
             // 獲取主播用戶信息
             const userInfo = getCurrentUserInfo();
+            console.log('🔍 [DEBUG] WebSocket 連線時獲取的 userInfo:', userInfo);
             
             if (!userInfo) {
                 console.log('❌ 無法獲取用戶信息，斷開連接');
@@ -1580,11 +1589,14 @@ function connectToStreamingServer() {
             }
             
             // 發送主播加入訊息，包含用戶信息
-            streamingSocket.send(JSON.stringify({
+            const joinMessage = {
                 type: 'broadcaster_join',
                 broadcasterId: getBroadcasterId(),
                 userInfo: userInfo
-            }));
+            };
+            
+            console.log('🔍 [DEBUG] 發送主播加入訊息:', joinMessage);
+            streamingSocket.send(JSON.stringify(joinMessage));
         };
         
         streamingSocket.onmessage = function(event) {
