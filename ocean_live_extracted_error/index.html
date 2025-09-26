@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VibeLo - 直播平台</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- 自動跳轉到預覽頁面 -->
+    <script>
+        // 檢查是否為根路徑訪問（只檢查 / 路徑）
+        if (window.location.pathname === '/') {
+            // 立即跳轉到預覽頁面
+            window.location.replace('preview.html');
+        }
+    </script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        /* 頂部導航欄 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .logo i {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #4b5563;
+            font-weight: 500;
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+        }
+
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .start-stream-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .start-stream-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.2s ease;
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .user-avatar:active {
+            transform: scale(0.95);
+        }
+
+        /* 主要內容區 */
+        .main-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        /* 歡迎區塊 */
+        .welcome-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .welcome-content {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .welcome-text h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+
+        .welcome-text p {
+            font-size: 1.2rem;
+            color: #6b7280;
+            margin-bottom: 1.5rem;
+        }
+
+        .quick-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3);
+        }
+
+        .action-btn.secondary {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+        }
+
+        .action-btn.secondary:hover {
+            box-shadow: 0 8px 25px rgba(245, 158, 11, 0.3);
+        }
+
+        .welcome-stats {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 12px;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        /* 功能卡片區 */
+        .features-section {
+            margin-bottom: 2rem;
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 16px;
+            padding: 2rem;
+            text-align: center;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .feature-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1.5rem;
+            color: white;
+            font-size: 2rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card p {
+            color: #6b7280;
+            line-height: 1.6;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-btn {
+            background: transparent;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+        }
+
+        .feature-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+
+        /* 最近活動區 */
+        .activity-section {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .activity-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .activity-header h2 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .view-all-btn {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .activity-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+
+        /* 直播卡片樣式 - 與browse.html一致 */
+        .stream-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .stream-card:hover {
+            transform: translateY(-5px);
+            border-color: #ff6b35;
+            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.2);
+        }
+
+        .stream-thumbnail {
+            position: relative;
+            aspect-ratio: 16/9;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .stream-thumbnail .live-indicator {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: #ff6b35;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stream-thumbnail .live-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .stream-thumbnail .viewer-count {
+            position: absolute;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 15px;
+            font-size: 0.9rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .stream-info {
+            padding: 1.5rem;
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        .streamer-profile {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .streamer-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .streamer-details h3 {
+            color: #1f2937;
+            margin: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .streamer-details p {
+            color: #6b7280;
+            margin: 0.3rem 0 0 0;
+            font-size: 0.9rem;
+        }
+
+        .stream-actions {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .action-btn {
+            flex: 1;
+            padding: 0.75rem;
+            border: none;
+            border-radius: 10px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
+            color: rgb(255, 255, 255);
+        }
+
+        .action-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+        }
+
+        .action-btn.secondary {
+            background: rgba(253, 249, 25, 0.856);
+            color: rgb(0, 0, 0);
+            border: 1px solid rgba(245, 228, 74, 0.699);
+        }
+
+        .action-btn.secondary:hover {
+            background: rgba(253, 249, 25, 0.856);
+            color: rgb(0, 0, 0);
+            border: 1px solid rgba(245, 228, 74, 0.699);
+        }
+
+        .activity-item {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1rem;
+            background: #f9fafb;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .activity-item:hover {
+            background: #f3f4f6;
+        }
+
+        .activity-avatar {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .activity-info h4 {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+        }
+
+        .activity-info p {
+            font-size: 0.9rem;
+            color: #6b7280;
+        }
+
+        /* 用戶選單下拉 */
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            padding: 1rem;
+            min-width: 200px;
+            z-index: 1000;
+            margin-top: 0.5rem;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.15s ease-out;
+            pointer-events: auto;
+        }
+
+        .user-dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 16px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid white;
+        }
+
+        .menu-user-info {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-user-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            color: #4b5563;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-link:hover {
+            background: #f3f4f6;
+            color: #667eea;
+        }
+
+        .menu-link.logout {
+            color: #dc2626;
+        }
+
+        .menu-link.logout:hover {
+            background: #fef2f2;
+        }
+
+        /* 響應式設計 */
+        @media (max-width: 768px) {
+            .nav-container {
+                padding: 0 1rem;
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .main-content {
+                padding: 1rem;
+            }
+
+            .welcome-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .welcome-text h1 {
+                font-size: 2rem;
+            }
+
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .quick-actions {
+                justify-content: center;
+            }
+
+            .welcome-stats {
+                flex-direction: row;
+                justify-content: center;
+            }
+
+            .activity-header {
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .welcome-text h1 {
+                font-size: 1.8rem;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+            }
+
+            .feature-card {
+                padding: 1.5rem;
+            }
+
+            .activity-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 頂部導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="images/vibelo-logo.png" alt="VibeLo" style="height: 40px; width: auto;">
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html" class="nav-link active">首頁</a>
+                <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="livestream_platform.html?broadcaster=username" class="nav-link">開始直播</a>
+                <a href="about.html" class="nav-link">關於</a>
+            </div>
+            
+            <div class="user-menu">
+                <a href="livestream_platform.html?broadcaster=username" class="start-stream-btn">
+                    <i class="fas fa-video"></i>
+                    開始直播
+                </a>
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容 -->
+    <main class="main-content">
+        <!-- 歡迎區塊 -->
+        <section class="welcome-section">
+            <div class="welcome-content">
+                <div class="welcome-text">
+                    <h1>歡迎來到 <span style="color: #667eea;">VibeLo</span></h1>
+                    <p>專業的直播平台，讓您的創意與世界分享。開始您的直播之旅，與觀眾建立更深層的連結。</p>
+                    <div class="quick-actions">
+                        <a href="livestream_platform.html?broadcaster=username" class="action-btn">
+                            <i class="fas fa-video"></i>
+                            立即開播
+                        </a>
+                        <a href="browse.html" class="action-btn secondary">
+                            <i class="fas fa-eye"></i>
+                            觀看直播
+                        </a>
+                    </div>
+                </div>
+                <div class="welcome-stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalStreams">0</div>
+                        <div class="stat-label">進行中直播</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalViewers">0</div>
+                        <div class="stat-label">線上觀眾</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number">24/7</div>
+                        <div class="stat-label">即時互動</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 功能介紹區 -->
+        <section class="features-section">
+            <h2 class="section-title">平台功能</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-broadcast-tower"></i>
+                    </div>
+                    <h3>高品質直播</h3>
+                    <p>支援高清畫質直播，提供穩定的串流服務，讓您的內容以最佳品質呈現給觀眾。</p>
+                    <a href="livestream_platform.html?broadcaster=username" class="feature-btn">開始直播</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-comments"></i>
+                    </div>
+                    <h3>即時互動</h3>
+                    <p>即時聊天室功能，與觀眾進行零延遲互動，建立更親密的社群連結。</p>
+                    <a href="browse.html" class="feature-btn">體驗互動</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <i class="fas fa-chart-line"></i>
+                    </div>
+                    <h3>數據分析</h3>
+                    <p>詳細的觀看數據和分析報告，幫助您了解觀眾喜好，優化直播內容。</p>
+                    <a href="livestream_platform.html?broadcaster=username" class="feature-btn">查看數據</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- 正在直播區 -->
+        <section class="activity-section">
+            <div class="activity-header">
+                <h2>🔴 正在直播</h2>
+                <a href="#" class="view-all-btn" onclick="refreshLiveStreams()">
+                    <i class="fas fa-sync-alt"></i> 重新整理
+                </a>
+            </div>
+            <div class="activity-grid" id="liveStreamsGrid">
+                <div class="loading-indicator">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>正在檢查直播狀態...</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+
+    <script>
+        // 載入用戶資訊
+        async function loadUserInfo() {
+            try {
+                const response = await fetch('/api/user');
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    const userAvatar = document.getElementById('userAvatar');
+                    if (userAvatar) {
+                        userAvatar.innerHTML = data.user.displayName.charAt(0).toUpperCase();
+                        userAvatar.title = data.user.displayName;
+                    }
+                    
+                    // 更新所有主播介面連結為動態用戶名
+                    updateBroadcasterLinks(data.user);
+                } else {
+                    // 未登入時使用預設連結
+                    updateBroadcasterLinks(null);
+                }
+            } catch (error) {
+                console.error('載入用戶資訊失敗:', error);
+                // 發生錯誤時使用預設連結
+                updateBroadcasterLinks(null);
+            }
+        }
+        
+        // 更新主播介面連結
+        function updateBroadcasterLinks(user) {
+            const username = user ? (user.username || user.displayName) : 'username';
+            
+            // 更新所有主播介面連結
+            const broadcasterLinks = document.querySelectorAll('a[href*="livestream_platform.html"]');
+            broadcasterLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href.includes('broadcaster=')) {
+                    link.href = `livestream_platform.html?broadcaster=${username}`;
+                }
+            });
+            
+            console.log('已更新主播介面連結，用戶名:', username);
+        }
+
+        // 切換用戶選單
+        function toggleUserMenu() {
+            // 檢查是否為訪客模式
+            const userAvatar = document.getElementById('userAvatar');
+            if (!userAvatar) {
+                console.error('用戶頭像元素未找到');
+                return;
+            }
+            
+            // 如果頭像顯示的是預設圖標（訪客模式），直接跳轉到登入頁面
+            if (userAvatar.innerHTML.includes('fa-user') && !userAvatar.title) {
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // 移除現有選單
+            const existingMenu = document.querySelector('.user-dropdown');
+            if (existingMenu) {
+                existingMenu.style.opacity = '0';
+                existingMenu.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    if (existingMenu.parentNode) {
+                        existingMenu.remove();
+                    }
+                }, 150);
+                return;
+            }
+            
+            const currentUserName = userAvatar.title || '用戶';
+            
+            // 創建下拉選單
+            const menu = document.createElement('div');
+            menu.className = 'user-dropdown';
+            menu.style.opacity = '0';
+            menu.style.transform = 'translateY(-10px)';
+            menu.style.transition = 'all 0.15s ease-out';
+            
+            menu.innerHTML = `
+                <div class="menu-user-info">
+                    <div class="menu-user-name">${currentUserName}</div>
+                </div>
+                <a href="livestream_platform.html?broadcaster=username" class="menu-link">
+                    <i class="fas fa-video"></i>
+                    開始直播
+                </a>
+                <a href="browse.html" class="menu-link">
+                    <i class="fas fa-eye"></i>
+                    觀看直播
+                </a>
+                <a href="about.html" class="menu-link">
+                    <i class="fas fa-info-circle"></i>
+                    關於平台
+                </a>
+                <a href="#" onclick="logout(); event.preventDefault();" class="menu-link logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    登出
+                </a>
+            `;
+            
+            // 確保userAvatar是一個容器
+            if (userAvatar.style.position !== 'relative') {
+                userAvatar.style.position = 'relative';
+            }
+            
+            userAvatar.appendChild(menu);
+            
+            // 顯示動畫
+            setTimeout(() => {
+                menu.style.opacity = '1';
+                menu.style.transform = 'translateY(0)';
+            }, 10);
+            
+            // 點擊其他地方關閉選單
+            setTimeout(() => {
+                function closeMenu(e) {
+                    if (!menu.contains(e.target) && !userAvatar.contains(e.target)) {
+                        menu.style.opacity = '0';
+                        menu.style.transform = 'translateY(-10px)';
+                        setTimeout(() => {
+                            if (menu.parentNode) {
+                                menu.remove();
+                            }
+                        }, 150);
+                        document.removeEventListener('click', closeMenu);
+                    }
+                }
+                document.addEventListener('click', closeMenu);
+            }, 100);
+            setTimeout(() => {
+                document.addEventListener('click', function closeMenu(e) {
+                    if (!menu.contains(e.target) && !userAvatar.contains(e.target)) {
+                        menu.style.opacity = '0';
+                        menu.style.transform = 'translateY(-10px)';
+                        setTimeout(() => {
+                            if (menu.parentNode) menu.remove();
+                        }, 150);
+                        document.removeEventListener('click', closeMenu);
+                    }
+                });
+            }, 100);
+        }
+
+        // 登出功能
+        async function logout() {
+            try {
+                await fetch('/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+            } catch (error) {
+                console.error('登出請求失敗:', error);
+            }
+            
+            localStorage.removeItem('currentUser');
+            window.location.href = 'preview.html';
+        }
+
+
+        // 更新統計數據
+        function updateStats() {
+            // 模擬統計數據
+            document.getElementById('totalStreams').textContent = Math.floor(Math.random() * 50) + 10;
+            document.getElementById('totalViewers').textContent = Math.floor(Math.random() * 1000) + 500;
+        }
+
+        // 檢查認證狀態
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/user');
+                const data = await response.json();
+                
+                if (!data.success || !data.user) {
+                    // 如果未登入，允許訪客模式，不跳轉
+                    console.log('訪客模式');
+                    return;
+                }
+                
+                // 同步本地存儲
+                localStorage.setItem('currentUser', JSON.stringify(data.user));
+            } catch (error) {
+                console.error('檢查認證狀態失敗:', error);
+                // 允許訪客模式，不跳轉
+                console.log('訪客模式');
+            }
+        }
+
+        // 頁面載入時執行
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            loadUserInfo();
+            updateStats();
+            loadLiveStreams();
+            
+            // 每30秒更新一次統計數據和直播狀態
+            setInterval(() => {
+                updateStats();
+                loadLiveStreams();
+            }, 30000);
+        });
+
+        // 載入直播列表
+        async function loadLiveStreams() {
+            const grid = document.getElementById('liveStreamsGrid');
+            
+            // 顯示載入狀態
+            grid.innerHTML = `
+                <div class="loading-indicator">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>正在檢查直播狀態...</p>
+                </div>
+            `;
+            
+            try {
+                const response = await fetch('/api/live-streams');
+                const data = await response.json();
+                
+                if (data.success && data.streams && data.streams.length > 0) {
+                    // 顯示直播列表
+                    grid.innerHTML = data.streams.map(stream => `
+                        <div class="stream-card" onclick="watchStream('${stream.userId}')">
+                            <div class="stream-thumbnail">
+                                <div class="live-indicator">
+                                    <div class="live-dot"></div>
+                                    LIVE
+                                </div>
+                                <div class="viewer-count">
+                                    <i class="fas fa-eye"></i>
+                                    ${stream.viewerCount || 0}
+                                </div>
+                                <i class="fas fa-video" style="font-size: 3rem; color: rgba(255,255,255,0.3);"></i>
+                            </div>
+                            <div class="stream-info">
+                                <div class="streamer-profile">
+                                    <div class="streamer-avatar">${stream.username.substring(0, 2).toUpperCase()}</div>
+                                    <div class="streamer-details">
+                                        <h3>${stream.username}</h3>
+                                        <p>正在直播中</p>
+                                    </div>
+                                </div>
+                                <div class="stream-actions">
+                                    <button class="action-btn primary" onclick="event.stopPropagation(); watchStream('${stream.userId}')">
+                                        <i class="fas fa-play"></i>
+                                        觀看
+                                    </button>
+                                    <button class="action-btn secondary" onclick="event.stopPropagation(); shareStream('${stream.userId}', '${stream.username}')">
+                                        <i class="fas fa-share"></i>
+                                        分享
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    // 沒有直播時顯示提示
+                    grid.innerHTML = `
+                        <div class="no-streams-message">
+                            <h3><i class="fas fa-video-slash"></i> 目前沒有直播</h3>
+                            <p>沒有用戶正在直播，<a href="livestream_platform.html?broadcaster=username" style="color: #4ecdc4;">點擊這裡開始你的直播</a></p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('載入直播列表失敗:', error);
+                grid.innerHTML = `
+                    <div class="no-streams-message">
+                        <h3><i class="fas fa-exclamation-triangle"></i> 載入失敗</h3>
+                        <p>無法載入直播列表，請檢查網路連線或稍後再試</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 觀看直播
+        function watchStream(userId) {
+            // 允許訪客模式觀看，不需要登入
+            // 跳轉到觀看頁面
+            window.location.href = `viewer.html?streamer=${userId}`;
+        }
+
+        // 分享直播
+        function shareStream(userId, username) {
+            const streamUrl = `${window.location.origin}/viewer.html?streamer=${userId}`;
+            
+            if (navigator.share) {
+                navigator.share({
+                    title: `觀看 ${username} 的直播`,
+                    text: `${username} 正在 VibeLo 平台直播！`,
+                    url: streamUrl
+                });
+            } else {
+                // 複製到剪貼板
+                navigator.clipboard.writeText(streamUrl).then(() => {
+                    alert('直播連結已複製到剪貼板！');
+                }).catch(() => {
+                    prompt('複製直播連結:', streamUrl);
+                });
+            }
+        }
+
+        // 重新整理直播列表
+        function refreshLiveStreams() {
+            loadLiveStreams();
+        }
+    </script>
+</body>
+</html>

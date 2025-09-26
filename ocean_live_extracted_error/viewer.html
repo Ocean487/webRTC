@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>觀看直播 - VibeLo</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    
+            <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+            <link rel="stylesheet" href="viewer.css">
+            <link rel="stylesheet" href="viewer-initial-styles.css">
+            <link rel="stylesheet" href="viewer-fix-override.css">
+            <link rel="stylesheet" href="viewer-rwd.css">
+</head>
+<body>
+    <!-- 頂部導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="images/vibelo-logo.png" alt="VibeLo" style="height: 45px; width: auto;">
+                
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" 
+                    aria-label="開啟選單" 
+                    aria-expanded="false" 
+                    aria-controls="mobileNav">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+
+            <!-- 移動端下拉菜單 -->
+            <div class="mobile-nav" id="mobileNav">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="viewer.html" class="nav-link active">觀看直播</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容 -->
+    <div class="viewer-container">
+        <!-- 視頻區域 -->
+        <div class="video-section">
+            <div class="stream-video" id="streamVideo">
+                <div id="videoPlaceholder" style="display: none;">
+                    <h3>📺 等待主播開始直播</h3>
+                    <p>主播上線後，直播畫面會自動顯示在這裡</p>
+                </div>
+                <video id="remoteVideo" 
+                       autoplay 
+                       muted
+                       playsinline 
+                       webkit-playsinline="true"
+                       preload="metadata"
+                       style="display: none;"></video>
+                <div class="play-prompt" id="playPrompt" onclick="enableAutoplay()" style="display: none;">
+                    <i class="fas fa-play"></i> 點擊開始觀看
+                </div>
+                
+            </div>
+
+            <!-- 直播信息 -->
+            <div class="stream-header">
+                <div class="streamer-info">
+                    <div class="streamer-avatar" id="streamerAvatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="streamer-details">
+                        <h3 id="streamerName">等待直播中...</h3>
+                        <p class="stream-title" id="streamTitle">等待精彩直播...</p>
+                    </div>
+                </div>
+                <div class="stream-status">
+                    <div class="status-text" id="statusText">等待直播中</div>
+                    <div class="viewer-count">
+                        <i class="fas fa-eye"></i>
+                        <span id="viewerCount">0</span> 觀看
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天區域 -->
+        <div class="chat-section">
+            <div class="chat-header">
+                💬 即時聊天室
+                <div class="viewer-counter">
+                    👥 <span id="chatViewerCount">0</span>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- 聊天消息將在這裡顯示 -->
+                </div>
+                
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="說點什麼..." maxlength="200">
+                        <button class="send-button" id="sendButton">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+            <!-- JavaScript 文件 -->
+            <script src="viewer-preload-fix.js"></script>
+            <script src="network-monitor.js"></script>
+            <script src="viewer-connection-diagnostic.js"></script>
+            <script src="viewer-connection-helper.js"></script>
+            <script src="viewer-initial-state-fix.js"></script>
+            <script src="viewer-stream-fix.js"></script>
+            <script src="webrtc-sync-fix.js"></script>
+            <script src="immediate-fix.js"></script>
+            <script src="webrtc-blackscreen-fix.js"></script>
+            <script src="chat-system.js"></script>
+            <script src="viewer.js"></script>
+            <script src="webrtc-diagnostics.js"></script>
+            <script src="connection-test.js"></script>
+            <script src="viewer-debug.js"></script>
+    
+    <!-- 錯誤處理腳本 -->
+    <script>
+        // 忽略瀏覽器擴展相關的錯誤
+        window.addEventListener('error', function (e) {
+            const extensionErrors = [
+                'message channel closed',
+                'Extension context invalidated',
+                'Immersive Translate',
+                'waitPluginDone timeout',
+                'inject.js',
+                'WARN: waitPluginDone timeout'
+            ];
+            
+            if (e.message && extensionErrors.some(err => e.message.includes(err))) {
+                console.log('忽略瀏覽器擴展錯誤:', e.message);
+                e.preventDefault();
+                return false;
+            }
+            
+            if (e.filename && (e.filename.includes('extension://') || e.filename.includes('inject.js'))) {
+                console.log('忽略擴展腳本錯誤:', e.filename);
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        window.addEventListener('unhandledrejection', function (e) {
+            if (e.reason && e.reason.message) {
+                const extensionErrors = [
+                    'message channel closed',
+                    'Extension context invalidated',
+                    'Immersive Translate',
+                    'waitPluginDone timeout'
+                ];
+                
+                if (extensionErrors.some(err => e.reason.message.includes(err))) {
+                    console.log('忽略瀏覽器擴展Promise錯誤:', e.reason.message);
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

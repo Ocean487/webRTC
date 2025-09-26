@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播平台問題診斷</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .problem-section {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🚨 直播平台問題診斷</h1>
+    
+    <div class="problem-section">
+        <h2>📋 用戶報告的問題</h2>
+        <ul>
+            <li>❌ 主播介面的訊息傳不出去</li>
+            <li>❌ 觀眾介面的訊息主播看不到</li>
+            <li>❌ 觀眾介面直播看不了，開始直播了還是顯示等待主播開始直播</li>
+        </ul>
+    </div>
+    
+    <div class="test-container">
+        <h2>🔧 聊天系統診斷</h2>
+        <button class="test-button" onclick="testChatSystem()">檢查聊天系統</button>
+        <button class="test-button" onclick="testWebSocketConnection()">檢查WebSocket連接</button>
+        <button class="test-button" onclick="testMessageSending()">測試訊息發送</button>
+        <div id="chatStatus"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>📺 直播狀態診斷</h2>
+        <button class="test-button" onclick="testStreamStatus()">檢查直播狀態</button>
+        <button class="test-button" onclick="testStreamStartMessage()">測試直播開始消息</button>
+        <button class="test-button" onclick="testWebRTCConnection()">檢查WebRTC連接</button>
+        <div id="streamStatus"></div>
+    </div>
+    
+    <div class="test-container">
+        <h2>📝 診斷日誌</h2>
+        <button class="test-button" onclick="clearLog()">清除日誌</button>
+        <button class="test-button" onclick="exportLog()">導出日誌</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let testSocket = null;
+        let testMessages = [];
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.className = type;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            // 保存到測試消息數組
+            testMessages.push({
+                timestamp: timestamp,
+                message: message,
+                type: type
+            });
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+            testMessages = [];
+        }
+
+        function exportLog() {
+            const logText = testMessages.map(msg => 
+                `[${msg.timestamp}] ${msg.message}`
+            ).join('\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `diagnostic-log-${new Date().toISOString().slice(0,19)}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function setStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function testChatSystem() {
+            log('🔍 檢查聊天系統...');
+            
+            // 檢查ChatSystem類別
+            if (typeof ChatSystem !== 'undefined') {
+                log('✅ ChatSystem 類別存在', 'success');
+                
+                // 檢查全局chatSystem實例
+                if (window.chatSystem) {
+                    log('✅ window.chatSystem 實例存在', 'success');
+                    log(`📊 聊天系統狀態: isStreamer=${window.chatSystem.isStreamer}, username=${window.chatSystem.username}`, 'info');
+                    
+                    if (window.chatSystem.isConnected) {
+                        log('✅ 聊天系統已連接', 'success');
+                        setStatus('chatStatus', '✅ 聊天系統正常', 'success');
+                    } else {
+                        log('⚠️ 聊天系統未連接', 'warning');
+                        setStatus('chatStatus', '⚠️ 聊天系統未連接', 'warning');
+                    }
+                } else {
+                    log('❌ window.chatSystem 實例不存在', 'error');
+                    setStatus('chatStatus', '❌ 聊天系統實例不存在', 'error');
+                }
+            } else {
+                log('❌ ChatSystem 類別未定義', 'error');
+                setStatus('chatStatus', '❌ ChatSystem 類別未定義', 'error');
+            }
+        }
+
+        function testWebSocketConnection() {
+            log('🔍 檢查WebSocket連接...');
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            try {
+                testSocket = new WebSocket(wsUrl);
+                
+                testSocket.onopen = function() {
+                    log('✅ WebSocket連接成功', 'success');
+                    
+                    // 發送測試消息
+                    const testMessage = {
+                        type: 'test_connection',
+                        timestamp: Date.now(),
+                        message: '診斷測試連接'
+                    };
+                    
+                    testSocket.send(JSON.stringify(testMessage));
+                    log('📤 已發送測試消息', 'info');
+                    
+                    setStatus('chatStatus', '✅ WebSocket連接正常', 'success');
+                };
+                
+                testSocket.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        log(`📥 收到消息: ${data.type}`, 'info');
+                        
+                        if (data.type === 'ack') {
+                            log('✅ 服務器回應正常', 'success');
+                        }
+                    } catch (error) {
+                        log(`❌ 解析消息失敗: ${error.message}`, 'error');
+                    }
+                };
+                
+                testSocket.onerror = function(error) {
+                    log('❌ WebSocket連接錯誤', 'error');
+                    setStatus('chatStatus', '❌ WebSocket連接錯誤', 'error');
+                };
+                
+                testSocket.onclose = function(event) {
+                    log(`🔒 WebSocket連接關閉: ${event.code}`, 'info');
+                };
+                
+                // 5秒後關閉測試連接
+                setTimeout(() => {
+                    if (testSocket && testSocket.readyState === WebSocket.OPEN) {
+                        testSocket.close();
+                        log('🔒 測試連接已關閉', 'info');
+                    }
+                }, 5000);
+                
+            } catch (error) {
+                log(`❌ WebSocket創建失敗: ${error.message}`, 'error');
+                setStatus('chatStatus', `❌ WebSocket創建失敗: ${error.message}`, 'error');
+            }
+        }
+
+        function testMessageSending() {
+            log('🔍 測試訊息發送...');
+            
+            if (window.chatSystem && window.chatSystem.isConnected) {
+                // 測試發送消息
+                const testMessage = '診斷測試消息';
+                
+                if (typeof window.chatSystem.sendMessage === 'function') {
+                    log('📤 嘗試發送測試消息...', 'info');
+                    
+                    // 模擬輸入消息
+                    const messageInput = document.querySelector('#messageInput, #chatInput');
+                    if (messageInput) {
+                        messageInput.value = testMessage;
+                        log('✅ 已設置測試消息到輸入框', 'success');
+                        
+                        // 嘗試發送
+                        try {
+                            window.chatSystem.sendMessage();
+                            log('✅ 測試消息發送成功', 'success');
+                            setStatus('chatStatus', '✅ 訊息發送功能正常', 'success');
+                        } catch (error) {
+                            log(`❌ 測試消息發送失敗: ${error.message}`, 'error');
+                            setStatus('chatStatus', `❌ 訊息發送失敗: ${error.message}`, 'error');
+                        }
+                    } else {
+                        log('❌ 找不到訊息輸入框', 'error');
+                        setStatus('chatStatus', '❌ 找不到訊息輸入框', 'error');
+                    }
+                } else {
+                    log('❌ sendMessage 函數不存在', 'error');
+                    setStatus('chatStatus', '❌ sendMessage 函數不存在', 'error');
+                }
+            } else {
+                log('❌ 聊天系統未連接，無法測試訊息發送', 'error');
+                setStatus('chatStatus', '❌ 聊天系統未連接', 'error');
+            }
+        }
+
+        function testStreamStatus() {
+            log('🔍 檢查直播狀態...');
+            
+            // 檢查直播狀態變數
+            if (typeof window.receivedStreamStart !== 'undefined') {
+                log(`📊 收到直播開始消息: ${window.receivedStreamStart}`, 'info');
+            } else {
+                log('⚠️ receivedStreamStart 變數未定義', 'warning');
+            }
+            
+            if (typeof window.receivedOffer !== 'undefined') {
+                log(`📊 收到WebRTC offer: ${window.receivedOffer}`, 'info');
+            } else {
+                log('⚠️ receivedOffer 變數未定義', 'warning');
+            }
+            
+            // 檢查狀態顯示元素
+            const statusText = document.getElementById('statusText');
+            if (statusText) {
+                log(`📊 狀態文字: "${statusText.textContent}"`, 'info');
+                log(`📊 狀態類別: "${statusText.className}"`, 'info');
+            } else {
+                log('❌ 找不到statusText元素', 'error');
+            }
+            
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            if (videoPlaceholder) {
+                log(`📊 視頻佔位符顯示: ${videoPlaceholder.style.display}`, 'info');
+            }
+            
+            const liveIndicator = document.getElementById('liveIndicator');
+            if (liveIndicator) {
+                log(`📊 直播指示器顯示: ${liveIndicator.style.display}`, 'info');
+            }
+            
+            setStatus('streamStatus', '✅ 直播狀態檢查完成', 'success');
+        }
+
+        function testStreamStartMessage() {
+            log('🔍 測試直播開始消息處理...');
+            
+            // 模擬收到stream_start消息
+            const mockStreamStartData = {
+                type: 'stream_start',
+                title: '測試直播標題',
+                message: '直播即將開始',
+                status: 'starting',
+                timestamp: Date.now()
+            };
+            
+            log('📤 模擬發送stream_start消息', 'info');
+            
+            // 檢查是否有處理函數
+            if (typeof handleStreamStarted === 'function') {
+                try {
+                    handleStreamStarted(mockStreamStartData);
+                    log('✅ handleStreamStarted 函數執行成功', 'success');
+                    setStatus('streamStatus', '✅ 直播開始消息處理正常', 'success');
+                } catch (error) {
+                    log(`❌ handleStreamStarted 函數執行失敗: ${error.message}`, 'error');
+                    setStatus('streamStatus', `❌ 直播開始消息處理失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ handleStreamStarted 函數不存在', 'error');
+                setStatus('streamStatus', '❌ handleStreamStarted 函數不存在', 'error');
+            }
+        }
+
+        function testWebRTCConnection() {
+            log('🔍 檢查WebRTC連接...');
+            
+            // 檢查WebRTC相關變數
+            if (typeof peerConnection !== 'undefined' && peerConnection) {
+                log(`📊 WebRTC連接狀態: ${peerConnection.connectionState}`, 'info');
+                log(`📊 ICE連接狀態: ${peerConnection.iceConnectionState}`, 'info');
+                
+                if (peerConnection.connectionState === 'connected') {
+                    log('✅ WebRTC連接已建立', 'success');
+                    setStatus('streamStatus', '✅ WebRTC連接正常', 'success');
+                } else {
+                    log(`⚠️ WebRTC連接狀態: ${peerConnection.connectionState}`, 'warning');
+                    setStatus('streamStatus', `⚠️ WebRTC連接狀態: ${peerConnection.connectionState}`, 'warning');
+                }
+            } else {
+                log('❌ WebRTC連接未建立', 'error');
+                setStatus('streamStatus', '❌ WebRTC連接未建立', 'error');
+            }
+            
+            // 檢查視頻元素
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) {
+                log(`📊 視頻元素狀態: srcObject=${!!remoteVideo.srcObject}, paused=${remoteVideo.paused}`, 'info');
+                
+                if (remoteVideo.srcObject) {
+                    log('✅ 視頻流已設置', 'success');
+                } else {
+                    log('❌ 視頻流未設置', 'error');
+                }
+            } else {
+                log('❌ 找不到remoteVideo元素', 'error');
+            }
+        }
+
+        // 頁面載入時自動檢查
+        window.addEventListener('load', function() {
+            log('🚀 直播平台問題診斷頁面已載入', 'info');
+            log('📋 開始自動診斷...', 'info');
+            
+            setTimeout(() => {
+                testChatSystem();
+                testStreamStatus();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

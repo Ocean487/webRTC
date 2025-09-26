@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>彈窗測試 - VibeLo</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .test-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .test-title {
+            color: #333;
+            font-size: 2em;
+            margin-bottom: 30px;
+            font-weight: 600;
+        }
+
+        .test-buttons {
+            display: grid;
+            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        .test-btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        /* 登入權限彈窗樣式 */
+        .login-permission-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            padding: 20px;
+        }
+
+        .login-permission-modal.show {
+            opacity: 1;
+            visibility: visible;
+            animation: modalFadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f8faff 100%);
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.15);
+            transform: scale(0.8);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .login-permission-modal.show .modal-content {
+            transform: scale(1);
+            opacity: 1;
+            animation: modalScaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 25px;
+            box-shadow: 0 10px 25px rgba(102, 126, 234, 0.3);
+        }
+
+        .modal-icon i {
+            font-size: 32px;
+            color: white;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .modal-message {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            flex-direction: column;
+        }
+
+        .modal-btn {
+            padding: 15px 25px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .modal-btn.primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .modal-btn.primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .modal-btn.secondary {
+            background: rgba(102, 126, 234, 0.1);
+            color: #667eea;
+            border: 2px solid rgba(102, 126, 234, 0.2);
+        }
+
+        .modal-btn.secondary:hover {
+            background: rgba(102, 126, 234, 0.15);
+            border-color: rgba(102, 126, 234, 0.3);
+            transform: translateY(-1px);
+        }
+
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                backdrop-filter: blur(0px);
+            }
+            to {
+                opacity: 1;
+                backdrop-filter: blur(8px);
+            }
+        }
+
+        @keyframes modalScaleIn {
+            0% {
+                transform: scale(0.8) translateY(20px);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .test-container {
+                padding: 30px 20px;
+            }
+
+            .modal-content {
+                padding: 30px 20px;
+                margin: 20px;
+            }
+
+            .modal-buttons {
+                gap: 12px;
+            }
+
+            .test-buttons {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1 class="test-title">
+            <i class="fas fa-vial"></i>
+            彈窗功能測試
+        </h1>
+        
+        <div class="test-buttons">
+            <button class="test-btn" onclick="showLoginPermissionModal()">
+                <i class="fas fa-user-lock"></i>
+                登入權限彈窗
+            </button>
+            
+            <button class="test-btn" onclick="showErrorModal('這是一個測試錯誤信息，用來檢查錯誤彈窗的顯示效果。')">
+                <i class="fas fa-exclamation-triangle"></i>
+                錯誤提示彈窗
+            </button>
+            
+            <button class="test-btn" onclick="showSuccessModal('操作成功完成！這是成功提示彈窗的測試信息。')">
+                <i class="fas fa-check-circle"></i>
+                成功提示彈窗
+            </button>
+            
+            <button class="test-btn" onclick="showInfoModal('測試信息', '這是一個信息提示彈窗，用來展示重要的信息給用戶。<br><br>支持HTML格式的內容顯示。')">
+                <i class="fas fa-info-circle"></i>
+                信息提示彈窗
+            </button>
+        </div>
+    </div>
+
+    <!-- 登入權限檢測彈窗 -->
+    <div id="loginPermissionModal" class="login-permission-modal">
+        <div class="modal-content">
+            <div class="modal-icon">
+                <i class="fas fa-user-lock"></i>
+            </div>
+            <h2 class="modal-title">需要登入權限</h2>
+            <p class="modal-message">
+                開始直播需要登入帳號，這樣可以確保平台安全並提供更好的用戶體驗。
+                <br><br>
+                請先登入您的帳號，或者創建一個新帳號來開始直播。
+            </p>
+            <div class="modal-buttons">
+                <a href="/login.html" class="modal-btn primary">
+                    <i class="fas fa-sign-in-alt"></i>
+                    立即登入
+                </a>
+                <a href="/register.html" class="modal-btn secondary">
+                    <i class="fas fa-user-plus"></i>
+                    免費註冊
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 顯示登入權限彈窗
+        function showLoginPermissionModal() {
+            const modal = document.getElementById('loginPermissionModal');
+            if (modal) {
+                modal.classList.add('show');
+                
+                // 添加淡入動畫
+                setTimeout(() => {
+                    const content = modal.querySelector('.modal-content');
+                    if (content) {
+                        content.style.transform = 'scale(1)';
+                        content.style.opacity = '1';
+                    }
+                }, 10);
+                
+                // 阻止背景滾動
+                document.body.style.overflow = 'hidden';
+                
+                // 點擊背景關閉彈窗
+                modal.onclick = function(e) {
+                    if (e.target === modal) {
+                        closeLoginModal();
+                    }
+                };
+                
+                // ESC鍵關閉彈窗
+                document.addEventListener('keydown', handleEscKey);
+            }
+        }
+
+        // 關閉登入彈窗
+        function closeLoginModal() {
+            const modal = document.getElementById('loginPermissionModal');
+            if (modal) {
+                const content = modal.querySelector('.modal-content');
+                if (content) {
+                    content.style.transform = 'scale(0.8)';
+                    content.style.opacity = '0';
+                }
+                
+                setTimeout(() => {
+                    modal.classList.remove('show');
+                    document.body.style.overflow = '';
+                    
+                    // 重置彈窗內容到默認狀態
+                    resetModalContent();
+                }, 300);
+                
+                // 移除事件監聽器
+                document.removeEventListener('keydown', handleEscKey);
+            }
+        }
+
+        // 重置彈窗內容到默認狀態
+        function resetModalContent() {
+            const modal = document.getElementById('loginPermissionModal');
+            if (modal) {
+                const icon = modal.querySelector('.modal-icon i');
+                const title = modal.querySelector('.modal-title');
+                const messageElement = modal.querySelector('.modal-message');
+                const buttons = modal.querySelector('.modal-buttons');
+                
+                if (icon) icon.className = 'fas fa-user-lock';
+                if (title) title.textContent = '需要登入權限';
+                if (messageElement) {
+                    messageElement.innerHTML = `
+                        開始直播需要登入帳號，這樣可以確保平台安全並提供更好的用戶體驗。
+                        <br><br>
+                        請先登入您的帳號，或者創建一個新帳號來開始直播。
+                    `;
+                }
+                if (buttons) {
+                    buttons.innerHTML = `
+                        <a href="/login.html" class="modal-btn primary">
+                            <i class="fas fa-sign-in-alt"></i>
+                            立即登入
+                        </a>
+                        <a href="/register.html" class="modal-btn secondary">
+                            <i class="fas fa-user-plus"></i>
+                            免費註冊
+                        </a>
+                    `;
+                }
+            }
+        }
+
+        // ESC鍵處理
+        function handleEscKey(e) {
+            if (e.key === 'Escape') {
+                closeLoginModal();
+            }
+        }
+
+        // 顯示錯誤提示彈窗
+        function showErrorModal(message) {
+            const modal = document.getElementById('loginPermissionModal');
+            if (modal) {
+                // 更新彈窗內容為錯誤信息
+                const icon = modal.querySelector('.modal-icon i');
+                const title = modal.querySelector('.modal-title');
+                const messageElement = modal.querySelector('.modal-message');
+                const buttons = modal.querySelector('.modal-buttons');
+                
+                if (icon) icon.className = 'fas fa-exclamation-triangle';
+                if (title) title.textContent = '系統錯誤';
+                if (messageElement) messageElement.textContent = message;
+                if (buttons) {
+                    buttons.innerHTML = `
+                        <button onclick="closeLoginModal()" class="modal-btn primary">
+                            <i class="fas fa-check"></i>
+                            確定
+                        </button>
+                    `;
+                }
+                
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        // 顯示信息提示彈窗
+        function showInfoModal(title, message, buttons = null) {
+            const modal = document.getElementById('loginPermissionModal');
+            if (modal) {
+                // 更新彈窗內容
+                const icon = modal.querySelector('.modal-icon i');
+                const titleElement = modal.querySelector('.modal-title');
+                const messageElement = modal.querySelector('.modal-message');
+                const buttonsElement = modal.querySelector('.modal-buttons');
+                
+                if (icon) icon.className = 'fas fa-info-circle';
+                if (titleElement) titleElement.textContent = title;
+                if (messageElement) {
+                    messageElement.innerHTML = message;
+                }
+                if (buttonsElement) {
+                    if (buttons) {
+                        buttonsElement.innerHTML = buttons;
+                    } else {
+                        buttonsElement.innerHTML = `
+                            <button onclick="closeLoginModal()" class="modal-btn primary">
+                                <i class="fas fa-check"></i>
+                                確定
+                            </button>
+                        `;
+                    }
+                }
+                
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+
+        // 顯示成功提示彈窗
+        function showSuccessModal(message) {
+            const modal = document.getElementById('loginPermissionModal');
+            if (modal) {
+                // 更新彈窗內容為成功信息
+                const icon = modal.querySelector('.modal-icon i');
+                const title = modal.querySelector('.modal-title');
+                const messageElement = modal.querySelector('.modal-message');
+                const buttons = modal.querySelector('.modal-buttons');
+                
+                if (icon) icon.className = 'fas fa-check-circle';
+                if (title) title.textContent = '操作成功';
+                if (messageElement) messageElement.textContent = message;
+                if (buttons) {
+                    buttons.innerHTML = `
+                        <button onclick="closeLoginModal()" class="modal-btn primary">
+                            <i class="fas fa-check"></i>
+                            確定
+                        </button>
+                    `;
+                }
+                
+                modal.classList.add('show');
+                document.body.style.overflow = 'hidden';
+            }
+        }
+    </script>
+</body>
+</html>

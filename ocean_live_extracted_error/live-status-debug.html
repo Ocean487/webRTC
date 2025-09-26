@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>直播狀態調試工具</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .debug-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .debug-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .debug-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        #debugLog {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 15px;
+            border-radius: 5px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .element-check {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 直播狀態調試工具</h1>
+    
+    <div class="debug-container">
+        <h2>📊 元素狀態檢查</h2>
+        <button class="debug-button" onclick="checkElements()">檢查DOM元素</button>
+        <button class="debug-button" onclick="checkWebSocket()">檢查WebSocket連接</button>
+        <button class="debug-button" onclick="checkMessages()">檢查消息接收</button>
+        <div id="elementStatus"></div>
+    </div>
+    
+    <div class="debug-container">
+        <h2>🎯 模擬測試</h2>
+        <button class="debug-button" onclick="simulateStreamStart()">模擬直播開始</button>
+        <button class="debug-button" onclick="simulateTitleUpdate()">模擬標題更新</button>
+        <button class="debug-button" onclick="testStatusIndicator()">測試狀態指示器</button>
+        <div id="testStatus"></div>
+    </div>
+    
+    <div class="debug-container">
+        <h2>📝 調試日誌</h2>
+        <button class="debug-button" onclick="clearLog()">清除日誌</button>
+        <div id="debugLog"></div>
+    </div>
+
+    <script>
+        let debugMessages = [];
+
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('debugLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logEntry.className = type;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            
+            debugMessages.push({
+                timestamp: timestamp,
+                message: message,
+                type: type
+            });
+        }
+
+        function clearLog() {
+            document.getElementById('debugLog').innerHTML = '';
+            debugMessages = [];
+        }
+
+        function setStatus(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        function checkElements() {
+            log('🔍 檢查DOM元素...');
+            
+            const elements = [
+                'streamVideo',
+                'videoPlaceholder', 
+                'liveIndicator',
+                'streamTitle',
+                'streamerName',
+                'statusText'
+            ];
+            
+            let allElementsExist = true;
+            const missingElements = [];
+            
+            elements.forEach(elementId => {
+                const element = document.getElementById(elementId);
+                if (element) {
+                    log(`✅ ${elementId} 元素存在`, 'success');
+                    log(`   - 顯示狀態: ${element.style.display || 'default'}`, 'info');
+                    log(`   - 類別: ${element.className}`, 'info');
+                    log(`   - 文字內容: "${element.textContent}"`, 'info');
+                    
+                    // 特別檢查 statusText
+                    if (elementId === 'statusText') {
+                        const computedStyle = window.getComputedStyle(element);
+                        log(`   - 背景色: ${computedStyle.backgroundColor}`, 'info');
+                        log(`   - 文字色: ${computedStyle.color}`, 'info');
+                        log(`   - 字重: ${computedStyle.fontWeight}`, 'info');
+                    }
+                } else {
+                    log(`❌ ${elementId} 元素不存在`, 'error');
+                    missingElements.push(elementId);
+                    allElementsExist = false;
+                }
+            });
+            
+            if (allElementsExist) {
+                setStatus('elementStatus', '✅ 所有DOM元素正常', 'success');
+            } else {
+                setStatus('elementStatus', `❌ 缺少元素: ${missingElements.join(', ')}`, 'error');
+            }
+        }
+
+        function checkWebSocket() {
+            log('🔍 檢查WebSocket連接...');
+            
+            // 檢查全局socket變數
+            if (typeof socket !== 'undefined' && socket) {
+                log(`📊 WebSocket狀態: ${socket.readyState}`, 'info');
+                log(`📊 WebSocket URL: ${socket.url}`, 'info');
+                
+                if (socket.readyState === WebSocket.OPEN) {
+                    log('✅ WebSocket連接正常', 'success');
+                    setStatus('elementStatus', '✅ WebSocket連接正常', 'success');
+                } else {
+                    log('⚠️ WebSocket未連接', 'warning');
+                    setStatus('elementStatus', '⚠️ WebSocket未連接', 'warning');
+                }
+            } else {
+                log('❌ WebSocket未定義', 'error');
+                setStatus('elementStatus', '❌ WebSocket未定義', 'error');
+            }
+            
+            // 檢查連接狀態變數
+            if (typeof isConnected !== 'undefined') {
+                log(`📊 isConnected: ${isConnected}`, 'info');
+            } else {
+                log('⚠️ isConnected變數未定義', 'warning');
+            }
+            
+            // 檢查消息接收標記
+            if (typeof window.receivedStreamStart !== 'undefined') {
+                log(`📊 receivedStreamStart: ${window.receivedStreamStart}`, 'info');
+            } else {
+                log('⚠️ receivedStreamStart變數未定義', 'warning');
+            }
+        }
+
+        function checkMessages() {
+            log('🔍 檢查消息接收情況...');
+            
+            const messageFlags = [
+                'receivedStreamStart',
+                'receivedOffer',
+                'receivedIceCandidate',
+                'receivedViewerJoined'
+            ];
+            
+            messageFlags.forEach(flag => {
+                if (typeof window[flag] !== 'undefined') {
+                    log(`📊 ${flag}: ${window[flag]}`, 'info');
+                } else {
+                    log(`⚠️ ${flag} 未定義`, 'warning');
+                }
+            });
+            
+            setStatus('elementStatus', '✅ 消息檢查完成', 'success');
+        }
+
+        function simulateStreamStart() {
+            log('🎯 模擬直播開始消息...');
+            
+            const mockData = {
+                type: 'stream_start',
+                title: '測試直播標題',
+                message: '直播即將開始',
+                status: 'starting',
+                timestamp: Date.now()
+            };
+            
+            log('📤 發送模擬stream_start消息', 'info');
+            
+            // 檢查是否有處理函數
+            if (typeof handleStreamStarted === 'function') {
+                try {
+                    handleStreamStarted(mockData);
+                    log('✅ handleStreamStarted 執行成功', 'success');
+                    setStatus('testStatus', '✅ 直播開始模擬成功', 'success');
+                } catch (error) {
+                    log(`❌ handleStreamStarted 執行失敗: ${error.message}`, 'error');
+                    setStatus('testStatus', `❌ 直播開始模擬失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ handleStreamStarted 函數不存在', 'error');
+                setStatus('testStatus', '❌ handleStreamStarted 函數不存在', 'error');
+            }
+        }
+
+        function simulateTitleUpdate() {
+            log('🎯 模擬標題更新消息...');
+            
+            const mockData = {
+                type: 'title_update',
+                title: '新的直播標題 - ' + new Date().toLocaleTimeString(),
+                timestamp: Date.now()
+            };
+            
+            log('📤 發送模擬title_update消息', 'info');
+            
+            // 檢查是否有處理函數
+            if (typeof handleTitleUpdate === 'function') {
+                try {
+                    handleTitleUpdate(mockData);
+                    log('✅ handleTitleUpdate 執行成功', 'success');
+                    setStatus('testStatus', '✅ 標題更新模擬成功', 'success');
+                } catch (error) {
+                    log(`❌ handleTitleUpdate 執行失敗: ${error.message}`, 'error');
+                    setStatus('testStatus', `❌ 標題更新模擬失敗: ${error.message}`, 'error');
+                }
+            } else {
+                log('❌ handleTitleUpdate 函數不存在', 'error');
+                setStatus('testStatus', '❌ handleTitleUpdate 函數不存在', 'error');
+            }
+        }
+
+        function testStatusIndicator() {
+            log('🎯 測試狀態指示器...');
+            
+            const statusText = document.getElementById('statusText');
+            
+            if (statusText) {
+                log('✅ statusText 元素存在', 'success');
+                log(`   - 當前類別: ${statusText.className}`, 'info');
+                log(`   - 當前文字: "${statusText.textContent}"`, 'info');
+                
+                // 測試狀態更新
+                statusText.className = 'status-text live';
+                statusText.textContent = '直播中';
+                log('✅ 已更新 statusText 為直播狀態', 'success');
+                
+                // 檢查樣式
+                const computedStyle = window.getComputedStyle(statusText);
+                log(`   - 背景色: ${computedStyle.backgroundColor}`, 'info');
+                log(`   - 文字色: ${computedStyle.color}`, 'info');
+                log(`   - 字重: ${computedStyle.fontWeight}`, 'info');
+                
+                setTimeout(() => {
+                    statusText.className = 'status-text waiting';
+                    statusText.textContent = '等待直播中';
+                    log('✅ 已恢復 statusText 為等待狀態', 'success');
+                }, 3000);
+            } else {
+                log('❌ statusText 元素不存在', 'error');
+            }
+            
+            setStatus('testStatus', '✅ 狀態指示器測試完成', 'success');
+        }
+
+        // 頁面載入時自動檢查
+        window.addEventListener('load', function() {
+            log('🚀 直播狀態調試工具已載入', 'info');
+            log('📋 開始自動檢查...', 'info');
+            
+            setTimeout(() => {
+                checkElements();
+                checkWebSocket();
+                checkMessages();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 連接測試</title>
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .btn {
+            background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+        .btn.danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+        .log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .status.success { background: rgba(76, 175, 80, 0.3); }
+        .status.error { background: rgba(244, 67, 54, 0.3); }
+        .status.warning { background: rgba(255, 193, 7, 0.3); }
+        .status.info { background: rgba(33, 150, 243, 0.3); }
+        .test-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .test-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 WebRTC 直播連接測試工具</h1>
+        <p>基於您搜尋的文章和 MDN WebRTC API 文檔，此工具將幫助診斷觀眾無法看直播的問題。</p>
+        
+        <div class="test-grid">
+            <div class="test-section">
+                <h2>🌐 網路環境測試</h2>
+                <button class="btn" onclick="testNetworkConnectivity()">測試網路連接</button>
+                <button class="btn" onclick="testStunServers()">測試 STUN 服務器</button>
+                <button class="btn" onclick="testTurnServers()">測試 TURN 服務器</button>
+                <div id="networkStatus" class="status info">等待測試...</div>
+                <div id="networkLog" class="log"></div>
+            </div>
+            
+            <div class="test-section">
+                <h2>📱 瀏覽器相容性</h2>
+                <button class="btn" onclick="checkBrowserSupport()">檢查瀏覽器支援</button>
+                <button class="btn" onclick="testMediaDevices()">測試媒體設備</button>
+                <div id="browserStatus" class="status info">等待檢查...</div>
+                <div id="browserLog" class="log"></div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎥 WebRTC 連接測試</h2>
+            <button class="btn" onclick="testLocalStream()">測試本地視頻流</button>
+            <button class="btn" onclick="testPeerConnection()">測試 PeerConnection</button>
+            <button class="btn" onclick="simulateOfferAnswer()">模擬 Offer/Answer</button>
+            <button class="btn danger" onclick="clearLogs()">清除日誌</button>
+            <div id="webrtcStatus" class="status info">等待測試...</div>
+            <div id="webrtcLog" class="log"></div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🔗 完整連接流程測試</h2>
+            <button class="btn" onclick="runFullTest()">執行完整測試</button>
+            <button class="btn" onclick="runQuickDiagnose()">快速診斷</button>
+            <div id="fullTestStatus" class="status info">等待測試...</div>
+            <div id="fullTestLog" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        // 日誌工具
+        function log(elementId, message, type = 'info') {
+            const logElement = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            logElement.textContent += logMessage;
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function setStatus(elementId, message, type = 'info') {
+            const statusElement = document.getElementById(elementId);
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function clearLogs() {
+            const logElements = document.querySelectorAll('.log');
+            logElements.forEach(el => el.textContent = '');
+            
+            const statusElements = document.querySelectorAll('.status');
+            statusElements.forEach(el => {
+                el.textContent = '等待測試...';
+                el.className = 'status info';
+            });
+        }
+
+        // 網路連接測試
+        async function testNetworkConnectivity() {
+            log('networkLog', '🌐 開始網路連接測試...');
+            setStatus('networkStatus', '正在測試網路連接...', 'warning');
+            
+            try {
+                // 測試基本網路連接
+                const response = await fetch(window.location.origin, { method: 'HEAD' });
+                if (response.ok) {
+                    log('networkLog', '✅ 基本網路連接正常');
+                } else {
+                    log('networkLog', '❌ 基本網路連接異常');
+                }
+                
+                // 測試 WebSocket 連接
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}`;
+                
+                const testSocket = new WebSocket(wsUrl);
+                
+                testSocket.onopen = function() {
+                    log('networkLog', '✅ WebSocket 連接成功');
+                    testSocket.close();
+                    setStatus('networkStatus', '網路連接測試完成', 'success');
+                };
+                
+                testSocket.onerror = function(error) {
+                    log('networkLog', '❌ WebSocket 連接失敗: ' + error);
+                    setStatus('networkStatus', 'WebSocket 連接失敗', 'error');
+                };
+                
+            } catch (error) {
+                log('networkLog', '❌ 網路連接測試失敗: ' + error.message);
+                setStatus('networkStatus', '網路連接測試失敗', 'error');
+            }
+        }
+
+        // 測試 STUN 服務器
+        async function testStunServers() {
+            log('networkLog', '🔍 測試 STUN 服務器...');
+            
+            const stunServers = [
+                'stun:stun.l.google.com:19302',
+                'stun:stun1.l.google.com:19302',
+                'stun:stun.services.mozilla.com'
+            ];
+            
+            let successCount = 0;
+            
+            for (const stunUrl of stunServers) {
+                try {
+                    const result = await testSingleStunServer(stunUrl);
+                    if (result) {
+                        log('networkLog', `✅ STUN 服務器可用: ${stunUrl}`);
+                        successCount++;
+                    } else {
+                        log('networkLog', `❌ STUN 服務器不可用: ${stunUrl}`);
+                    }
+                } catch (error) {
+                    log('networkLog', `❌ STUN 測試錯誤 ${stunUrl}: ${error.message}`);
+                }
+            }
+            
+            if (successCount > 0) {
+                log('networkLog', `✅ ${successCount}/${stunServers.length} STUN 服務器可用`);
+                setStatus('networkStatus', `STUN 測試完成: ${successCount}/${stunServers.length} 可用`, 'success');
+            } else {
+                log('networkLog', '❌ 所有 STUN 服務器都不可用');
+                setStatus('networkStatus', 'STUN 服務器全部不可用', 'error');
+            }
+        }
+
+        function testSingleStunServer(stunUrl) {
+            return new Promise((resolve) => {
+                const pc = new RTCPeerConnection({
+                    iceServers: [{ urls: stunUrl }]
+                });
+                
+                let resolved = false;
+                const timeout = setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        pc.close();
+                        resolve(false);
+                    }
+                }, 5000);
+                
+                pc.onicecandidate = function(event) {
+                    if (event.candidate && !resolved) {
+                        resolved = true;
+                        clearTimeout(timeout);
+                        pc.close();
+                        resolve(true);
+                    }
+                };
+                
+                pc.createDataChannel('test');
+                pc.createOffer().then(offer => pc.setLocalDescription(offer));
+            });
+        }
+
+        // 測試 TURN 服務器
+        async function testTurnServers() {
+            log('networkLog', '🔀 測試 TURN 服務器...');
+            
+            const turnConfig = {
+                urls: 'turn:openrelay.metered.ca:80',
+                username: 'openrelayproject',
+                credential: 'openrelayproject'
+            };
+            
+            try {
+                const pc = new RTCPeerConnection({
+                    iceServers: [turnConfig]
+                });
+                
+                let hasRelay = false;
+                
+                pc.onicecandidate = function(event) {
+                    if (event.candidate && event.candidate.type === 'relay') {
+                        hasRelay = true;
+                        log('networkLog', '✅ TURN 中繼候選生成成功');
+                        pc.close();
+                    }
+                };
+                
+                pc.createDataChannel('test');
+                const offer = await pc.createOffer();
+                await pc.setLocalDescription(offer);
+                
+                setTimeout(() => {
+                    if (!hasRelay) {
+                        log('networkLog', '⚠️ 未能生成 TURN 中繼候選');
+                    }
+                    pc.close();
+                }, 10000);
+                
+            } catch (error) {
+                log('networkLog', '❌ TURN 測試失敗: ' + error.message);
+            }
+        }
+
+        // 檢查瀏覽器支援
+        function checkBrowserSupport() {
+            log('browserLog', '📱 檢查瀏覽器支援...');
+            
+            const support = {
+                getUserMedia: !!navigator.mediaDevices?.getUserMedia,
+                RTCPeerConnection: !!window.RTCPeerConnection,
+                WebSocket: !!window.WebSocket,
+                getDisplayMedia: !!navigator.mediaDevices?.getDisplayMedia
+            };
+            
+            log('browserLog', '瀏覽器支援檢查結果:');
+            Object.entries(support).forEach(([feature, supported]) => {
+                const status = supported ? '✅' : '❌';
+                log('browserLog', `${status} ${feature}: ${supported ? '支援' : '不支援'}`);
+            });
+            
+            // 檢查編解碼器
+            if (window.RTCRtpSender?.getCapabilities) {
+                const videoCapabilities = RTCRtpSender.getCapabilities('video');
+                const audioCapabilities = RTCRtpSender.getCapabilities('audio');
+                
+                log('browserLog', '支援的視頻編解碼器:');
+                videoCapabilities?.codecs?.forEach(codec => {
+                    log('browserLog', `  - ${codec.mimeType}`);
+                });
+                
+                log('browserLog', '支援的音頻編解碼器:');
+                audioCapabilities?.codecs?.forEach(codec => {
+                    log('browserLog', `  - ${codec.mimeType}`);
+                });
+            }
+            
+            const allSupported = Object.values(support).every(s => s);
+            setStatus('browserStatus', allSupported ? '瀏覽器完全支援' : '部分功能不支援', allSupported ? 'success' : 'warning');
+        }
+
+        // 測試媒體設備
+        async function testMediaDevices() {
+            log('browserLog', '🎥 測試媒體設備...');
+            
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                const audioDevices = devices.filter(d => d.kind === 'audioinput');
+                
+                log('browserLog', `找到 ${videoDevices.length} 個視頻設備`);
+                log('browserLog', `找到 ${audioDevices.length} 個音頻設備`);
+                
+                // 測試獲取媒體流
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                log('browserLog', '✅ 成功獲取媒體流');
+                log('browserLog', `視頻軌道: ${stream.getVideoTracks().length}`);
+                log('browserLog', `音頻軌道: ${stream.getAudioTracks().length}`);
+                
+                // 清理
+                stream.getTracks().forEach(track => track.stop());
+                
+                setStatus('browserStatus', '媒體設備測試成功', 'success');
+                
+            } catch (error) {
+                log('browserLog', '❌ 媒體設備測試失敗: ' + error.message);
+                setStatus('browserStatus', '媒體設備測試失敗', 'error');
+            }
+        }
+
+        // 測試本地視頻流
+        async function testLocalStream() {
+            log('webrtcLog', '🎥 測試本地視頻流...');
+            
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { width: 640, height: 480 },
+                    audio: true
+                });
+                
+                const videoTracks = stream.getVideoTracks();
+                const audioTracks = stream.getAudioTracks();
+                
+                log('webrtcLog', `✅ 獲取到視頻軌道: ${videoTracks.length}`);
+                log('webrtcLog', `✅ 獲取到音頻軌道: ${audioTracks.length}`);
+                
+                if (videoTracks.length > 0) {
+                    const settings = videoTracks[0].getSettings();
+                    log('webrtcLog', `視頻設置: ${settings.width}x${settings.height} @ ${settings.frameRate}fps`);
+                }
+                
+                stream.getTracks().forEach(track => track.stop());
+                setStatus('webrtcStatus', '本地視頻流測試成功', 'success');
+                
+            } catch (error) {
+                log('webrtcLog', '❌ 本地視頻流測試失敗: ' + error.message);
+                setStatus('webrtcStatus', '本地視頻流測試失敗', 'error');
+            }
+        }
+
+        // 測試 PeerConnection
+        async function testPeerConnection() {
+            log('webrtcLog', '🔗 測試 PeerConnection...');
+            
+            try {
+                const config = {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' }
+                    ]
+                };
+                
+                const pc = new RTCPeerConnection(config);
+                
+                log('webrtcLog', '✅ PeerConnection 創建成功');
+                log('webrtcLog', `初始狀態: ${pc.connectionState}`);
+                log('webrtcLog', `ICE 狀態: ${pc.iceConnectionState}`);
+                log('webrtcLog', `信令狀態: ${pc.signalingState}`);
+                
+                pc.close();
+                setStatus('webrtcStatus', 'PeerConnection 測試成功', 'success');
+                
+            } catch (error) {
+                log('webrtcLog', '❌ PeerConnection 測試失敗: ' + error.message);
+                setStatus('webrtcStatus', 'PeerConnection 測試失敗', 'error');
+            }
+        }
+
+        // 模擬 Offer/Answer 流程
+        async function simulateOfferAnswer() {
+            log('webrtcLog', '🤝 模擬 Offer/Answer 流程...');
+            
+            try {
+                const pc1 = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                const pc2 = new RTCPeerConnection({
+                    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                });
+                
+                // 添加數據通道
+                const dataChannel = pc1.createDataChannel('test');
+                
+                // 創建 offer
+                const offer = await pc1.createOffer();
+                await pc1.setLocalDescription(offer);
+                log('webrtcLog', '✅ Offer 創建並設置成功');
+                
+                // 設置 remote description
+                await pc2.setRemoteDescription(offer);
+                log('webrtcLog', '✅ Remote description 設置成功');
+                
+                // 創建 answer
+                const answer = await pc2.createAnswer();
+                await pc2.setLocalDescription(answer);
+                log('webrtcLog', '✅ Answer 創建並設置成功');
+                
+                // 設置 answer
+                await pc1.setRemoteDescription(answer);
+                log('webrtcLog', '✅ Answer 設置完成');
+                
+                log('webrtcLog', '🎉 Offer/Answer 流程模擬成功');
+                
+                pc1.close();
+                pc2.close();
+                
+                setStatus('webrtcStatus', 'Offer/Answer 測試成功', 'success');
+                
+            } catch (error) {
+                log('webrtcLog', '❌ Offer/Answer 測試失敗: ' + error.message);
+                setStatus('webrtcStatus', 'Offer/Answer 測試失敗', 'error');
+            }
+        }
+
+        // 執行完整測試
+        async function runFullTest() {
+            log('fullTestLog', '🚀 開始完整 WebRTC 測試...');
+            setStatus('fullTestStatus', '正在執行完整測試...', 'warning');
+            
+            const tests = [
+                { name: '網路連接', func: testNetworkConnectivity },
+                { name: 'STUN 服務器', func: testStunServers },
+                { name: '瀏覽器支援', func: checkBrowserSupport },
+                { name: '媒體設備', func: testMediaDevices },
+                { name: '本地視頻流', func: testLocalStream },
+                { name: 'PeerConnection', func: testPeerConnection },
+                { name: 'Offer/Answer', func: simulateOfferAnswer }
+            ];
+            
+            let passedTests = 0;
+            
+            for (const test of tests) {
+                try {
+                    log('fullTestLog', `🔍 執行 ${test.name} 測試...`);
+                    await test.func();
+                    passedTests++;
+                    log('fullTestLog', `✅ ${test.name} 測試通過`);
+                } catch (error) {
+                    log('fullTestLog', `❌ ${test.name} 測試失敗: ${error.message}`);
+                }
+                
+                // 短暫延遲
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            const result = `${passedTests}/${tests.length}`;
+            log('fullTestLog', `\n📊 測試完成: ${result} 項通過`);
+            
+            if (passedTests === tests.length) {
+                setStatus('fullTestStatus', '所有測試通過', 'success');
+                log('fullTestLog', '🎉 您的 WebRTC 環境配置正常！');
+            } else {
+                setStatus('fullTestStatus', `部分測試失敗 (${result})`, 'warning');
+                log('fullTestLog', '⚠️ 建議檢查失敗的項目');
+            }
+        }
+
+        // 快速診斷
+        async function runQuickDiagnose() {
+            log('fullTestLog', '⚡ 快速診斷 WebRTC 問題...');
+            
+            const issues = [];
+            
+            // 檢查基本支援
+            if (!window.RTCPeerConnection) {
+                issues.push('❌ 瀏覽器不支援 RTCPeerConnection');
+            }
+            
+            if (!navigator.mediaDevices?.getUserMedia) {
+                issues.push('❌ 瀏覽器不支援 getUserMedia');
+            }
+            
+            // 檢查安全上下文
+            if (!window.isSecureContext && location.protocol !== 'http:') {
+                issues.push('⚠️ 非安全上下文，WebRTC 功能可能受限');
+            }
+            
+            // 快速網路測試
+            try {
+                const response = await fetch(window.location.origin, { method: 'HEAD' });
+                if (!response.ok) {
+                    issues.push('❌ 網路連接有問題');
+                }
+            } catch (error) {
+                issues.push('❌ 網路連接失敗');
+            }
+            
+            if (issues.length === 0) {
+                log('fullTestLog', '✅ 快速診斷：沒有發現明顯問題');
+                setStatus('fullTestStatus', '快速診斷正常', 'success');
+                log('fullTestLog', '💡 如果仍有問題，建議執行完整測試');
+            } else {
+                log('fullTestLog', '⚠️ 快速診斷發現問題:');
+                issues.forEach(issue => log('fullTestLog', `  ${issue}`));
+                setStatus('fullTestStatus', '發現問題', 'error');
+            }
+        }
+
+        // 頁面載入時執行基本檢查
+        window.addEventListener('load', function() {
+            log('fullTestLog', '🔧 WebRTC 測試工具已載入');
+            log('fullTestLog', '💡 請點擊按鈕開始測試');
+            
+            // 顯示基本信息
+            log('fullTestLog', `瀏覽器: ${navigator.userAgent}`);
+            log('fullTestLog', `協議: ${window.location.protocol}`);
+            log('fullTestLog', `主機: ${window.location.host}`);
+        });
+    </script>
+</body>
+</html>

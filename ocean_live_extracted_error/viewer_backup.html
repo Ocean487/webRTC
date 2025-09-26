@@ -1,0 +1,2322 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>觀看直播 - VibeLo</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* 頂部導航欄 */
+        .navbar {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 1rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-link {
+            color: #333;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+            padding: 0.5rem 0;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: #667eea;
+        }
+
+        /* 移動端菜單按鈕 */
+        .mobile-menu-toggle {
+            display: none;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #333;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 8px;
+            transition: background-color 0.3s ease;
+            /* 可訪問性改進 */
+            min-width: 44px;
+            min-height: 44px;
+        }
+
+        .mobile-menu-toggle:hover {
+            background-color: rgba(102, 126, 234, 0.1);
+        }
+
+        .mobile-menu-toggle:focus {
+            outline: 2px solid #667eea;
+            outline-offset: 2px;
+        }
+
+        /* 移動端下拉菜單 */
+        .mobile-nav {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.98);
+            backdrop-filter: blur(10px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 1rem;
+            z-index: 1000;
+        }
+
+        .mobile-nav.active {
+            display: block;
+            animation: slideDown 0.3s ease;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .mobile-nav .nav-link {
+            display: block;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            font-size: 1.1rem;
+        }
+
+        .mobile-nav .nav-link:last-child {
+            border-bottom: none;
+        }
+
+        .user-menu {
+            position: relative;
+        }
+
+        .user-avatar {
+            width: 45px;
+            height: 45px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.3s ease;
+            position: relative; /* 確保相對定位 */
+        }
+
+        .user-avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .user-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* 用戶下拉選單 */
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+            padding: 1rem;
+            min-width: 200px;
+            z-index: 9999;
+            margin-top: 0.5rem;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.15s ease-out;
+            pointer-events: auto;
+        }
+
+        .user-dropdown::before {
+            content: '';
+            position: absolute;
+            top: -8px;
+            right: 16px;
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 8px solid white;
+        }
+
+        .menu-user-info {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-user-name {
+            font-weight: 600;
+            color: #1f2937;
+        }
+
+        .menu-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 0;
+            color: #4b5563;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .menu-link:hover {
+            background: #f3f4f6;
+            color: #667eea;
+        }
+
+        .menu-link.logout {
+            color: #dc2626;
+        }
+
+        .menu-link.logout:hover {
+            background: #fef2f2;
+        }
+
+        /* 主要內容 */
+        .viewer-container {
+            max-width: 1400px;
+            margin: 2rem auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 2rem;
+        }
+
+        /* 視頻區域 */
+        .video-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .stream-video {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+
+        .stream-video video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        #videoPlaceholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: white;
+        }
+
+        .play-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 1rem 2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+        }
+
+        .play-prompt:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: translate(-50%, -50%) scale(1.05);
+        }
+
+        /* 直播信息 */
+        .stream-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .streamer-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex: 1;
+        }
+
+        .streamer-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .streamer-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .streamer-details h3 {
+            color: white;
+            margin-bottom: 0.5rem;
+        }
+
+        .stream-title {
+            font-size: 1.2rem;
+            color: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            text-align: center;
+            padding: 0.5rem 1rem;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(236, 72, 153, 0.15));
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            transition: all 0.3s ease;
+            min-height: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .stream-title.updating {
+            background: linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(59, 130, 246, 0.2));
+            border-color: rgba(34, 197, 94, 0.3);
+            color: rgba(255, 255, 255, 1);
+        }
+
+        .stream-status {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .status-text {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 0.95rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 15px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .status-text.status-starting {
+            background: rgba(255, 165, 0, 0.3);
+            color: #ffa500;
+        }
+
+        .status-text.status-live {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+        }
+
+        .status-text.status-stopped {
+            background: rgba(158, 158, 158, 0.3);
+            color: #9e9e9e;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: #e74c3c;
+            color: white;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .viewer-count {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        /* 聊天區域 */
+        .chat-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            flex-direction: column;
+            height: fit-content;
+            max-height: 80vh;
+            overflow: hidden;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .chat-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            font-weight: 600;
+        }
+
+        .viewer-counter {
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.9rem;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 500px;
+            max-height: 500px;
+            overflow: hidden;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 1rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .chat-message {
+            display: flex;
+            gap: 0.8rem;
+            align-items: flex-start;
+        }
+
+        .message-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .message-avatar img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .message-content {
+            flex: 1;
+        }
+
+        .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .message-user {
+            font-weight: 600;
+            color: #4ecdc4;
+            font-size: 0.9rem;
+        }
+
+        .message-time {
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .message-text {
+            color: white;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        /* ChatSystem 消息樣式 - 與原有樣式保持一致 */
+        .message {
+            display: flex;
+            gap: 0.8rem;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+        }
+
+        .message .message-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .message.broadcaster .message-avatar {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+        }
+
+        .message.viewer .message-avatar {
+            background: linear-gradient(135deg, #4ecdc4, #44a08d);
+        }
+
+        .message.system .message-avatar {
+            background: linear-gradient(135deg, #feca57, #ff9ff3);
+        }
+
+        .message .message-content-wrapper {
+            flex: 1;
+        }
+
+        .message .message-bubble {
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 12px;
+            padding: 0.8rem;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.broadcaster .message-bubble {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: rgba(255, 107, 107, 0.4);
+        }
+
+        .message.viewer .message-bubble {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(78, 205, 196, 0.4);
+        }
+
+        .message.system .message-bubble {
+            background: rgba(255, 255, 255, 0.85);
+            border-color: rgba(254, 202, 87, 0.4);
+        }
+
+        .message .message-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .message .username {
+            font-weight: 600;
+            color: #4ecdc4;
+            font-size: 0.9rem;
+        }
+
+        .message.broadcaster .username {
+            color: #ff6b6b;
+        }
+
+        .message.viewer .username {
+            color: #4ecdc4;
+        }
+
+        .message.system .username {
+            color: #feca57;
+        }
+
+        .message .timestamp {
+            font-size: 0.7rem;
+            color: rgba(0, 0, 0, 0.5);
+        }
+
+        .message .message-content {
+            color: #333;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            word-wrap: break-word;
+        }
+
+        .chat-input-container {
+            padding: 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(0, 0, 0, 0.05);
+            backdrop-filter: blur(10px);
+            position: relative;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .chat-input-wrapper {
+            display: flex;
+            gap: 0.8rem;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 0.8rem 1rem;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            font-size: 0.9rem;
+        }
+
+        .chat-input::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #4ecdc4;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .send-button {
+            width: 45px;
+            height: 45px;
+            border: none;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .send-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        /* 響應式設計 */
+        /* 大平板 (1024px 以下) */
+        @media (max-width: 1024px) {
+            .viewer-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto;
+                gap: 1.5rem;
+                max-width: 100%;
+            }
+
+            .chat-section {
+                max-height: 450px;
+                height: 450px;
+                overflow: hidden;
+            }
+
+            .chat-container {
+                height: 100%;
+                max-height: 100%;
+                overflow: hidden;
+            }
+
+            .nav-container {
+                padding: 0 1.5rem;
+            }
+
+            .video-section {
+                padding: 1.5rem;
+            }
+        }
+
+        /* 平板 (768px 以下) */
+        @media (max-width: 768px) {
+            .nav-container {
+                padding: 0 1rem;
+                flex-wrap: wrap;
+                gap: 1rem;
+                position: relative;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-toggle {
+                display: block;
+            }
+
+            .logo {
+                font-size: 1.5rem;
+            }
+
+            .viewer-container {
+                margin: 1rem auto;
+                padding: 0 1rem;
+                gap: 1rem;
+            }
+
+            .video-section,
+            .chat-section {
+                padding: 1rem;
+                border-radius: 15px;
+            }
+
+            .stream-video {
+                margin-bottom: 1rem;
+                border-radius: 10px;
+            }
+
+            .stream-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+
+            .streamer-info {
+                width: 100%;
+            }
+
+            .streamer-avatar {
+                width: 50px;
+                height: 50px;
+                font-size: 1.2rem;
+            }
+
+            .chat-section {
+                max-height: 400px;
+                height: 400px;
+                overflow: hidden;
+            }
+
+            .chat-container {
+                height: 100%;
+                max-height: 100%;
+                overflow: hidden;
+            }
+
+            .chat-messages {
+                padding: 1rem;
+            }
+
+            .chat-input-container {
+                padding: 1rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+                position: sticky;
+                bottom: 0;
+                width: 100%;
+                box-sizing: border-box;
+                z-index: 100;
+                margin: 0;
+                border-radius: 0 0 15px 15px;
+                /* 修復平板跑版問題 */
+                display: flex;
+                flex-direction: column;
+                min-height: auto;
+                flex-shrink: 0;
+            }
+
+            .chat-input-wrapper {
+                display: flex;
+                gap: 0.75rem;
+                align-items: center;
+            }
+
+            .chat-input {
+                flex: 1;
+                font-size: 16px; /* 防止 iOS Safari 縮放 */
+                padding: 0.8rem 1rem;
+                border-radius: 22px;
+                min-height: 44px;
+                box-sizing: border-box;
+            }
+        }
+
+        /* 手機 (480px 以下) */
+        @media (max-width: 480px) {
+            .navbar {
+                padding: 0.75rem 0;
+            }
+
+            .nav-container {
+                padding: 0 0.75rem;
+            }
+
+            .logo {
+                font-size: 1.3rem;
+                gap: 0.5rem;
+            }
+
+            .logo img {
+                height: 35px !important;
+            }
+
+            .user-avatar {
+                width: 35px;
+                height: 35px;
+                font-size: 0.9rem;
+            }
+
+            .viewer-container {
+                margin: 0.75rem auto;
+                padding: 0 0.75rem;
+                gap: 0.75rem;
+            }
+
+            .video-section,
+            .chat-section {
+                padding: 0.75rem;
+                border-radius: 12px;
+            }
+
+            .stream-video {
+                border-radius: 8px;
+                margin-bottom: 0.75rem;
+            }
+
+            .streamer-avatar {
+                width: 45px;
+                height: 45px;
+                font-size: 1.1rem;
+            }
+
+            .streamer-details h3 {
+                font-size: 1rem;
+            }
+
+            .streamer-details p {
+                font-size: 0.85rem;
+            }
+
+            .chat-section {
+                max-height: 350px;
+                height: 350px;
+                overflow: hidden;
+            }
+
+            .chat-container {
+                height: 100%;
+                max-height: 100%;
+                overflow: hidden;
+            }
+
+            .chat-header h3 {
+                font-size: 1.1rem;
+            }
+
+            .chat-messages {
+                padding: 0.75rem;
+            }
+
+            .message {
+                margin-bottom: 0.75rem;
+                gap: 0.6rem;
+            }
+
+            .message-avatar {
+                width: 30px !important;
+                height: 30px !important;
+                font-size: 0.7rem !important;
+            }
+
+            .message-bubble {
+                padding: 0.6rem 0.8rem;
+                font-size: 0.85rem;
+            }
+
+            .message-text {
+                font-size: 0.85rem;
+                line-height: 1.3;
+            }
+
+            .message-time {
+                font-size: 0.65rem;
+            }
+
+            .chat-input-container {
+                padding: 0.75rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+                position: sticky;
+                bottom: 0;
+                width: 100%;
+                box-sizing: border-box;
+                z-index: 100;
+                margin: 0;
+                border-radius: 0;
+                /* 修復跑版問題 */
+                display: flex;
+                flex-direction: column;
+                min-height: auto;
+            }
+
+            .chat-input-wrapper {
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+            }
+
+            .chat-input {
+                flex: 1;
+                font-size: 16px; /* 防止 iOS Safari 縮放 */
+                padding: 0.75rem 1rem;
+                border-radius: 20px;
+                min-height: 44px; /* 確保觸摸友好的最小高度 */
+                box-sizing: border-box;
+            }
+
+            .send-button {
+                width: 40px;
+                height: 40px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* 超小手機 (360px 以下) */
+        @media (max-width: 360px) {
+            .viewer-container {
+                padding: 0 0.5rem;
+                gap: 0.5rem;
+            }
+
+            .video-section,
+            .chat-section {
+                padding: 0.5rem;
+            }
+
+            .chat-section {
+                max-height: 300px;
+                height: 300px;
+                overflow: hidden;
+            }
+
+            .chat-container {
+                height: 100%;
+                max-height: 100%;
+                overflow: hidden;
+            }
+
+            .chat-messages {
+                padding: 0.5rem;
+            }
+
+            .chat-input-container {
+                padding: 0.5rem;
+                border-top: 1px solid rgba(255, 255, 255, 0.2);
+                background: rgba(0, 0, 0, 0.1);
+                backdrop-filter: blur(10px);
+                position: sticky;
+                bottom: 0;
+                width: 100%;
+                box-sizing: border-box;
+                z-index: 100;
+                margin: 0;
+                border-radius: 0;
+                /* 修復超小螢幕跑版問題 */
+                display: flex;
+                flex-direction: column;
+                min-height: auto;
+                flex-shrink: 0;
+            }
+
+            .chat-input-wrapper {
+                display: flex;
+                gap: 0.5rem;
+                align-items: center;
+            }
+
+            .chat-input {
+                flex: 1;
+                padding: 0.6rem 0.8rem;
+                border-radius: 18px;
+                min-height: 40px;
+                box-sizing: border-box;
+            }
+
+            .message {
+                margin-bottom: 0.5rem;
+                gap: 0.5rem;
+            }
+
+            .message-avatar {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 0.65rem !important;
+            }
+
+            .message-bubble {
+                padding: 0.5rem 0.7rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        /* 橫屏模式優化 */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .viewer-container {
+                grid-template-columns: 1.5fr 1fr;
+                grid-template-rows: 1fr;
+                gap: 1rem;
+                height: calc(100vh - 80px);
+            }
+
+            .video-section {
+                height: 100%;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .stream-video {
+                flex: 1;
+                margin-bottom: 1rem;
+            }
+
+            .chat-section {
+                height: 100%;
+                min-height: auto;
+            }
+        }
+
+        /* 觸摸友好的樣式 */
+        @media (hover: none) and (pointer: coarse) {
+            /* 移動設備觸摸優化 */
+            .nav-link,
+            .user-avatar,
+            .send-button,
+            .play-prompt {
+                min-height: 44px; /* iOS 推薦的最小觸摸區域 */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .nav-link {
+                padding: 0.75rem 0;
+            }
+
+            .mobile-menu-toggle {
+                min-height: 44px;
+                min-width: 44px;
+            }
+
+            .chat-input {
+                padding: 0.75rem 1rem;
+                border-radius: 12px; /* 更圓潤的邊角 */
+            }
+
+            .send-button {
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+            }
+
+            /* 移除懸停效果，因為觸摸設備沒有懸停狀態 */
+            .nav-link:hover,
+            .user-avatar:hover,
+            .send-button:hover,
+            .mobile-menu-toggle:hover {
+                transform: none;
+                box-shadow: none;
+                background-color: initial;
+            }
+
+            /* 添加觸摸反饋 */
+            .nav-link:active,
+            .user-avatar:active,
+            .send-button:active,
+            .mobile-menu-toggle:active,
+            .play-prompt:active {
+                transform: scale(0.95);
+                transition: transform 0.1s ease;
+            }
+        }
+
+        /* 防止文字選擇（在觸摸設備上改善體驗） */
+        .navbar,
+        .send-button,
+        .mobile-menu-toggle,
+        .user-avatar {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        /* 針對 iPhone X 系列的安全區域 */
+        @supports (padding: max(0px)) {
+            .viewer-container {
+                padding-left: max(1rem, env(safe-area-inset-left));
+                padding-right: max(1rem, env(safe-area-inset-right));
+            }
+
+            @media (max-width: 768px) {
+                .viewer-container {
+                    padding-left: max(0.75rem, env(safe-area-inset-left));
+                    padding-right: max(0.75rem, env(safe-area-inset-right));
+                    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+                }
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 頂部導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="images/vibelo-logo.png" alt="VibeLo" style="height: 45px; width: auto;">
+                
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="viewer.html" class="nav-link active">觀看直播</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" 
+                    aria-label="開啟選單" 
+                    aria-expanded="false" 
+                    aria-controls="mobileNav">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+
+            <!-- 移動端下拉菜單 -->
+            <div class="mobile-nav" id="mobileNav">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="viewer.html" class="nav-link active">觀看直播</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容 -->
+    <div class="viewer-container">
+        <!-- 視頻區域 -->
+        <div class="video-section">
+            <div class="stream-video" id="streamVideo">
+                <div id="videoPlaceholder">
+                    <h3>📺 等待主播開始直播</h3>
+                    <p>主播上線後，直播畫面會自動顯示在這裡</p>
+                </div>
+                <video id="remoteVideo" 
+                       autoplay 
+                       playsinline 
+                       webkit-playsinline="true"
+                       controls
+                       style="display: none;"></video>
+                <div class="play-prompt" id="playPrompt" onclick="enableAutoplay()" style="display: none;">
+                    <i class="fas fa-play"></i> 點擊開始觀看
+                </div>
+            </div>
+
+            <!-- 直播信息 -->
+            <div class="stream-header">
+                <div class="streamer-info">
+                    <div class="streamer-avatar" id="streamerAvatar">
+                        <i class="fas fa-user"></i>
+                    </div>
+                    <div class="streamer-details">
+                        <h3 id="streamerName">等待直播中...</h3>
+                        <p class="stream-title" id="streamTitle">等待精彩直播...</p>
+                    </div>
+                </div>
+                <div class="stream-status">
+                    <div class="status-text" id="statusText">等待直播中</div>
+                    <div class="live-indicator" id="liveIndicator" style="display: none;">
+                        <div class="live-dot"></div>
+                        <span>直播中</span>
+                    </div>
+                    <div class="viewer-count">
+                        <i class="fas fa-eye"></i>
+                        <span id="viewerCount">0</span> 觀看
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天區域 -->
+        <div class="chat-section">
+            <div class="chat-header">
+                💬 即時聊天室
+                <div class="viewer-counter">
+                    👥 <span id="chatViewerCount">0</span>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- 聊天消息將在這裡顯示 -->
+                </div>
+                
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="說點什麼..." maxlength="200">
+                        <button class="send-button" id="sendButton">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 全局變數
+        let currentUser = null;
+        let socket = null;
+        let peerConnection = null;
+        let isConnected = false;
+        let viewerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            loadCurrentUser();
+            connectWebSocket();
+            setupEventListeners();
+            setupMobileMenu();
+            
+            // 顯示歡迎消息
+            displaySystemMessage('歡迎來到直播間！等待主播開始直播...');
+        });
+
+        // 診斷函數 - 檢查觀眾端接收狀態
+        function diagnoseViewerIssue() {
+            console.log('=== 觀眾端診斷 ===');
+            console.log('1. WebSocket連接狀態:', socket ? socket.readyState : '未建立');
+            console.log('2. WebRTC連接狀態:', peerConnection ? peerConnection.connectionState : '未建立');
+            
+            const remoteVideo = document.getElementById('remoteVideo');
+            console.log('3. 遠程視頻元素:', remoteVideo ? '存在' : '不存在');
+            console.log('4. 視頻流狀態:', remoteVideo && remoteVideo.srcObject ? '已接收' : '未接收');
+            console.log('5. 視頻元素顯示:', remoteVideo ? remoteVideo.style.display : 'N/A');
+            console.log('6. 視頻是否準備好:', remoteVideo ? remoteVideo.readyState : 'N/A');
+            console.log('7. 視頻是否暫停:', remoteVideo ? remoteVideo.paused : 'N/A');
+            console.log('8. 視頻是否靜音:', remoteVideo ? remoteVideo.muted : 'N/A');
+            console.log('9. 連接狀態:', isConnected ? '已連接' : '未連接');
+            console.log('10. 觀眾ID:', viewerId);
+            
+            if (remoteVideo && remoteVideo.srcObject) {
+                const stream = remoteVideo.srcObject;
+                console.log('11. 視頻軌道數量:', stream.getVideoTracks().length);
+                console.log('12. 音頻軌道數量:', stream.getAudioTracks().length);
+                
+                stream.getVideoTracks().forEach((track, index) => {
+                    console.log(`    視頻軌道 ${index}:`, {
+                        readyState: track.readyState,
+                        enabled: track.enabled,
+                        muted: track.muted,
+                        label: track.label
+                    });
+                });
+                
+                stream.getAudioTracks().forEach((track, index) => {
+                    console.log(`    音頻軌道 ${index}:`, {
+                        readyState: track.readyState,
+                        enabled: track.enabled,
+                        muted: track.muted,
+                        label: track.label
+                    });
+                });
+                
+                // 檢查視頻尺寸
+                if (remoteVideo.videoWidth && remoteVideo.videoHeight) {
+                    console.log('13. 視頻尺寸:', `${remoteVideo.videoWidth}x${remoteVideo.videoHeight}`);
+                } else {
+                    console.log('13. 視頻尺寸: 未知或未載入');
+                }
+            }
+            
+            // 檢查 WebRTC 連接詳細狀態
+            if (peerConnection) {
+                console.log('14. WebRTC 詳細狀態:', {
+                    connectionState: peerConnection.connectionState,
+                    iceConnectionState: peerConnection.iceConnectionState,
+                    iceGatheringState: peerConnection.iceGatheringState,
+                    signalingState: peerConnection.signalingState
+                });
+            }
+            
+            // 檢查頁面元素狀態
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const playPrompt = document.getElementById('playPrompt');
+            console.log('15. videoPlaceholder 顯示:', videoPlaceholder ? videoPlaceholder.style.display : 'N/A');
+            console.log('16. playPrompt 顯示:', playPrompt ? playPrompt.style.display : 'N/A');
+            
+            console.log('=== 觀眾端診斷完成 ===');
+            
+            // 提供修復建議
+            if (!socket || socket.readyState !== WebSocket.OPEN) {
+                console.warn('建議: WebSocket連接有問題，請重新整理頁面');
+            }
+            
+            if (!peerConnection) {
+                console.warn('建議: WebRTC連接未建立，請等待主播開始直播');
+            }
+            
+            if (remoteVideo && remoteVideo.srcObject && remoteVideo.paused) {
+                console.warn('建議: 視頻已接收但暫停，請點擊播放按鈕');
+            }
+            
+            if (remoteVideo && !remoteVideo.srcObject) {
+                console.warn('建議: 未接收到視頻流，請檢查主播是否正在直播');
+            }
+        }
+
+        // 在控制台中可以調用 diagnoseViewerIssue() 來診斷問題
+        window.diagnoseViewerIssue = diagnoseViewerIssue;
+
+        // 強制重新連接函數 - 用於調試
+        function forceReconnect() {
+            console.log('強制重新連接...');
+            
+            // 關閉現有連接
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            // 重置視頻元素
+            const remoteVideo = document.getElementById('remoteVideo');
+            if (remoteVideo) {
+                remoteVideo.srcObject = null;
+                remoteVideo.style.display = 'none';
+            }
+            
+            // 顯示等待畫面
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            if (videoPlaceholder) {
+                videoPlaceholder.style.display = 'block';
+            }
+            
+            // 隱藏播放按鈕
+            const playPrompt = document.getElementById('playPrompt');
+            if (playPrompt) {
+                playPrompt.style.display = 'none';
+            }
+            
+            // 重新初始化連接
+            setTimeout(() => {
+                if (socket && isConnected) {
+                    socket.send(JSON.stringify({
+                        type: 'viewer_join',
+                        viewerId: viewerId,
+                        streamerId: targetStreamerId,
+                        userInfo: currentUser || { displayName: `觀眾${viewerId.substr(-3)}`, avatarUrl: null }
+                    }));
+                    console.log('已發送重新加入請求');
+                }
+            }, 1000);
+            
+            displaySystemMessage('🔄 正在重新連接...');
+        }
+        
+        window.forceReconnect = forceReconnect;
+
+        // 獲取URL參數中的主播ID
+        function getStreamerIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get('streamer') || 'default';
+        }
+
+        // 全局變數存儲主播ID
+        let targetStreamerId = getStreamerIdFromUrl();
+
+        // 載入當前用戶
+        async function loadCurrentUser() {
+            try {
+                const response = await fetch('/api/user/current');
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentUser = data.user;
+                    updateUserDisplay(currentUser);
+                } else {
+                    showGuestMode();
+                }
+            } catch (error) {
+                console.error('載入用戶信息失敗:', error);
+                showGuestMode();
+            }
+        }
+
+        // 更新用戶顯示
+        function updateUserDisplay(user) {
+            const userAvatar = document.getElementById('userAvatar');
+            
+            if (user.avatarUrl) {
+                userAvatar.innerHTML = `<img src="${user.avatarUrl}" alt="${user.displayName}">`;
+            } else {
+                const initial = user.displayName.charAt(0).toUpperCase();
+                userAvatar.innerHTML = initial;
+            }
+        }
+
+        // 訪客模式
+        function showGuestMode() {
+            const userAvatar = document.getElementById('userAvatar');
+            userAvatar.innerHTML = '<i class="fas fa-user"></i>';
+        }
+
+        // 連接 WebSocket
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function() {
+                console.log('WebSocket 連接成功');
+                isConnected = true;
+                
+                // 作為觀眾加入
+                socket.send(JSON.stringify({
+                    type: 'viewer_join',
+                    viewerId: viewerId,
+                    streamerId: targetStreamerId,
+                    userInfo: currentUser || { displayName: `觀眾${viewerId.substr(-3)}`, avatarUrl: null }
+                }));
+                
+                displaySystemMessage('已連接到直播間');
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                handleWebSocketMessage(data);
+            };
+            
+            socket.onclose = function() {
+                console.log('WebSocket 連接關閉');
+                isConnected = false;
+                displaySystemMessage('連接已斷開，正在重新連接...');
+                // 嘗試重新連接
+                setTimeout(connectWebSocket, 3000);
+            };
+            
+            socket.onerror = function(error) {
+                console.error('WebSocket 錯誤:', error);
+                displaySystemMessage('連接錯誤，請檢查網絡連接');
+            };
+        }
+
+        // 處理 WebSocket 消息
+        function handleWebSocketMessage(data) {
+            console.log('收到消息:', data);
+            
+            switch(data.type) {
+                case 'viewer_joined':
+                    displaySystemMessage('已成功加入直播間');
+                    
+                    // 保存服務器分配的用戶信息
+                    if (data.userInfo) {
+                        if (data.userInfo.isGuest && data.userInfo.displayName) {
+                            window.assignedGhostName = data.userInfo.displayName;
+                            console.log('收到服務器分配的Ghost名稱:', window.assignedGhostName);
+                            
+                            // 更新聊天系統用戶名
+                            if (window.updateChatSystemUsername) {
+                                window.updateChatSystemUsername();
+                            }
+                            
+                            // 更新頁面顯示的用戶名
+                            updateDisplayedUserName();
+                        }
+                    }
+                    
+                    // 處理主播信息
+                    if (data.broadcasterInfo) {
+                        updateBroadcasterInfo(data.broadcasterInfo);
+                    }
+                    break;
+                case 'broadcaster_info':
+                    // 處理主播信息（當主播未在直播時）
+                    if (data.broadcasterInfo) {
+                        updateBroadcasterInfo(data.broadcasterInfo);
+                        displaySystemMessage(data.message || '等待主播開始直播');
+                    }
+                    break;
+                case 'stream_start':
+                    handleStreamStarted(data);
+                    break;
+                case 'stream_status':
+                    handleStreamStatus(data);
+                    break;
+                case 'stream_end':
+                    handleStreamEnded();
+                    break;
+                case 'title_update':
+                    handleTitleUpdate(data);
+                    break;
+                case 'chat_message':
+                    // 舊格式的聊天消息，轉換為新格式後由ChatSystem處理
+                    if (window.chatSystem && window.chatSystem.handleMessage) {
+                        window.chatSystem.handleMessage({
+                            type: 'chat',
+                            role: data.isStreamer ? 'broadcaster' : 'viewer',
+                            username: data.username || '匿名用戶',
+                            message: data.text || data.message || '',
+                            timestamp: data.timestamp
+                        });
+                    } else {
+                        displayChatMessage(data);
+                    }
+                    break;
+                case 'chat':
+                    // 新的統一聊天協議 - 不在這裡處理，完全交給ChatSystem
+                    // ChatSystem已經通過自己的WebSocket監聽器處理了這些消息
+                    console.log('[VIEWER] chat類型消息由ChatSystem直接處理，跳過重複處理');
+                    break;
+                    break;
+                case 'viewer_count_update':
+                    updateViewerCount(data.count);
+                    break;
+                case 'offer':
+                    handleOffer(data.offer);
+                    break;
+                case 'ice_candidate':
+                    handleIceCandidate(data.candidate);
+                    break;
+                case 'ack':
+                    console.log('收到確認:', data);
+                    break;
+                default:
+                    console.log('未知消息類型:', data.type);
+            }
+        }
+
+        // 處理直播開始
+        function handleStreamStarted(data) {
+            console.log('直播開始:', data);
+            
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const liveIndicator = document.getElementById('liveIndicator');
+            const streamTitle = document.getElementById('streamTitle');
+            const streamerName = document.getElementById('streamerName');
+            const statusText = document.getElementById('statusText');
+            
+            if (videoPlaceholder) videoPlaceholder.style.display = 'none';
+            if (liveIndicator) liveIndicator.style.display = 'flex';
+            
+            // 更新主播名稱為直播狀態
+            if (streamerName) {
+                // 嘗試從已存儲的主播信息獲取名稱，或使用預設值
+                const broadcasterName = window.currentBroadcasterName || '主播';
+                streamerName.textContent = `${broadcasterName} 正在直播`;
+            }
+            
+            // 更新狀態文字
+            if (statusText) {
+                statusText.textContent = '直播中';
+                statusText.className = 'status-text live';
+            }
+            
+            // 更新直播標題
+            if (streamTitle) {
+                if (data.title && data.title.trim() !== '') {
+                    streamTitle.textContent = data.title;
+                    console.log('直播開始，標題:', data.title);
+                } else {
+                    streamTitle.textContent = '精彩直播中';
+                    console.log('直播開始，使用預設標題');
+                }
+                
+                // 為直播開始添加一個特殊的動畫效果
+                streamTitle.classList.add('updating');
+                streamTitle.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    streamTitle.style.transform = 'scale(1)';
+                    streamTitle.classList.remove('updating');
+                }, 500);
+            }
+            
+            displaySystemMessage('🎉 主播已開始直播！');
+            
+            // 初始化 WebRTC 連接
+            initializePeerConnection();
+        }
+
+        // 處理直播標題更新
+        function handleTitleUpdate(data) {
+            console.log('收到標題更新:', data);
+            
+            const streamTitle = document.getElementById('streamTitle');
+            if (streamTitle) {
+                // 添加更新動畫類
+                streamTitle.classList.add('updating');
+                
+                if (data.title && data.title.trim() !== '') {
+                    streamTitle.textContent = data.title;
+                    console.log('標題已更新為:', data.title);
+                    
+                    // 顯示一個簡短的通知
+                    displaySystemMessage(`📝 直播標題已更新: ${data.title}`);
+                } else {
+                    streamTitle.textContent = '直播進行中';
+                    console.log('標題已重置為預設值');
+                    displaySystemMessage('📝 直播標題已重置');
+                }
+                
+                // 添加一個更明顯的動畫效果
+                streamTitle.style.transform = 'scale(1.05)';
+                
+                // 300ms後移除動畫效果
+                setTimeout(() => {
+                    streamTitle.style.transform = 'scale(1)';
+                    streamTitle.classList.remove('updating');
+                }, 300);
+            }
+        }
+
+        // 處理直播狀態更新
+        function handleStreamStatus(data) {
+            console.log('收到直播狀態更新:', data);
+            
+            const statusText = document.getElementById('statusText');
+            const streamTitle = document.getElementById('streamTitle');
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const liveIndicator = document.getElementById('liveIndicator');
+            
+            if (data.status === 'live') {
+                // 直播進行中
+                if (statusText) statusText.textContent = '';
+                if (videoPlaceholder) videoPlaceholder.style.display = 'none';
+                if (liveIndicator) liveIndicator.style.display = 'flex';
+                
+                // 更新標題
+                if (streamTitle && data.title) {
+                    streamTitle.textContent = data.title;
+                    
+                    // 添加狀態更新動畫
+                    streamTitle.classList.add('updating');
+                    streamTitle.style.transform = 'scale(1.05)';
+                    setTimeout(() => {
+                        streamTitle.style.transform = 'scale(1)';
+                        streamTitle.classList.remove('updating');
+                    }, 300);
+                }
+                
+                displaySystemMessage('🔴 直播正在進行中！');
+                
+                // 如果還沒有 WebRTC 連接，嘗試初始化
+                if (!peerConnection || peerConnection.connectionState === 'closed') {
+                    initializePeerConnection();
+                }
+            } else if (data.status === 'starting') {
+                // 直播準備中
+                if (statusText) statusText.textContent = '直播準備中...';
+                if (streamTitle && data.title) {
+                    streamTitle.textContent = data.title;
+                }
+                displaySystemMessage('⏳ 直播即將開始...');
+            }
+        }
+
+        // 更新主播信息顯示
+        function updateBroadcasterInfo(broadcasterInfo) {
+            console.log('更新主播信息:', broadcasterInfo);
+            
+            // 存儲主播名稱到全局變量
+            window.currentBroadcasterName = broadcasterInfo.displayName || '主播';
+            
+            const streamerName = document.getElementById('streamerName');
+            const streamerAvatar = document.getElementById('streamerAvatar');
+            const statusText = document.getElementById('statusText');
+            
+            if (streamerName && broadcasterInfo.displayName) {
+                // 顯示"等待主播XXX開始直播"而不是"等待直播中"
+                streamerName.textContent = `等待主播 ${broadcasterInfo.displayName} 開始直播`;
+            }
+            
+            if (streamerAvatar) {
+                if (broadcasterInfo.avatarUrl) {
+                    streamerAvatar.innerHTML = `<img src="${broadcasterInfo.avatarUrl}" alt="${broadcasterInfo.displayName}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
+                } else {
+                    streamerAvatar.innerHTML = '<i class="fas fa-user"></i>';
+                }
+            }
+            
+            if (statusText) {
+                statusText.textContent = `等待 ${broadcasterInfo.displayName} 開始直播`;
+                statusText.className = 'status-text waiting';
+            }
+        }
+
+        // 處理直播結束
+        function handleStreamEnded() {
+            console.log('直播結束');
+            
+            const videoPlaceholder = document.getElementById('videoPlaceholder');
+            const liveIndicator = document.getElementById('liveIndicator');
+            const remoteVideo = document.getElementById('remoteVideo');
+            const playPrompt = document.getElementById('playPrompt');
+            const streamTitle = document.getElementById('streamTitle');
+            
+            if (videoPlaceholder) videoPlaceholder.style.display = 'block';
+            if (liveIndicator) liveIndicator.style.display = 'none';
+            if (remoteVideo) remoteVideo.style.display = 'none';
+            if (playPrompt) playPrompt.style.display = 'none';
+            
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            
+            displaySystemMessage('📺 直播已結束，感謝觀看！');
+            
+            // 更新狀態顯示
+            const statusText = document.getElementById('statusText');
+            if (statusText) {
+                statusText.textContent = '等待直播中';
+                statusText.className = 'status-text';
+            }
+            
+            // 重置主播信息和標題
+            document.getElementById('streamerName').textContent = '等待直播中...';
+            document.getElementById('streamerAvatar').innerHTML = '<i class="fas fa-user"></i>';
+            
+            // 重置標題時添加動畫效果
+            if (streamTitle) {
+                streamTitle.classList.add('updating');
+                streamTitle.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    streamTitle.textContent = '等待精彩直播...';
+                    streamTitle.style.transform = 'scale(1)';
+                    streamTitle.classList.remove('updating');
+                }, 300);
+            }
+        }
+
+        // 初始化 WebRTC 連接
+        function initializePeerConnection() {
+            console.log('初始化 WebRTC 連接');
+            
+            const configuration = {
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            };
+            
+            peerConnection = new RTCPeerConnection(configuration);
+            
+            peerConnection.ontrack = function(event) {
+                console.log('收到遠程視頻流', event);
+                const remoteVideo = document.getElementById('remoteVideo');
+                const videoPlaceholder = document.getElementById('videoPlaceholder');
+                const playPrompt = document.getElementById('playPrompt');
+                
+                if (remoteVideo && event.streams && event.streams[0]) {
+                    console.log('設置視頻流到 video 元素');
+                    remoteVideo.srcObject = event.streams[0];
+                    
+                    // 確保視頻元素顯示
+                    remoteVideo.style.display = 'block';
+                    if (videoPlaceholder) videoPlaceholder.style.display = 'none';
+                    
+                    // 監聽視頻元素的事件
+                    remoteVideo.onloadedmetadata = function() {
+                        console.log('視頻元數據已載入');
+                        console.log('視頻尺寸:', remoteVideo.videoWidth, 'x', remoteVideo.videoHeight);
+                    };
+                    
+                    remoteVideo.onloadeddata = function() {
+                        console.log('視頻數據已載入，準備播放');
+                    };
+                    
+                    remoteVideo.oncanplay = function() {
+                        console.log('視頻可以開始播放');
+                    };
+                    
+                    remoteVideo.onplay = function() {
+                        console.log('視頻開始播放');
+                        if (playPrompt) playPrompt.style.display = 'none';
+                    };
+                    
+                    remoteVideo.onerror = function(error) {
+                        console.error('視頻播放錯誤:', error);
+                        displaySystemMessage('視頻播放錯誤，請重新整理頁面');
+                    };
+                    
+                    // 嘗試自動播放
+                    remoteVideo.play().then(() => {
+                        console.log('自動播放成功');
+                        displaySystemMessage('🎬 視頻已開始播放');
+                    }).catch(error => {
+                        console.log('自動播放失敗，顯示播放提示:', error);
+                        if (playPrompt) {
+                            playPrompt.style.display = 'block';
+                            displaySystemMessage('請點擊播放按鈕開始觀看');
+                        }
+                    });
+                } else {
+                    console.error('未收到有效的視頻流');
+                }
+            };
+            
+            peerConnection.onicecandidate = function(event) {
+                if (event.candidate && socket && isConnected) {
+                    socket.send(JSON.stringify({
+                        type: 'ice_candidate',
+                        candidate: event.candidate,
+                        viewerId: viewerId
+                    }));
+                }
+            };
+            
+            peerConnection.onconnectionstatechange = function() {
+                console.log('WebRTC 連接狀態:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'connected') {
+                    displaySystemMessage('視頻串流已連接');
+                } else if (peerConnection.connectionState === 'disconnected') {
+                    displaySystemMessage('視頻串流已斷開');
+                }
+            };
+        }
+
+        // 處理 WebRTC Offer
+        async function handleOffer(offer) {
+            console.log('處理 WebRTC Offer');
+            
+            if (!peerConnection) {
+                initializePeerConnection();
+            }
+            
+            try {
+                await peerConnection.setRemoteDescription(offer);
+                const answer = await peerConnection.createAnswer();
+                await peerConnection.setLocalDescription(answer);
+                
+                if (socket && isConnected) {
+                    socket.send(JSON.stringify({
+                        type: 'answer',
+                        answer: answer,
+                        viewerId: viewerId
+                    }));
+                }
+            } catch (error) {
+                console.error('處理 offer 失敗:', error);
+                displaySystemMessage('視頻連接失敗，請刷新頁面重試');
+            }
+        }
+
+        // 處理 ICE Candidate
+        async function handleIceCandidate(candidate) {
+            if (peerConnection) {
+                try {
+                    await peerConnection.addIceCandidate(candidate);
+                } catch (error) {
+                    console.error('添加 ICE candidate 失敗:', error);
+                }
+            }
+        }
+
+        // 啟用自動播放
+        function enableAutoplay() {
+            const remoteVideo = document.getElementById('remoteVideo');
+            const playPrompt = document.getElementById('playPrompt');
+            
+            console.log('用戶點擊播放按鈕');
+            
+            if (remoteVideo && remoteVideo.srcObject) {
+                console.log('嘗試播放視頻');
+                
+                // 確保視頻不是靜音的
+                remoteVideo.muted = false;
+                
+                remoteVideo.play().then(() => {
+                    console.log('手動播放成功');
+                    if (playPrompt) playPrompt.style.display = 'none';
+                    displaySystemMessage('🎬 視頻已開始播放');
+                }).catch(error => {
+                    console.error('手動播放失敗:', error);
+                    displaySystemMessage('播放失敗，請檢查瀏覽器設置');
+                });
+            } else {
+                console.error('沒有可播放的視頻流');
+                displaySystemMessage('沒有可播放的視頻流，請等待主播開始直播');
+            }
+        }
+
+        // 發送聊天消息
+        // 原生sendMessage函數已禁用，完全使用ChatSystem
+        /*
+        function sendMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const message = chatInput.value.trim();
+            
+            if (!message) return;
+            
+            if (!socket || !isConnected) {
+                displaySystemMessage('連接已斷開，請刷新頁面重新連接');
+                return;
+            }
+            
+            const userName = currentUser ? currentUser.displayName : `觀眾${viewerId.substr(-3)}`;
+            const userAvatar = currentUser ? currentUser.avatarUrl : null;
+            
+            // 使用統一的 chat 協議
+            socket.send(JSON.stringify({
+                type: 'chat',
+                role: 'viewer',
+                username: userName,
+                message: message,
+                userAvatar: userAvatar,
+                timestamp: new Date().toISOString(),
+                viewerId: viewerId
+            }));
+            
+            // 清空輸入框
+            chatInput.value = '';
+        }
+        */
+
+        // 顯示聊天消息
+        function displayChatMessage(data) {
+            const chatMessages = document.getElementById('chatMessages');
+            const messageElement = document.createElement('div');
+            messageElement.className = 'chat-message';
+            
+            const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            
+            messageElement.innerHTML = `
+                <div class="message-avatar">
+                    ${data.userAvatar ? 
+                        `<img src="${data.userAvatar}" alt="${data.username}">` : 
+                        (data.username.charAt(0).toUpperCase())
+                    }
+                </div>
+                <div class="message-content">
+                    <div class="message-header">
+                        <span class="message-user">${data.username}</span>
+                        <span class="message-time">${time}</span>
+                    </div>
+                    <div class="message-text">${data.text}</div>
+                </div>
+            `;
+            
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // 顯示系統消息
+        function displaySystemMessage(text) {
+            displayChatMessage({
+                username: '系統',
+                text: text,
+                userAvatar: null,
+                timestamp: new Date().toISOString()
+            });
+        }
+
+        // 設置事件監聽器 - 不再設置聊天相關事件，交給ChatSystem處理
+        function setupEventListeners() {
+            // 聊天事件監聽器已移除，由ChatSystem完全處理
+        }
+
+        // 設置移動端菜單
+        function setupMobileMenu() {
+            const mobileMenuToggle = document.getElementById('mobileMenuToggle');
+            const mobileNav = document.getElementById('mobileNav');
+            
+            if (mobileMenuToggle && mobileNav) {
+                mobileMenuToggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const isActive = mobileNav.classList.toggle('active');
+                    
+                    // 更新可訪問性屬性
+                    mobileMenuToggle.setAttribute('aria-expanded', isActive);
+                    mobileMenuToggle.setAttribute('aria-label', isActive ? '關閉選單' : '開啟選單');
+                    
+                    // 切換圖標
+                    const icon = mobileMenuToggle.querySelector('i');
+                    if (isActive) {
+                        icon.className = 'fas fa-times';
+                    } else {
+                        icon.className = 'fas fa-bars';
+                    }
+                });
+
+                // 點擊頁面其他地方關閉菜單
+                document.addEventListener('click', function() {
+                    if (mobileNav.classList.contains('active')) {
+                        mobileNav.classList.remove('active');
+                        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                        mobileMenuToggle.setAttribute('aria-label', '開啟選單');
+                        const icon = mobileMenuToggle.querySelector('i');
+                        icon.className = 'fas fa-bars';
+                    }
+                });
+
+                // 阻止菜單內部點擊冒泡
+                mobileNav.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                });
+
+                // 窗口大小改變時隱藏移動端菜單
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth > 768 && mobileNav.classList.contains('active')) {
+                        mobileNav.classList.remove('active');
+                        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                        mobileMenuToggle.setAttribute('aria-label', '開啟選單');
+                        const icon = mobileMenuToggle.querySelector('i');
+                        icon.className = 'fas fa-bars';
+                    }
+                });
+
+                // ESC 鍵關閉菜單
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && mobileNav.classList.contains('active')) {
+                        mobileNav.classList.remove('active');
+                        mobileMenuToggle.setAttribute('aria-expanded', 'false');
+                        mobileMenuToggle.setAttribute('aria-label', '開啟選單');
+                        const icon = mobileMenuToggle.querySelector('i');
+                        icon.className = 'fas fa-bars';
+                        mobileMenuToggle.focus(); // 返回焦點到按鈕
+                    }
+                });
+            }
+        }
+
+        // 更新觀看人數
+        function updateViewerCount(count) {
+            const viewerCountEl = document.getElementById('viewerCount');
+            const chatViewerCountEl = document.getElementById('chatViewerCount');
+            
+            if (viewerCountEl) viewerCountEl.textContent = count;
+            if (chatViewerCountEl) chatViewerCountEl.textContent = count;
+        }
+
+        // 用戶選單功能
+        // currentUser 變數已在前面聲明
+
+        // 切換用戶選單
+        function toggleUserMenu() {
+            console.log('toggleUserMenu 被調用，currentUser:', currentUser);
+            
+            // 如果用戶未登入，直接重定向到登入頁面
+            if (!currentUser) {
+                console.log('未登入用戶點擊頭像，重定向到登入頁面');
+                window.location.href = 'login.html';
+                return;
+            }
+            
+            // 移除現有選單
+            const existingMenu = document.querySelector('.user-dropdown');
+            if (existingMenu) {
+                console.log('移除現有選單');
+                existingMenu.style.opacity = '0';
+                existingMenu.style.transform = 'translateY(-10px)';
+                setTimeout(() => {
+                    if (existingMenu.parentNode) {
+                        existingMenu.remove();
+                    }
+                }, 150);
+                return;
+            }
+            
+            // 獲取當前用戶名稱
+            const userAvatar = document.getElementById('userAvatar');
+            if (!userAvatar) {
+                console.error('用戶頭像元素未找到');
+                return;
+            }
+            
+            console.log('創建新的下拉選單');
+            
+            const currentUserName = getCurrentUserName() || 'Ghost_觀眾';
+            
+            // 創建下拉選單 - 已登入觀眾版本
+            const menu = document.createElement('div');
+            menu.className = 'user-dropdown';
+            menu.style.opacity = '0';
+            menu.style.transform = 'translateY(-10px)';
+            menu.style.transition = 'all 0.15s ease-out';
+            
+            // 已登入觀眾選單
+            menu.innerHTML = `
+                <div class="menu-user-info">
+                    <div class="menu-user-name">${currentUserName}</div>
+                </div>
+                <a href="livestream_platform.html" class="menu-link">
+                    <i class="fas fa-video"></i>
+                    我要直播
+                </a>
+                <a href="index.html" class="menu-link">
+                    <i class="fas fa-home"></i>
+                    回到首頁
+                </a>
+                <a href="#" onclick="logout(); event.preventDefault();" class="menu-link logout">
+                    <i class="fas fa-sign-out-alt"></i>
+                    登出
+                </a>
+            `;
+            
+            // 確保userAvatar是一個容器，如果不是則包裝它
+            let container = userAvatar;
+            if (userAvatar.style.position !== 'relative') {
+                userAvatar.style.position = 'relative';
+            }
+            
+            container.appendChild(menu);
+            console.log('選單已添加到DOM');
+            
+            // 顯示動畫
+            setTimeout(() => {
+                menu.style.opacity = '1';
+                menu.style.transform = 'translateY(0)';
+                console.log('選單動畫已觸發');
+            }, 10);
+            
+            // 點擊其他地方關閉選單
+            setTimeout(() => {
+                function closeMenu(e) {
+                    if (!menu.contains(e.target) && !container.contains(e.target)) {
+                        console.log('關閉選單');
+                        menu.style.opacity = '0';
+                        menu.style.transform = 'translateY(-10px)';
+                        setTimeout(() => {
+                            if (menu.parentNode) {
+                                menu.remove();
+                            }
+                        }, 150);
+                        document.removeEventListener('click', closeMenu);
+                    }
+                }
+                document.addEventListener('click', closeMenu);
+            }, 100);
+        }
+
+        // 獲取當前用戶名稱
+        function getCurrentUserName() {
+            if (currentUser) {
+                return currentUser.displayName || currentUser.username || '觀眾';
+            }
+            return 'Ghost_觀眾';
+        }
+
+        // 登出功能
+        async function logout() {
+            try {
+                const response = await fetch('/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    window.location.href = '/login.html';
+                } else {
+                    alert('登出失敗：' + data.message);
+                }
+            } catch (error) {
+                console.error('登出失敗:', error);
+                alert('登出失敗，請稍後再試');
+            }
+        }
+
+        // 頁面卸載時清理連接
+        window.addEventListener('beforeunload', function() {
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            if (socket) {
+                socket.close();
+            }
+            if (window.chatSystem) {
+                window.chatSystem.destroy();
+            }
+        });
+    </script>
+    <script src="chat-system.js"></script>
+    <script>
+        // 初始化聊天系統為觀眾模式 - 延遲到WebSocket連接建立後
+        function initChatSystemWhenReady() {
+            // 檢查 WebSocket 是否已連接
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                console.log('WebSocket 已連接，初始化聊天系統');
+                
+                if (window.initChatSystem) {
+                    // 獲取用戶真實姓名或Ghost名稱
+                    let username = '觀眾';
+                    
+                    // 優先使用登入用戶的真實姓名
+                    if (window.currentUser && window.currentUser.displayName) {
+                        username = window.currentUser.displayName;
+                    } 
+                    // 如果是訪客，使用服務器分配的Ghost名稱
+                    else if (window.assignedGhostName) {
+                        username = window.assignedGhostName;
+                        console.log('使用服務器分配的Ghost名稱:', username);
+                    }
+                    // 否則使用通用觀眾名稱
+                    else if (window.getCurrentUser && typeof window.getCurrentUser === 'function') {
+                        const user = window.getCurrentUser();
+                        if (user && user !== '主播') {
+                            username = user;
+                        }
+                    }
+                    
+                    console.log('聊天系統用戶名:', username);
+                    
+                    // 使用現有的 WebSocket 連接
+                    window.initChatSystem({
+                        isStreamer: false,
+                        username: username,
+                        socket: socket,  // 傳入現有的 WebSocket 連接
+                        selectors: {
+                            chatContainer: '#chatMessages',
+                            messageInput: '#chatInput',
+                            sendButton: '#sendButton'
+                        }
+                    });
+                }
+            } else {
+                console.log('WebSocket 尚未連接，500ms 後重試...');
+                setTimeout(initChatSystemWhenReady, 500);
+            }
+        }
+
+        // 更新頁面顯示的用戶名
+        function updateDisplayedUserName() {
+            const userAvatar = document.getElementById('userAvatar');
+            if (userAvatar && window.assignedGhostName) {
+                // 更新用戶頭像顯示為Ghost名稱的第一個字母
+                const initial = window.assignedGhostName.charAt(0).toUpperCase();
+                userAvatar.innerHTML = initial;
+                userAvatar.title = window.assignedGhostName; // 添加hover提示
+                console.log('已更新頁面顯示的用戶名為:', window.assignedGhostName);
+            }
+        }
+
+        // 更新聊天系統用戶名（當獲得Ghost名稱後調用）
+        function updateChatSystemUsername() {
+            if (window.chatSystem && window.assignedGhostName) {
+                // 更新ChatSystem的用戶名
+                window.chatSystem.username = window.assignedGhostName;
+                console.log('已更新聊天系統用戶名為:', window.assignedGhostName);
+                
+                // 重新發送身份識別
+                if (window.chatSystem.sendIdentification) {
+                    window.chatSystem.sendIdentification();
+                }
+            }
+        }
+
+        // 在頁面加載和 WebSocket 連接後初始化聊天系統
+        document.addEventListener('DOMContentLoaded', function() {
+            // 延遲初始化，等待 WebSocket 連接
+            setTimeout(initChatSystemWhenReady, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,339 @@
+/* 觀眾頁面初始狀態樣式優化 */
+
+/* 視頻區域容器 */
+.stream-video {
+    position: relative;
+    width: 100%;
+    min-height: 300px;
+    border-radius: 15px;
+    overflow: hidden;
+    background: #000;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+/* 視頻占位符 - 直播前顯示 */
+#videoPlaceholder {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    text-align: center;
+    padding: 40px 20px;
+    border-radius: 15px;
+    position: relative;
+    overflow: hidden;
+}
+
+#videoPlaceholder::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: 
+        radial-gradient(circle at 20% 80%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.3) 0%, transparent 50%),
+        radial-gradient(circle at 40% 40%, rgba(120, 200, 255, 0.2) 0%, transparent 50%);
+    animation: backgroundPulse 4s ease-in-out infinite;
+}
+
+@keyframes backgroundPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+#videoPlaceholder h3 {
+    font-size: 28px;
+    margin-bottom: 15px;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    position: relative;
+    z-index: 1;
+}
+
+#videoPlaceholder p {
+    font-size: 16px;
+    opacity: 0.9;
+    line-height: 1.6;
+    margin: 0;
+    position: relative;
+    z-index: 1;
+}
+
+/* 遠程視頻 - 直播時顯示 */
+#remoteVideo {
+    width: 100%;
+    height: auto;
+    border-radius: 15px;
+    background: #000;
+    display: none;
+}
+
+#remoteVideo:not([src]) {
+    display: none !important;
+}
+
+/* 播放提示 */
+.play-prompt {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 20px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+    display: none;
+}
+
+.play-prompt:hover {
+    background: rgba(0, 0, 0, 0.9);
+    transform: translate(-50%, -50%) scale(1.1);
+}
+
+.play-prompt i {
+    font-size: 24px;
+    margin-right: 8px;
+}
+
+/* 直播信息區域 */
+.stream-header {
+    background: rgba(183, 180, 195, 0.04);
+    backdrop-filter: blur(10px);
+    border-radius: 15px;
+    padding: 20px;
+    margin-top: 20px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.streamer-info {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.streamer-avatar {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    margin-right: 15px;
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.streamer-details h3 {
+    margin: 0 0 5px 0;
+    font-size: 18px;
+    color: #333;
+    font-weight: 600;
+}
+
+.stream-title {
+    margin: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.stream-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.status-text {
+    font-weight: 500;
+    color: #ffa500;
+    display: flex;
+    align-items: center;
+}
+
+.status-text::before {
+    content: '●';
+    margin-right: 8px;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+}
+
+.live-indicator {
+    display: none;
+    align-items: center;
+    background: #ff4444;
+    color: white;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.live-indicator.active {
+    display: flex;
+}
+
+.live-dot {
+    width: 8px;
+    height: 8px;
+    background: white;
+    border-radius: 50%;
+    margin-right: 8px;
+    animation: blink 1s infinite;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+.viewer-count {
+    display: flex;
+    align-items: center;
+    color: #666;
+    font-size: 14px;
+}
+
+.viewer-count i {
+    margin-right: 5px;
+    color: #999;
+}
+
+/* 連接狀態指示器 */
+#connection-status {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 10px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 1000;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+#connection-status i {
+    animation: statusPulse 2s infinite;
+}
+
+@keyframes statusPulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
+}
+
+/* 載入動畫 */
+.loading-animation {
+    margin-top: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 調試信息 */
+#debug-info {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #00ff00;
+    padding: 10px;
+    border-radius: 5px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    z-index: 1000;
+    max-width: 300px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+}
+
+#debug-info div {
+    margin-bottom: 3px;
+}
+
+/* 響應式設計 */
+@media (max-width: 768px) {
+    #videoPlaceholder {
+        height: 250px;
+        padding: 30px 15px;
+    }
+    
+    #videoPlaceholder h3 {
+        font-size: 24px;
+    }
+    
+    #videoPlaceholder p {
+        font-size: 14px;
+    }
+    
+    .stream-header {
+        padding: 15px;
+    }
+    
+    .stream-status {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    #connection-status {
+        top: 10px;
+        right: 10px;
+        font-size: 12px;
+        padding: 8px 12px;
+    }
+    
+    #debug-info {
+        bottom: 10px;
+        left: 10px;
+        font-size: 10px;
+        max-width: 200px;
+    }
+}
+
+/* 過渡動畫 */
+.stream-video, .stream-header, #connection-status {
+    transition: all 0.3s ease;
+}
+
+/* 當直播開始時的過渡效果 */
+.stream-video.live #videoPlaceholder {
+    animation: fadeOut 0.5s ease-out forwards;
+}
+
+.stream-video.live #remoteVideo {
+    animation: fadeIn 0.5s ease-in forwards;
+}
+
+@keyframes fadeOut {
+    0% { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(0.95); display: none; }
+}
+
+@keyframes fadeIn {
+    0% { opacity: 0; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
