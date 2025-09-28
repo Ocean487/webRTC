@@ -9,10 +9,10 @@ const { v4: uuidv4 } = require('uuid');
 const Database = require('./database');
 
 // 全局工具函數：安全的JSON發送
-function sendJSON(ws, obj) {
+function sendJSON(wss, obj) {
     try {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify(obj));
+        if (wss && wss.readyState === WebSocket.OPEN) {
+            wss.send(JSON.stringify(obj));
             return true;
         }
         return false;
@@ -25,26 +25,65 @@ function sendJSON(ws, obj) {
 // 創建 Express 應用
 const app = express();
 
-// 嘗試創建HTTPS服務器，失敗則使用HTTP
-let server;
+// 創建HTTP服務器（用於IIS轉發）
+const httpServer = http.createServer(app);
+httpServer.setMaxListeners(20);
+
+// 創建HTTPS服務器（用於直接訪問）
+let httpsServer = null;
 let isHttps = false;
 
 try {
-    // 嘗試讀取SSL證書
-    const options = {
-        key: fs.readFileSync(path.join(__dirname, 'private-key.pem')),
-        cert: fs.readFileSync(path.join(__dirname, 'certificate.pem'))
-    };
-    server = https.createServer(options, app);
-    isHttps = true;
-    console.log('🔒 HTTPS服務器已啟用 - 支援移動端WebRTC');
+    // 嘗試讀取SSL證書 - 支援多種可能的證書文件位置
+    let keyPath, certPath;
+    
+    // 檢查可能的證書文件位置
+    const possiblePaths = [
+        { key: 'private-key.pem', cert: 'certificate.pem' },
+        { key: 'key.pem', cert: 'cert.pem' },
+        { key: 'ssl/private-key.pem', cert: 'ssl/certificate.pem' },
+        { key: 'certs/private-key.pem', cert: 'certs/certificate.pem' },
+        { key: 'server.key', cert: 'server.crt' }
+    ];
+    
+    let found = false;
+    for (const pathPair of possiblePaths) {
+        try {
+            const keyFullPath = path.join(__dirname, pathPair.key);
+            const certFullPath = path.join(__dirname, pathPair.cert);
+            
+            if (fs.existsSync(keyFullPath) && fs.existsSync(certFullPath)) {
+                keyPath = keyFullPath;
+                certPath = certFullPath;
+                found = true;
+                console.log(`🔍 找到SSL證書: ${pathPair.key}, ${pathPair.cert}`);
+                break;
+            }
+        } catch (e) {
+            // 繼續嘗試下一個路徑
+        }
+    }
+    
+    if (found) {
+        const options = {
+            key: fs.readFileSync(keyPath),
+            cert: fs.readFileSync(certPath)
+        };
+        httpsServer = https.createServer(options, app);
+        httpsServer.setMaxListeners(20);
+        isHttps = true;
+        console.log('🔒 HTTPS服務器已啟用 - 支援移動端WebRTC');
+        console.log(`📁 使用證書: ${keyPath}, ${certPath}`);
+    } else {
+        console.log('⚠️  未找到SSL證書，僅啟用HTTP服務器');
+    }
 } catch (error) {
-    console.log('⚠️  SSL證書載入失敗，使用HTTP服務器');
+    console.log('⚠️  SSL證書載入失敗，僅啟用HTTP服務器');
     console.log('   錯誤詳情:', error.message);
-    console.log('💡 提示：移動端瀏覽器需要HTTPS才能使用WebRTC');
-    console.log('   可運行 generate-ssl.bat 生成證書');
-    server = http.createServer(app);
 }
+
+// 使用HTTP服務器作為主服務器（用於IIS轉發）
+const server = httpServer;
 
 // 設置服務器的最大監聽器數量，防止內存洩漏警告
 server.setMaxListeners(20);
@@ -103,7 +142,7 @@ app.use(session({
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: isHttps, // 根據服務器類型動態設置
+        secure: false, // 允許HTTP和HTTPS
         httpOnly: true,
         maxAge: 24 * 60 * 60 * 1000 // 24 小時
     }
@@ -130,11 +169,8 @@ const rateMap = new Map();
 const MIN_INTERVAL_MS = 1200; // 最短間隔
 const DUPLICATE_WINDOW_MS = 6000; // 相同內容視為重複時間窗
 
-// 創建 WebSocket 服務器
-const wss = new WebSocket.Server({ server });
-
-// 設置WebSocket服務器的最大監聽器數量
-wss.setMaxListeners(20);
+// WebSocket服務器將在HTTP/HTTPS服務器啟動後創建
+let wss;
 
 // 直播狀態
 let isStreaming = false;
@@ -146,142 +182,150 @@ let activeConnections = new Map(); // connectionId -> { type, userId, streamerId
 let viewerCount = 0;
 let currentStreamTitle = ''; // 當前直播標題
 
-// WebSocket 連接處理
-wss.on('connection', function connection(ws, req) {
-    console.log('新的 WebSocket 連接');
+// WebSocket 處理程序設置函數
+function setupWebSocketHandlers() {
+    if (!wss) {
+        console.error('❌ WebSocket服務器未初始化');
+        return;
+    }
     
-    let clientType = null; // 'broadcaster' 或 'viewer'
-    let clientId = null;
-    
-    ws.on('message', async function message(data) {
-        let message;
-        try {
-            message = JSON.parse(data);
-            console.log('收到訊息:', message.type, '內容:', message);
-        } catch (err) {
-            console.error('JSON parse error:', err);
-            sendJSON(ws, { type: 'error', error: 'invalid_json' });
-            return;
-        }
+    // WebSocket 連接處理
+    wss.on('connection', function connection(wss, req) {
+        console.log('新的 WebSocket 連接');
         
-        try {
-            switch (message.type) {
-                case 'broadcaster_join':
-                    handleBroadcasterJoin(ws, message);
-                    clientType = 'broadcaster';
-                    sendJSON(ws, { type: 'ack', event: 'broadcaster_join', ok: true });
-                    break;
-                    
-                case 'viewer_join':
-                    handleViewerJoin(ws, message);
-                    clientType = 'viewer';
-                    clientId = message.viewerId;
-                    sendJSON(ws, { type: 'ack', event: 'viewer_join', ok: true, viewerId: message.viewerId });
-                    break;
-                    
-            case 'stream_start':
-                handleStreamStart(message);
-                sendJSON(ws, { type: 'ack', event: 'stream_start', ok: true });
-                
-                // 🚨 [CRITICAL FIX] 確保 online_viewers 消息發送到正確的連接
-                if (message.requestViewers) {
-                    const viewerList = Array.from(viewers.keys());
-                    console.log(`🔄 [DIRECT] 直接發送 online_viewers 給當前連接，觀眾: ${viewerList.length} 個`);
-                    
-                    const onlineViewersMessage = {
-                        type: 'online_viewers',
-                        viewers: viewerList,
-                        count: viewerList.length,
-                        message: viewerList.length > 0 ? 
-                            `已為 ${viewerList.length} 個在線觀眾建立連接` : 
-                            '目前沒有觀眾在線'
-                    };
-                    
-                    sendJSON(ws, onlineViewersMessage);
-                    console.log(`✅ [DIRECT] online_viewers 消息已直接發送:`, onlineViewersMessage);
-                }
-                break;                case 'stream_end':
-                    handleStreamEnd();
-                    sendJSON(ws, { type: 'ack', event: 'stream_end', ok: true });
-                    break;
-                    
-                case 'offer':
-                    handleOffer(message);
-                    break;
-                    
-                case 'answer':
-                    handleAnswer(message);
-                    break;
-                    
-                case 'ice_candidate':
-                    handleIceCandidate(message);
-                    break;
-                    
-                case 'request_broadcaster_info':
-                    handleRequestBroadcasterInfo(ws, message);
-                    break;
-                    
-                case 'request_webrtc_connection':
-                    handleRequestWebRTCConnection(ws, message);
-                    break;
-                    
-                case 'chat_message':
-                    // 舊版本兼容性 - 轉換為新的 chat 類型
-                    await handleChatMessage(ws, {
-                        ...message,
-                        type: 'chat',
-                        role: message.isStreamer ? 'broadcaster' : 'viewer'
-                    });
-                    break;
-                    
-                case 'chat_join':
-                    handleChatJoin(ws, message);
-                    break;
-                    
-                case 'chat':
-                    handleChatMessage(ws, message);
-                    break;
-                    
-                case 'heartbeat':
-                    sendJSON(ws, { type: 'heartbeat_ack', timestamp: new Date().toISOString() });
-                    break;
-                
-                case 'title_update':
-                    handleTitleUpdate(message);
-                    sendJSON(ws, { type: 'ack', event: 'title_update', ok: true });
-                    break;
-                    
-                case 'effect_update':
-                    handleEffectUpdate(message);
-                    sendJSON(ws, { type: 'ack', event: 'effect_update', ok: true });
-                    break;
-                    
-                default:
-                    console.log('未知訊息類型:', message.type);
+        let clientType = null; // 'broadcaster' 或 'viewer'
+        let clientId = null;
+        
+        wss.on('message', async function message(data) {
+            let message;
+            try {
+                message = JSON.parse(data);
+                console.log('收到訊息:', message.type, '內容:', message);
+            } catch (err) {
+                console.error('JSON parse error:', err);
+                sendJSON(wss, { type: 'error', error: 'invalid_json' });
+                return;
             }
             
-        } catch (error) {
-            console.error('處理訊息時發生錯誤:', error);
-        }
-    });
-    
-    ws.on('close', function close() {
-        console.log('WebSocket 連接關閉');
+            try {
+                switch (message.type) {
+                    case 'broadcaster_join':
+                        handleBroadcasterJoin(wss, message);
+                        clientType = 'broadcaster';
+                        sendJSON(wss, { type: 'ack', event: 'broadcaster_join', ok: true });
+                        break;
+                        
+                    case 'viewer_join':
+                        handleViewerJoin(wss, message);
+                        clientType = 'viewer';
+                        clientId = message.viewerId;
+                        sendJSON(wss, { type: 'ack', event: 'viewer_join', ok: true, viewerId: message.viewerId });
+                        break;
+                        
+                case 'stream_start':
+                    handleStreamStart(message);
+                    sendJSON(wss, { type: 'ack', event: 'stream_start', ok: true });
+                    
+                    // 🚨 [CRITICAL FIX] 確保 online_viewers 消息發送到正確的連接
+                    if (message.requestViewers) {
+                        const viewerList = Array.from(viewers.keys());
+                        console.log(`🔄 [DIRECT] 直接發送 online_viewers 給當前連接，觀眾: ${viewerList.length} 個`);
+                        
+                        const onlineViewersMessage = {
+                            type: 'online_viewers',
+                            viewers: viewerList,
+                            count: viewerList.length,
+                            message: viewerList.length > 0 ? 
+                                `已為 ${viewerList.length} 個在線觀眾建立連接` : 
+                                '目前沒有觀眾在線'
+                        };
+                        
+                        sendJSON(wss, onlineViewersMessage);
+                        console.log(`✅ [DIRECT] online_viewers 消息已直接發送:`, onlineViewersMessage);
+                    }
+                    break;                case 'stream_end':
+                        handleStreamEnd();
+                        sendJSON(wss, { type: 'ack', event: 'stream_end', ok: true });
+                        break;
+                        
+                    case 'offer':
+                        handleOffer(message);
+                        break;
+                        
+                    case 'answer':
+                        handleAnswer(message);
+                        break;
+                        
+                    case 'ice_candidate':
+                        handleIceCandidate(message);
+                        break;
+                        
+                    case 'request_broadcaster_info':
+                        handleRequestBroadcasterInfo(wss, message);
+                        break;
+                        
+                    case 'request_webrtc_connection':
+                        handleRequestWebRTCConnection(wss, message);
+                        break;
+                        
+                    case 'chat_message':
+                        // 舊版本兼容性 - 轉換為新的 chat 類型
+                        await handleChatMessage(wss, {
+                            ...message,
+                            type: 'chat',
+                            role: message.isStreamer ? 'broadcaster' : 'viewer'
+                        });
+                        break;
+                        
+                    case 'chat_join':
+                        handleChatJoin(wss, message);
+                        break;
+                        
+                    case 'chat':
+                        handleChatMessage(wss, message);
+                        break;
+                        
+                    case 'heartbeat':
+                        sendJSON(wss, { type: 'heartbeat_ack', timestamp: new Date().toISOString() });
+                        break;
+                    
+                    case 'title_update':
+                        handleTitleUpdate(message);
+                        sendJSON(wss, { type: 'ack', event: 'title_update', ok: true });
+                        break;
+                        
+                    case 'effect_update':
+                        handleEffectUpdate(message);
+                        sendJSON(wss, { type: 'ack', event: 'effect_update', ok: true });
+                        break;
+                        
+                    default:
+                        console.log('未知訊息類型:', message.type);
+                }
+                
+            } catch (error) {
+                console.error('處理訊息時發生錯誤:', error);
+            }
+        });
         
-        if (clientType === 'broadcaster') {
-            handleBroadcasterDisconnect();
-        } else if (clientType === 'viewer' && clientId) {
-            handleViewerDisconnect(clientId);
-        }
+        wss.on('close', function close() {
+            console.log('WebSocket 連接關閉');
+            
+            if (clientType === 'broadcaster') {
+                handleBroadcasterDisconnect();
+            } else if (clientType === 'viewer' && clientId) {
+                handleViewerDisconnect(clientId);
+            }
+        });
+        
+        wss.on('error', function error(err) {
+            console.error('WebSocket 錯誤:', err);
+        });
     });
-    
-    ws.on('error', function error(err) {
-        console.error('WebSocket 錯誤:', err);
-    });
-});
+}
 
 // 處理主播加入
-function handleBroadcasterJoin(ws, message) {
+function handleBroadcasterJoin(wss, message) {
     console.log('主播已加入');
     console.log('🔍 [DEBUG] 收到的 userInfo:', message.userInfo);
     
@@ -305,7 +349,8 @@ function handleBroadcasterJoin(ws, message) {
     }
     
     broadcaster = {
-        ws: ws,
+        wss: wss,
+        ws: wss,  // 添加ws屬性以保持一致性
         id: broadcasterId,
         timestamp: Date.now(),
         userInfo: userInfo
@@ -313,7 +358,8 @@ function handleBroadcasterJoin(ws, message) {
     
     // 添加到活躍直播者列表
     activeBroadcasters.set(broadcasterId, {
-        ws: ws,
+        wss: wss,
+        ws: wss,  // 添加ws屬性以保持一致性
         userInfo: userInfo,
         startTime: new Date(),
         viewerCount: 0
@@ -325,7 +371,7 @@ function handleBroadcasterJoin(ws, message) {
         type: 'broadcaster',
         userId: broadcasterId,
         streamerId: broadcasterId,
-        ws: ws
+        wss: wss
     });
     
     console.log('主播資訊:', userInfo);
@@ -334,9 +380,9 @@ function handleBroadcasterJoin(ws, message) {
     // 向所有已連接的觀眾發送主播信息
     if (viewers.size > 0) {
         console.log('向', viewers.size, '個觀眾發送主播信息');
-        viewers.forEach((viewerWs, viewerId) => {
-            if (viewerWs.readyState === WebSocket.OPEN) {
-                viewerWs.send(JSON.stringify({
+        viewers.forEach((viewerWss, viewerId) => {
+            if (viewerWss.readyState === WebSocket.OPEN) {
+                viewerWss.send(JSON.stringify({
                     type: 'broadcaster_info',
                     broadcasterInfo: userInfo,
                     message: '等待主播開始直播'
@@ -349,7 +395,7 @@ function handleBroadcasterJoin(ws, message) {
     console.log('主播WebRTC連接已建立，等待ChatSystem發送chat_join');
     
     // 發送確認訊息
-    ws.send(JSON.stringify({
+    wss.send(JSON.stringify({
         type: 'broadcaster_joined',
         message: '主播已成功加入直播間',
         broadcasterId: broadcasterId
@@ -357,7 +403,7 @@ function handleBroadcasterJoin(ws, message) {
 }
 
 // 處理觀眾加入
-function handleViewerJoin(ws, message) {
+function handleViewerJoin(wss, message) {
     const viewerId = message.viewerId;
     const streamerId = message.streamerId || 'default'; // 觀看的主播ID
     let userInfo = message.userInfo || {};
@@ -376,10 +422,10 @@ function handleViewerJoin(ws, message) {
         console.log('訪客加入:', viewerId, '分配Ghost名稱:', ghostName, '觀看主播:', streamerId);
         
         // 將Ghost名稱關聯到viewerId
-        ws.ghostName = ghostName;
+        wss.ghostName = ghostName;
     }
     
-    viewers.set(viewerId, ws);
+    viewers.set(viewerId, wss);
     viewerCount++;
     
     // 添加到活躍連接列表
@@ -388,7 +434,7 @@ function handleViewerJoin(ws, message) {
         type: 'viewer',
         userId: viewerId,
         streamerId: streamerId,
-        ws: ws
+        wss: wss
     });
     
     // 更新對應主播的觀眾數
@@ -400,7 +446,7 @@ function handleViewerJoin(ws, message) {
     
     // 發送確認訊息，包含分配的用戶信息和主播信息
     const broadcasterInfo = broadcaster ? broadcaster.userInfo : null;
-    ws.send(JSON.stringify({
+    wss.send(JSON.stringify({
         type: 'viewer_joined',
         message: '觀眾已成功加入直播間',
         viewerId: viewerId,
@@ -414,7 +460,7 @@ function handleViewerJoin(ws, message) {
     // 如果主播正在直播，發送直播開始訊息
     if (isStreaming && broadcaster) {
         console.log('觀眾加入時主播正在直播，發送 stream_start');
-        ws.send(JSON.stringify({
+        wss.send(JSON.stringify({
             type: 'stream_start',
             title: currentStreamTitle || '精彩直播中',
             message: '主播正在直播中',
@@ -423,7 +469,7 @@ function handleViewerJoin(ws, message) {
         
         // 發送當前直播狀態
         setTimeout(() => {
-            ws.send(JSON.stringify({
+            wss.send(JSON.stringify({
                 type: 'stream_status',
                 title: currentStreamTitle || '精彩直播中',
                 message: '直播進行中',
@@ -432,9 +478,9 @@ function handleViewerJoin(ws, message) {
         }, 500);
         
         // 通知主播有新觀眾需要連接
-        if (broadcaster.ws.readyState === WebSocket.OPEN) {
+        if (broadcaster.wss.readyState === WebSocket.OPEN) {
             console.log('通知主播有新觀眾需要連接:', viewerId);
-            broadcaster.ws.send(JSON.stringify({
+            broadcaster.wss.send(JSON.stringify({
                 type: 'viewer_join',
                 viewerId: viewerId
             }));
@@ -444,7 +490,7 @@ function handleViewerJoin(ws, message) {
         
         // 即使主播未在直播，也發送主播信息以便觀眾端顯示等待信息
         if (broadcaster && broadcaster.userInfo) {
-            ws.send(JSON.stringify({
+            wss.send(JSON.stringify({
                 type: 'broadcaster_info',
                 broadcasterInfo: broadcaster.userInfo,
                 message: '等待主播開始直播'
@@ -563,10 +609,10 @@ function handleOffer(message) {
 function handleAnswer(message) {
     console.log('📡 處理 Answer from viewer:', message.viewerId);
     console.log('   主播是否存在:', !!broadcaster);
-    console.log('   主播 WebSocket 狀態:', broadcaster ? broadcaster.ws.readyState : 'N/A');
+    console.log('   主播 WebSocket 狀態:', broadcaster && broadcaster.ws ? broadcaster.ws.readyState : 'N/A');
     
     // 將 Answer 轉發給主播
-    if (broadcaster && broadcaster.ws.readyState === WebSocket.OPEN) {
+    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
         const answerData = {
             type: 'answer',
             answer: message.answer,
@@ -610,9 +656,9 @@ function handleIceCandidate(message) {
         // 來自觀眾的 ICE 候選，轉發給主播
         console.log('   轉發給主播，觀眾ID:', message.viewerId);
         console.log('   主播是否存在:', !!broadcaster);
-        console.log('   主播 WebSocket 狀態:', broadcaster ? broadcaster.ws.readyState : 'N/A');
+        console.log('   主播 WebSocket 狀態:', broadcaster && broadcaster.ws ? broadcaster.ws.readyState : 'N/A');
         
-        if (broadcaster && broadcaster.ws.readyState === WebSocket.OPEN) {
+        if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
             const candidateData = {
                 type: 'ice_candidate',
                 candidate: message.candidate,
@@ -666,7 +712,7 @@ function handleRequestBroadcasterInfo(ws, message) {
 function handleRequestWebRTCConnection(ws, message) {
     console.log('📡 觀眾請求 WebRTC 連接:', message.viewerId);
     
-    if (broadcaster && broadcaster.ws.readyState === WebSocket.OPEN) {
+    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
         // 通知主播有觀眾需要連接
         broadcaster.ws.send(JSON.stringify({
             type: 'viewer_join',
@@ -906,7 +952,7 @@ async function handleUnifiedChat(payload, senderWs, clientType, clientId){
         // 廣播給觀眾 (若訊息來自觀眾仍要顯示給其他人 & 主播)
     viewers.forEach((vws, vid) => { if(vws.readyState===WebSocket.OPEN){ if(sendJSON(vws, chatPacket)) delivered++; else console.log('[WARN] 發送觀眾失敗 viewerId=', vid); } });
         // 主播端也收到 (包含自己, 用於送達狀態)
-        if(broadcaster && broadcaster.ws && broadcaster.ws.readyState===WebSocket.OPEN){ sendJSON(broadcaster.ws, chatPacket); }
+        if(broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN){ sendJSON(broadcaster.ws, chatPacket); }
 
         // ACK
         sendJSON(senderWs, { type:'ack', event:'chat', ok:true, tempId, delivered, timestamp: new Date().toISOString() });
@@ -1012,7 +1058,7 @@ function updateViewerCount() {
     broadcastToViewers(countMessage);
     
     // 更新主播的數量顯示
-    if (broadcaster && broadcaster.ws.readyState === WebSocket.OPEN) {
+    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
         broadcaster.ws.send(JSON.stringify(countMessage));
     }
 }
@@ -1029,7 +1075,7 @@ setInterval(() => {
     });
     
     // 清理斷線的主播
-    if (broadcaster && broadcaster.ws.readyState !== WebSocket.OPEN) {
+    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState !== WebSocket.OPEN) {
         console.log('清理斷線主播');
         broadcaster = null;
         isStreaming = false;
@@ -1610,25 +1656,277 @@ process.on('unhandledRejection', (reason, promise) => {
     cleanup();
 });
 
-// 啟動伺服器
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-    console.log('🚀 VibeLo 直播平台伺服器已啟動');
+// ===== HTTP輪詢API (WebSocket Fallback) =====
+
+// 存儲輪詢客戶端的訊息佇列
+const pollingClients = new Map(); // clientId -> { messages: [], lastPoll: timestamp }
+const pollingTimeouts = new Map(); // clientId -> timeoutId
+
+// 清理過期的輪詢客戶端
+function cleanupPollingClients() {
+    const now = Date.now();
+    const timeout = 30000; // 30秒超時
     
-    if (isHttps) {
-        console.log(`🔒 HTTPS 伺服器運行在: https://localhost:${PORT}`);
-        console.log(`🔌 WebSocket 伺服器運行在: wss://localhost:${PORT}`);
-        console.log('📱 移動端支援: 完全支援');
-        console.log(`📺 主播端: https://localhost:${PORT}/livestream_platform.html`);
-        console.log(`👥 觀眾端: https://localhost:${PORT}/viewer.html`);
-    } else {
-        console.log(`📡 HTTP 伺服器運行在: http://localhost:${PORT}`);
-        console.log(`🔌 WebSocket 伺服器運行在: ws://localhost:${PORT}`);
-        console.log('📱 移動端支援: 有限制（需要HTTPS）');
-        console.log(`� 主播端: http://localhost:${PORT}/livestream_platform.html`);
-        console.log(`👥 觀眾端: http://localhost:${PORT}/viewer.html`);
+    pollingClients.forEach((client, clientId) => {
+        if (now - client.lastPoll > timeout) {
+            pollingClients.delete(clientId);
+            if (pollingTimeouts.has(clientId)) {
+                clearTimeout(pollingTimeouts.get(clientId));
+                pollingTimeouts.delete(clientId);
+            }
+            console.log('清理過期輪詢客戶端:', clientId);
+        }
+    });
+}
+
+// 每分鐘清理一次過期客戶端
+setInterval(cleanupPollingClients, 60000);
+
+// 輪詢註冊端點
+app.post('/api/polling/register', (req, res) => {
+    const { clientId, clientType, userInfo } = req.body;
+    
+    if (!clientId) {
+        return res.status(400).json({ error: '缺少clientId' });
     }
     
-    console.log('�📄 測試帳號列表: ' + (isHttps ? 'https' : 'http') + '://localhost:' + PORT + '/test-accounts.html');
-    console.log('💾 使用 SQLite 資料庫進行用戶管理');
+    // 註冊輪詢客戶端
+    pollingClients.set(clientId, {
+        messages: [],
+        lastPoll: Date.now(),
+        clientType: clientType || 'viewer',
+        userInfo: userInfo || {}
+    });
+    
+    console.log(`📡 輪詢客戶端註冊: ${clientId} (${clientType})`);
+    
+    res.json({ 
+        success: true, 
+        message: '輪詢客戶端註冊成功',
+        clientId: clientId
+    });
 });
+
+// 輪詢獲取訊息端點
+app.get('/api/polling/messages/:clientId', (req, res) => {
+    const clientId = req.params.clientId;
+    
+    if (!pollingClients.has(clientId)) {
+        return res.status(404).json({ error: '客戶端未註冊' });
+    }
+    
+    const client = pollingClients.get(clientId);
+    client.lastPoll = Date.now();
+    
+    // 獲取待處理的訊息
+    const messages = client.messages.splice(0); // 清空訊息佇列
+    
+    res.json({
+        success: true,
+        messages: messages,
+        timestamp: Date.now()
+    });
+});
+
+// 輪詢發送訊息端點
+app.post('/api/polling/send', (req, res) => {
+    const { clientId, message } = req.body;
+    
+    if (!clientId || !message) {
+        return res.status(400).json({ error: '缺少clientId或message' });
+    }
+    
+    if (!pollingClients.has(clientId)) {
+        return res.status(404).json({ error: '客戶端未註冊' });
+    }
+    
+    // 處理不同類型的訊息
+    try {
+        const parsedMessage = typeof message === 'string' ? JSON.parse(message) : message;
+        
+        // 模擬WebSocket訊息處理
+        switch (parsedMessage.type) {
+            case 'chat_message':
+                handlePollingChatMessage(clientId, parsedMessage);
+                break;
+            case 'chat':  // 處理聊天系統發送的訊息
+                handlePollingChatMessage(clientId, parsedMessage);
+                break;
+            case 'broadcaster_join':
+                handlePollingBroadcasterJoin(clientId, parsedMessage);
+                break;
+            case 'viewer_join':
+                handlePollingViewerJoin(clientId, parsedMessage);
+                break;
+            case 'heartbeat':
+                // 心跳處理
+                sendToPollingClient(clientId, { type: 'heartbeat_ack', timestamp: Date.now() });
+                break;
+            default:
+                console.log('未知的輪詢訊息類型:', parsedMessage.type);
+        }
+        
+        res.json({ success: true, message: '訊息已處理' });
+    } catch (error) {
+        console.error('處理輪詢訊息錯誤:', error);
+        res.status(500).json({ error: '訊息處理失敗' });
+    }
+});
+
+// 輔助函數：發送訊息到輪詢客戶端
+function sendToPollingClient(clientId, message) {
+    if (pollingClients.has(clientId)) {
+        const client = pollingClients.get(clientId);
+        client.messages.push({
+            ...message,
+            timestamp: Date.now()
+        });
+    }
+}
+
+// 輔助函數：廣播訊息到所有輪詢客戶端
+function broadcastToPollingClients(message, filter = null) {
+    pollingClients.forEach((client, clientId) => {
+        if (!filter || filter(client, clientId)) {
+            sendToPollingClient(clientId, message);
+        }
+    });
+}
+
+// 處理輪詢聊天訊息
+function handlePollingChatMessage(clientId, message) {
+    const client = pollingClients.get(clientId);
+    
+    // 處理不同的訊息格式
+    let chatMessage;
+    if (message.type === 'chat') {
+        // 聊天系統格式
+        chatMessage = {
+            type: 'chat',
+            role: message.role || 'viewer',
+            username: message.username || client.userInfo.displayName || 'Anonymous',
+            message: message.message,
+            timestamp: message.timestamp || new Date().toISOString(),
+            userId: clientId
+        };
+    } else {
+        // 標準聊天訊息格式
+        chatMessage = {
+            type: 'chat_message',
+            username: message.username || client.userInfo.displayName || 'Anonymous',
+            message: message.message,
+            timestamp: Date.now(),
+            userId: clientId
+        };
+    }
+    
+    // 廣播給所有客戶端（WebSocket和輪詢）
+    broadcastToAllClients(chatMessage);
+    
+    console.log('📨 輪詢聊天訊息:', chatMessage.username, ':', chatMessage.message);
+}
+
+// 處理輪詢主播加入
+function handlePollingBroadcasterJoin(clientId, message) {
+    const client = pollingClients.get(clientId);
+    
+    // 更新客戶端類型
+    client.clientType = 'broadcaster';
+    client.userInfo = message.userInfo || {};
+    
+    // 發送確認訊息
+    sendToPollingClient(clientId, {
+        type: 'broadcaster_joined',
+        message: '主播已成功加入（輪詢模式）',
+        broadcasterId: clientId
+    });
+    
+    console.log('📺 輪詢主播加入:', clientId);
+}
+
+// 處理輪詢觀眾加入
+function handlePollingViewerJoin(clientId, message) {
+    const client = pollingClients.get(clientId);
+    
+    // 更新客戶端類型
+    client.clientType = 'viewer';
+    client.userInfo = message.userInfo || {};
+    
+    // 發送確認訊息
+    sendToPollingClient(clientId, {
+        type: 'viewer_joined',
+        message: '觀眾已成功加入（輪詢模式）',
+        viewerId: clientId
+    });
+    
+    console.log('👥 輪詢觀眾加入:', clientId);
+}
+
+// 修改原有的廣播函數以支援輪詢客戶端
+function broadcastToAllClients(message) {
+    // 廣播給WebSocket客戶端
+    if (typeof wss !== 'undefined' && wss) {
+        wss.clients.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(message));
+            }
+        });
+    }
+    
+    // 廣播給輪詢客戶端
+    broadcastToPollingClients(message);
+}
+
+// 啟動伺服器
+const HTTP_PORT = process.env.HTTP_PORT || 3000;
+const HTTPS_PORT = process.env.HTTPS_PORT || 3000;
+
+// 只啟動HTTPS服務器
+if (isHttps && httpsServer) {
+    httpsServer.on('error', (error) => {
+        console.error('❌ HTTPS服務器錯誤:', error);
+        if (error.code === 'EADDRINUSE') {
+            console.error(`❌ HTTPS端口 ${HTTPS_PORT} 已被占用`);
+            process.exit(1);
+        }
+    });
+    
+    httpsServer.listen(HTTPS_PORT, '0.0.0.0', () => {
+        console.log('🚀 VibeLo 直播平台伺服器已啟動');
+        console.log(`🔒 HTTPS 伺服器運行在: https://0.0.0.0:${HTTPS_PORT}`);
+        console.log('📱 移動端支援: 完全支援');
+        console.log(`📺 主播端: https://vibelo.l0sscat.com:8443/livestream_platform.html`);
+        console.log(`👥 觀眾端: https://vibelo.l0sscat.com:8443/viewer.html`);
+        console.log(`🌍 外網訪問: https://vibelo.l0sscat.com:8443`);
+        
+        // 在HTTPS服務器上創建WebSocket服務器
+        wss = new WebSocket.Server({ server: httpsServer });
+        wss.setMaxListeners(20);
+        setupWebSocketHandlers();
+        console.log('✅ WebSocket服務器已在HTTPS服務器上啟動');
+        console.log(`🔌 WebSocket 外網訪問: wss://vibelo.l0sscat.com:8443`);
+        
+        console.log(`📄 測試帳號列表: https://vibelo.l0sscat.com:8443/test-accounts.html`);
+        console.log('💾 使用 SQLite 資料庫進行用戶管理');
+        
+        // 確保服務器保持運行
+        process.on('SIGINT', () => {
+            console.log('\n🛑 收到停止信號，正在關閉服務器...');
+            gracefulShutdown();
+        });
+        
+        process.on('SIGTERM', () => {
+            console.log('\n🛑 收到終止信號，正在關閉服務器...');
+            gracefulShutdown();
+        });
+        
+        console.log('🔄 服務器正在運行中...');
+        console.log('⏹️  按 Ctrl+C 停止服務器');
+    });
+} else {
+    console.error('❌ 無法啟動HTTPS服務器，請檢查SSL證書');
+    process.exit(1);
+}
+
+// 防止進程意外退出
+process.stdin.resume();

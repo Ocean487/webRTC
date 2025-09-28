@@ -352,7 +352,7 @@ async function startStream() {
                 addMessage('系統', '⚠️ 音訊輸出端設置失敗，使用預設輸出端');
             }
         } else {
-            addMessage('系統', '🔊 使用預設音訊輸出端');
+            // addMessage('系統', '🔊 使用預設音訊輸出端');
             
             // 確保音訊播放
             try {
@@ -411,8 +411,8 @@ async function startStream() {
                     requestViewers: true // 請求當前在線觀眾列表
                 }));
                 
-                addMessage('系統', `🔄 直播已開始，標題: ${finalTitle}`);
-                addMessage('系統', '🔄 正在為現有觀眾建立連接...');
+                addMessage('系統', `標題: ${finalTitle}`);
+                // addMessage('系統', '🔄 正在為現有觀眾建立連接...');
             } else {
                 console.warn('⚠️ streamingSocket 未連接，嘗試重新連接');
                 connectToStreamingServer();
@@ -1567,11 +1567,13 @@ function connectToStreamingServer() {
     }
     
     try {
-        // 根據當前協議選擇WebSocket協議
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
+        // 🔧 WebSocket連接方案 (統一使用WSS)
+        const wsUrl = 'wss://vibelo.l0sscat.com:8443';
         
-        console.log('嘗試連接到 WebSocket 服務器:', wsUrl);
+        console.log('🔧 WebSocket連接方案:', wsUrl);
+        console.log('🔧 統一使用WSS加密連接');
+        
+        // 創建WebSocket連接
         streamingSocket = new WebSocket(wsUrl);
         
         streamingSocket.onopen = function() {
@@ -1664,11 +1666,11 @@ function connectToStreamingServer() {
 // 處理服務器訊息
 function handleServerMessage(data) {
     console.log('🔔 主播端收到服務器消息:', data.type, data);
-    addMessage('系統', `📨 收到消息: ${data.type}`);
+    // addMessage('系統', `📨 收到消息: ${data.type}`);
     
     switch (data.type) {
         case 'broadcaster_joined':
-            addMessage('系統', '✅ 主播已成功加入直播間');
+            // addMessage('系統', '✅ 主播已成功加入直播間');
             break;
             
         case 'viewer_join':
@@ -1682,7 +1684,7 @@ function handleServerMessage(data) {
         case 'online_viewers':
             // 處理服務器返回的在線觀眾列表
             console.log('🎯 處理在線觀眾列表消息');
-            addMessage('系統', `🎯 收到在線觀眾列表: ${data.viewers ? data.viewers.length : 0} 個`);
+            // addMessage('系統', `🎯 收到在線觀眾列表: ${data.viewers ? data.viewers.length : 0} 個`);
             handleOnlineViewers(data);
             break;
             
@@ -1759,13 +1761,13 @@ function handleOnlineViewers(data) {
     }
     
     console.log(`📺 為 ${viewers.length} 個在線觀眾建立連接...`);
-    addMessage('系統', `📺 正在為 ${viewers.length} 個觀眾建立連接...`);
+    // addMessage('系統', `📺 正在為 ${viewers.length} 個觀眾建立連接...`);
     
     // 為每個在線觀眾建立 WebRTC 連接
     viewers.forEach((viewerId, index) => {
         if (!peerConnections.has(viewerId)) {
             console.log(`🔄 為觀眾 ${viewerId.substr(-3)} 建立 WebRTC 連接...`);
-            addMessage('系統', `🔄 正在為觀眾 ${viewerId.substr(-3)} 建立連接...`);
+            // addMessage('系統', `🔄 正在為觀眾 ${viewerId.substr(-3)} 建立連接...`);
             
             // 延遲建立連接，避免同時建立太多連接
             setTimeout(() => {
@@ -1802,7 +1804,7 @@ function handleViewerJoin(data) {
         // 檢查是否已經有連接
         if (!peerConnections.has(data.viewerId)) {
             console.log(`🔄 為觀眾 ${data.viewerId.substr(-3)} 建立視訊連接...`);
-            addMessage('系統', `🔄 正在為觀眾 ${data.viewerId.substr(-3)} 建立連接...`);
+            // addMessage('系統', `🔄 正在為觀眾 ${data.viewerId.substr(-3)} 建立連接...`);
             
             // 建立 WebRTC 連接
             createPeerConnection(data.viewerId);
@@ -1810,16 +1812,16 @@ function handleViewerJoin(data) {
             // 發送直播串流
             sendStreamToViewer(data.viewerId);
         } else {
-            addMessage('系統', `ℹ️ 觀眾 ${data.viewerId.substr(-3)} 已有連接`);
+            // addMessage('系統', `ℹ️ 觀眾 ${data.viewerId.substr(-3)} 已有連接`);
         }
     } else {
         if (!isStreaming) {
             console.log('⚠️ 主播尚未開始直播');
-            addMessage('系統', `⚠️ 觀眾 ${data.viewerId.substr(-3)} 加入，但直播尚未開始`);
+            // addMessage('系統', `⚠️ 觀眾 ${data.viewerId.substr(-3)} 加入，但直播尚未開始`);
         }
         if (!localStream) {
             console.log('⚠️ 本地媒體流未建立');
-            addMessage('系統', `⚠️ 無法為觀眾建立連接：攝影機未啟用`);
+            // addMessage('系統', `⚠️ 無法為觀眾建立連接：攝影機未啟用`);
         }
     }
 }
@@ -1892,7 +1894,7 @@ function createPeerConnection(viewerId) {
                 }
             });
             
-            addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
+            // addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
             
         } else {
             console.error('❌ 本地串流不存在');
@@ -1943,19 +1945,19 @@ function createPeerConnection(viewerId) {
             
             switch (state) {
                 case 'connecting':
-                    addMessage('系統', `🔄 正在與觀眾 ${viewerId.substr(-3)} 建立連接...`);
+                    // addMessage('系統', `🔄 正在與觀眾 ${viewerId.substr(-3)} 建立連接...`);
                     break;
                 case 'connected':
                     console.log(`✅ 觀眾 ${viewerId.substr(-3)} 視訊連接成功`);
-                    addMessage('系統', `✅ 觀眾 ${viewerId.substr(-3)} 連接成功！`);
+                    // addMessage('系統', `✅ 觀眾 ${viewerId.substr(-3)} 連接成功！`);
                     break;
                 case 'disconnected':
                     console.log(`⚠️ 觀眾 ${viewerId.substr(-3)} 連接中斷`);
-                    addMessage('系統', `⚠️ 觀眾 ${viewerId.substr(-3)} 連接中斷`);
+                    // addMessage('系統', `⚠️ 觀眾 ${viewerId.substr(-3)} 連接中斷`);
                     break;
                 case 'failed':
                     console.log(`❌ 觀眾 ${viewerId.substr(-3)} 連接失敗`);
-                    addMessage('系統', `❌ 觀眾 ${viewerId.substr(-3)} 連接失敗，將嘗試重連...`);
+                    // addMessage('系統', `❌ 觀眾 ${viewerId.substr(-3)} 連接失敗，將嘗試重連...`);
                     
                     // 清理失敗的連接並嘗試重新建立
                     setTimeout(() => {
@@ -2012,13 +2014,13 @@ async function sendStreamToViewer(viewerId) {
     const peerConnection = peerConnections.get(viewerId);
     if (!peerConnection) {
         console.error('找不到觀眾的 PeerConnection:', viewerId);
-        addMessage('系統', `❌ 找不到觀眾 ${viewerId.substr(-3)} 的連接`);
+        // addMessage('系統', `❌ 找不到觀眾 ${viewerId.substr(-3)} 的連接`);
         return;
     }
     
     try {
         console.log('為觀眾', viewerId, '創建 WebRTC offer');
-        addMessage('系統', `🔄 正在為觀眾 ${viewerId.substr(-3)} 創建連接...`);
+        // addMessage('系統', `🔄 正在為觀眾 ${viewerId.substr(-3)} 創建連接...`);
         
         // 創建 offer
         const offer = await peerConnection.createOffer();
@@ -2036,7 +2038,7 @@ async function sendStreamToViewer(viewerId) {
             };
             console.log('發送 offer 給觀眾:', viewerId, '- Offer SDP 長度:', offer.sdp.length);
             streamingSocket.send(JSON.stringify(offerMessage));
-            addMessage('系統', `📤 已向觀眾 ${viewerId.substr(-3)} 發送連接請求`);
+            // addMessage('系統', `📤 已向觀眾 ${viewerId.substr(-3)} 發送連接請求`);
         } else {
             console.error('WebSocket 連接不可用，無法發送 offer');
             addMessage('系統', `❌ 無法發送連接請求：WebSocket 未連接`);
@@ -2064,7 +2066,7 @@ async function handleAnswer(data) {
         }
     } else {
         console.error('找不到觀眾的 WebRTC 連接:', data.viewerId);
-        addMessage('系統', `❌ 找不到觀眾 ${data.viewerId.substr(-3)} 的連接`);
+        // addMessage('系統', `❌ 找不到觀眾 ${data.viewerId.substr(-3)} 的連接`);
     }
 }
 
@@ -2628,7 +2630,7 @@ function optimizeVideoEncodingForCompatibility() {
                 console.log(`  ✅ ${codec.mimeType}`);
             });
             
-            addMessage('系統', `🎥 檢測到 ${availableCodecs.length} 個兼容的視頻編解碼器`);
+            // addMessage('系統', `🎥 檢測到 ${availableCodecs.length} 個兼容的視頻編解碼器`);
         }
     }
     
@@ -2732,7 +2734,7 @@ function createOptimizedPeerConnection(viewerId) {
                 }
             });
             
-            addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
+            // addMessage('系統', `📹 已為觀眾 ${viewerId.substr(-3)} 添加 ${videoTracks.length} 個視訊軌道和 ${audioTracks.length} 個音訊軌道`);
             
             // 延遲設定編解碼器偏好，確保軌道已添加
             setTimeout(() => {

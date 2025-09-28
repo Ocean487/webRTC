@@ -1,0 +1,294 @@
+/* 手機觀眾介面優化 */
+
+/* 手機端 (768px 以下) - 重新設計佈局 */
+@media (max-width: 768px) {
+    /* 重新調整容器佈局 */
+    .viewer-container {
+        margin: 0.5rem auto;
+        padding: 0 0.5rem;
+        gap: 0.5rem;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr; /* 視訊自適應，聊天佔用剩餘空間 */
+        height: calc(100vh - 120px); /* 預留導航欄和底部空間 */
+        max-height: calc(100vh - 120px);
+    }
+
+    /* 視訊區域 - 壓縮高度 */
+    .video-section {
+        padding: 0.5rem;
+        border-radius: 12px;
+        height: auto;
+        max-height: 35vh; /* 限制最大高度為35%視窗高度 */
+        min-height: 200px; /* 確保最小可用高度 */
+    }
+
+    /* 直播視訊 - 優化尺寸 */
+    .stream-video {
+        border-radius: 8px;
+        margin-bottom: 0.5rem;
+        max-height: 25vh; /* 限制視訊高度 */
+        object-fit: cover;
+        width: 100%;
+    }
+
+    /* 聊天區域 - 擴大空間 */
+    .chat-section {
+        padding: 0.5rem;
+        border-radius: 12px;
+        height: 100%; /* 佔用剩餘空間 */
+        max-height: none; /* 移除最大高度限制 */
+        min-height: 50vh; /* 確保聊天區域至少佔50%高度 */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* 聊天容器 - 完整高度 */
+    .chat-container {
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+
+    /* 聊天訊息區域 - 增大可視空間 */
+    .chat-messages {
+        padding: 0.5rem;
+        flex: 1;
+        overflow-y: auto;
+        font-size: 0.9rem;
+        line-height: 1.4;
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 聊天標題 - 緊湊設計 */
+    .chat-header {
+        padding: 0.75rem 0.5rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+    }
+
+    .chat-header h3 {
+        font-size: 1rem;
+        margin: 0;
+    }
+
+    /* 聊天輸入區域 - 優化 */
+    .chat-input-container {
+        padding: 0.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .chat-input {
+        flex: 1;
+        padding: 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 25px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 0.9rem;
+        min-height: 44px; /* 觸摸友好 */
+    }
+
+    .send-button {
+        padding: 0.75rem 1rem;
+        min-height: 44px;
+        min-width: 44px;
+        border-radius: 25px;
+        font-size: 0.9rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* 訊息樣式優化 */
+    .message {
+        margin: 0.3rem 0;
+        padding: 0.5rem 0.75rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        font-size: 0.85rem;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+
+    .message.broadcaster {
+        background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .message.viewer {
+        background: rgba(255, 255, 255, 0.15);
+    }
+
+    .message.system {
+        background: rgba(102, 126, 234, 0.3);
+        font-style: italic;
+        text-align: center;
+    }
+
+    /* 直播資訊 - 緊湊設計 */
+    .stream-header {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 0;
+        flex-wrap: wrap;
+    }
+
+    .streamer-info h2 {
+        font-size: 1.1rem;
+        margin: 0;
+    }
+
+    .stream-status {
+        font-size: 0.8rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 15px;
+    }
+
+    .streamer-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+
+    /* 觀眾數量 */
+    .viewer-count {
+        font-size: 0.85rem;
+        padding: 0.25rem 0.5rem;
+    }
+}
+
+/* 小手機 (480px 以下) - 進一步優化 */
+@media (max-width: 480px) {
+    .viewer-container {
+        padding: 0 0.25rem;
+        gap: 0.25rem;
+        height: calc(100vh - 100px);
+    }
+
+    .video-section {
+        max-height: 30vh;
+        min-height: 180px;
+        padding: 0.25rem;
+    }
+
+    .stream-video {
+        max-height: 22vh;
+    }
+
+    .chat-section {
+        min-height: 55vh;
+        padding: 0.25rem;
+    }
+
+    .chat-messages {
+        font-size: 0.8rem;
+        padding: 0.25rem;
+    }
+
+    .chat-header {
+        padding: 0.5rem 0.25rem;
+    }
+
+    .chat-input-container {
+        padding: 0.25rem;
+    }
+
+    .chat-input {
+        font-size: 0.8rem;
+        padding: 0.6rem;
+    }
+
+    .message {
+        font-size: 0.8rem;
+        padding: 0.4rem 0.6rem;
+        margin: 0.2rem 0;
+    }
+}
+
+/* 超小手機 (360px 以下) - 最小化設計 */
+@media (max-width: 360px) {
+    .viewer-container {
+        height: calc(100vh - 80px);
+    }
+
+    .video-section {
+        max-height: 25vh;
+        min-height: 160px;
+    }
+
+    .stream-video {
+        max-height: 18vh;
+    }
+
+    .chat-section {
+        min-height: 60vh;
+    }
+
+    .streamer-info h2 {
+        font-size: 1rem;
+    }
+
+    .stream-status {
+        font-size: 0.7rem;
+    }
+}
+
+/* 橫屏模式 - 特殊優化 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .viewer-container {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: 1fr;
+        height: calc(100vh - 60px);
+        gap: 0.5rem;
+    }
+
+    .video-section {
+        height: 100%;
+        max-height: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stream-video {
+        flex: 1;
+        max-height: none;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .chat-section {
+        height: 100%;
+        min-height: auto;
+    }
+
+    /* 橫屏時縮小字體 */
+    .chat-messages {
+        font-size: 0.75rem;
+    }
+
+    .message {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.5rem;
+    }
+}
+
+
+
+
+
+
+

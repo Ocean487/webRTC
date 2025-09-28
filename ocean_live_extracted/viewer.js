@@ -556,7 +556,7 @@ function handleTitleUpdate(data) {
         if (data.title && data.title.trim() !== '') {
             streamTitle.textContent = data.title;
             console.log('標題已更新為:', data.title);
-            displaySystemMessage(`📝 直播標題已更新: ${data.title}`);
+            // displaySystemMessage(`📝 直播標題已更新: ${data.title}`);
         } else {
             streamTitle.textContent = '直播進行中';
             console.log('標題已重置為預設值');
@@ -636,6 +636,7 @@ function updateBroadcasterInfo(broadcasterInfo) {
     
     if (statusText) {
         statusText.textContent = `等待 ${broadcasterInfo.displayName} 開始直播`;
+        statusText.style.color = 'white';
         statusText.className = 'status-text waiting';
     }
 }
@@ -848,34 +849,34 @@ function initializePeerConnection() {
                     console.warn('⚠️ 視頻尺寸為 0，可能是解碼問題');
                     displaySystemMessage('⚠️ 視頻解碼異常，正在重試...');
                 } else {
-                    displaySystemMessage('✅ 視頻元數據已載入');
+                    // displaySystemMessage('✅ 視頻元數據已載入');
                 }
             };
             
             remoteVideo.onloadeddata = function() {
                 console.log('✅ 視頻數據已載入，準備播放');
-                displaySystemMessage('🎬 視頻數據已載入');
+                // displaySystemMessage('🎬 視頻數據已載入');
             };
             
             remoteVideo.oncanplay = function() {
                 console.log('✅ 視頻可以開始播放');
-                displaySystemMessage('▶️ 視頻準備就緒');
+                // displaySystemMessage('▶️ 視頻準備就緒');
             };
             
             remoteVideo.onplay = function() {
                 console.log('✅ 視頻開始播放');
-                displaySystemMessage('🎬 視頻播放開始');
+                // displaySystemMessage('🎬 視頻播放開始');
                 if (playPrompt) playPrompt.style.display = 'none';
             };
             
             remoteVideo.onwaiting = function() {
                 console.log('⏳ 視頻等待數據');
-                displaySystemMessage('⏳ 等待視頻數據...');
+                // displaySystemMessage('⏳ 等待視頻數據...');
             };
             
             remoteVideo.onstalled = function() {
                 console.warn('⚠️ 視頻播放停滯');
-                displaySystemMessage('⚠️ 視頻播放停滯，檢查網路連接');
+                // displaySystemMessage('⚠️ 視頻播放停滯，檢查網路連接');
             };
             
             remoteVideo.onerror = function(error) {
@@ -927,7 +928,7 @@ function initializePeerConnection() {
                         }
                     }, 1000);
                     
-                displaySystemMessage('🎬 視頻已開始播放');
+                // displaySystemMessage('🎬 視頻已開始播放');
                     return true;
                 } catch (error1) {
                     console.log('策略1失敗，嘗試策略2:', error1);
@@ -940,7 +941,7 @@ function initializePeerConnection() {
                         remoteVideo.setAttribute('muted', '');
                         await remoteVideo.play();
                         console.log('✅ 強制靜音播放成功');
-                        displaySystemMessage('🎬 視頻已開始播放（靜音模式）');
+                        // displaySystemMessage('🎬 視頻已開始播放（靜音模式）');
                         return true;
                     } catch (error2) {
                         console.log('策略2失敗，嘗試策略3:', error2);
@@ -959,7 +960,7 @@ function initializePeerConnection() {
                                 });
                             });
                             console.log('✅ RAF 策略播放成功');
-                            displaySystemMessage('🎬 視頻已開始播放');
+                            // displaySystemMessage('🎬 視頻已開始播放');
                             return true;
                         } catch (error3) {
                             console.log('所有自動播放策略都失敗:', error3);
@@ -998,18 +999,18 @@ function initializePeerConnection() {
         
         if (peerConnection.connectionState === 'connected') {
             console.log('✅ WebRTC 連接已建立');
-            displaySystemMessage('🎬 視頻串流已連接');
+            // displaySystemMessage('🎬 視頻串流已連接');
             // 重置重試計數器
             reconnectAttempts = 0;
         } else if (peerConnection.connectionState === 'connecting') {
             console.log('🔄 WebRTC 正在連接...');
-            displaySystemMessage('🔄 正在建立視頻連接...');
+            // displaySystemMessage('🔄 正在建立視頻連接...');
         } else if (peerConnection.connectionState === 'disconnected') {
             console.log('⚠️ WebRTC 連接已斷開');
-            displaySystemMessage('⚠️ 視頻串流已斷開');
+            // displaySystemMessage('⚠️ 視頻串流已斷開');
         } else if (peerConnection.connectionState === 'failed') {
             console.error('❌ WebRTC 連接失敗');
-            displaySystemMessage('❌ 視頻連接失敗，正在重試...');
+            // displaySystemMessage('❌ 視頻連接失敗，正在重試...');
             
             // 嘗試重新建立連接（有限次數）
             if (reconnectAttempts < maxReconnectAttempts) {
@@ -1094,13 +1095,13 @@ function initializePeerConnection() {
             // 分析候選類型以判斷 NAT 穿透狀況
             if (candidate.type === 'host') {
                 console.log('✅ 本地候選 (直連可能)');
-                displaySystemMessage('🌐 偵測到直連網路環境');
+                // displaySystemMessage('🌐 偵測到直連網路環境');
             } else if (candidate.type === 'srflx') {
                 console.log('🔄 伺服器反射候選 (STUN 通過 NAT)');
-                displaySystemMessage('🔄 正在通過 NAT 建立連接...');
+                // displaySystemMessage('🔄 正在通過 NAT 建立連接...');
             } else if (candidate.type === 'relay') {
                 console.log('🔀 中繼候選 (TURN 伺服器)');
-                displaySystemMessage('🔀 使用中繼伺服器，網路環境較複雜');
+                // displaySystemMessage('🔀 使用中繼伺服器，網路環境較複雜');
             } else if (candidate.type === 'prflx') {
                 console.log('🎭 對等反射候選');
             }
@@ -1132,13 +1133,13 @@ function initializePeerConnection() {
                         console.log(`📊 候選統計 - 本地:${hostCount}, STUN:${srflxCount}, TURN:${relayCount}`);
                         
                         if (hostCount > 0) {
-                            displaySystemMessage('✅ 網路環境良好，支援直連');
+                            // displaySystemMessage('✅ 網路環境良好，支援直連');
                         } else if (srflxCount > 0) {
-                            displaySystemMessage('🔄 透過 NAT 環境連接');
+                            // displaySystemMessage('🔄 透過 NAT 環境連接');
                         } else if (relayCount > 0) {
-                            displaySystemMessage('🔀 使用中繼連接，可能較慢');
+                            // displaySystemMessage('🔀 使用中繼連接，可能較慢');
                         } else {
-                            displaySystemMessage('⚠️ 網路連接受限，請檢查防火牆');
+                            // displaySystemMessage('⚠️ 網路連接受限，請檢查防火牆');
                         }
                     }).catch(err => console.error('無法獲取統計:', err));
                 }
@@ -1169,11 +1170,11 @@ async function handleOffer(offer) {
                 streamerId: targetStreamerId  // 添加目標主播ID
             }));
             
-            displaySystemMessage('✅ 已回應主播連接請求');
+            // displaySystemMessage('✅ 已回應主播連接請求');
         }
     } catch (error) {
         console.error('處理 offer 失敗:', error);
-        displaySystemMessage('視頻連接失敗，請刷新頁面重試');
+        // displaySystemMessage('視頻連接失敗，請刷新頁面重試');
     }
 }
 
