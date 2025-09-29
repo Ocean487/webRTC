@@ -176,6 +176,22 @@ let wss;
 let isStreaming = false;
 let broadcaster = null;
 let viewers = new Map(); // viewerId -> WebSocket
+
+// 音樂流狀態管理
+let musicStreamState = {
+    isPlaying: false,
+    currentVideoId: null,
+    volume: 100,
+    isMuted: false,
+    broadcasterId: null
+};
+
+// 分頁音訊狀態管理
+let tabAudioState = {
+    enabled: false,
+    audioType: 'tab',
+    broadcasterId: null
+};
 let chatUsers = new Map(); // WebSocket -> { role, username, timestamp }
 let activeBroadcasters = new Map(); // userId -> { ws, userInfo, startTime, viewerCount }
 let activeConnections = new Map(); // connectionId -> { type, userId, streamerId, ws }
@@ -287,6 +303,26 @@ function setupWebSocketHandlers() {
                         
                     case 'heartbeat':
                         sendJSON(wss, { type: 'heartbeat_ack', timestamp: new Date().toISOString() });
+                        break;
+                    
+                    case 'request_music_stream_state':
+                        handleRequestMusicStreamState(wss, message);
+                        break;
+                        
+                    case 'music_stream_change':
+                        handleMusicStreamChange(message);
+                        break;
+                        
+                    case 'tab_audio_change':
+                        handleTabAudioChange(message);
+                        break;
+                        
+                    case 'request_tab_audio_state':
+                        handleRequestTabAudioState(wss, message);
+                        break;
+                        
+                    case 'request_audio_stream_status':
+                        handleRequestAudioStreamStatus(wss, message);
                         break;
                     
                     case 'title_update':
@@ -1875,6 +1911,211 @@ function broadcastToAllClients(message) {
     
     // 廣播給輪詢客戶端
     broadcastToPollingClients(message);
+}
+
+// 🎵 音樂流狀態處理函數
+function handleRequestMusicStreamState(wss, message) {
+    console.log('🎵 收到音樂流狀態查詢請求:', message.viewerId);
+    
+    // 回傳當前音樂流狀態
+    sendJSON(wss, {
+        type: 'music_stream_state',
+        isPlaying: musicStreamState.isPlaying,
+        currentVideoId: musicStreamState.currentVideoId,
+        volume: musicStreamState.volume,
+        isMuted: musicStreamState.isMuted,
+        broadcasterId: musicStreamState.broadcasterId,
+        timestamp: Date.now()
+    });
+}
+
+function handleMusicStreamChange(message) {
+    console.log('🎵 音樂流狀態變更:', message);
+    
+    // 更新音樂流狀態
+    if (message.data) {
+        musicStreamState.isPlaying = message.data.isPlaying || false;
+        musicStreamState.currentVideoId = message.data.currentVideoId || null;
+        musicStreamState.volume = message.data.volume || 100;
+        musicStreamState.isMuted = message.data.isMuted || false;
+        musicStreamState.broadcasterId = message.broadcasterId || null;
+    }
+    
+    // 廣播音樂狀態變更給所有觀眾
+    const broadcastMessage = {
+        type: 'music_stream_state_update',
+        isPlaying: musicStreamState.isPlaying,
+        currentVideoId: musicStreamState.currentVideoId,
+        volume: musicStreamState.volume,
+        isMuted: musicStreamState.isMuted,
+        broadcasterId: musicStreamState.broadcasterId,
+        timestamp: Date.now()
+    };
+    
+    // 發送給所有WebSocket觀眾
+    if (wss && wss.clients) {
+        wss.clients.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(broadcastMessage));
+            }
+        });
+    }
+    
+    // 發送給輪詢觀眾
+    broadcastToPollingClients(broadcastMessage);
+    
+    console.log('📡 音樂流狀態已廣播給所有觀眾');
+}
+
+// 主播開始播放音樂時的處理
+function handleMusicStart(videoId, broadcasterId) {
+    if (!broadcasterId) {
+        broadcasterId = musicStreamState.broadcasterId;
+    }
+    
+    musicStreamState.isPlaying = true;
+    musicStreamState.currentVideoId = videoId;
+    musicStreamState.broadcasterId = broadcasterId;
+    
+    console.log('🎵 主播開始播放音樂:', videoId);
+    
+    // 廣播音樂開始消息
+    handleMusicStreamChange({
+        type: 'music_start',
+        data: {
+            isPlaying: true,
+            currentVideoId: videoId,
+            broadcasterId: broadcasterId
+        },
+        broadcasterId: broadcasterId
+    });
+}
+
+// 主播停止播放音樂時的處理
+function handleMusicStop(broadcasterId) {
+    musicStreamState.isPlaying = false;
+    musicStreamState.currentVideoId = null;
+    
+    console.log('🎵 主播停止播放音樂');
+    
+    // 廣播音樂停止消息
+    handleMusicStreamChange({
+        type: 'music_stop',
+        data: {
+            isPlaying: false,
+            currentVideoId: null,
+            broadcasterId: broadcasterId
+        }
+    });
+}
+
+// 🎵 分頁音訊狀態處理函數
+function handleTabAudioChange(message) {
+    console.log('🎵 分頁音訊狀態變更:', message);
+    
+    // 更新分頁音訊狀態
+    if (message.data) {
+        tabAudioState.enabled = message.data.enabled || false;
+        tabAudioState.audioType = message.data.audioType || 'tab';
+        tabAudioState.broadcasterId = message.broadcasterId || message.data.broadcasterId || null;
+    }
+    
+    // 廣播分頁音訊狀態變更給所有觀眾
+    const broadcastMessage = {
+        type: 'tab_audio_state_update',
+        enabled: tabAudioState.enabled,
+        audioType: tabAudioState.audioType,
+        broadcasterId: tabAudioState.broadcasterId,
+        timestamp: Date.now()
+    };
+    
+    // 發送給所有WebSocket觀眾
+    if (wss && wss.clients) {
+        wss.clients.forEach(ws => {
+            if (ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify(broadcastMessage));
+            }
+        });
+    }
+    
+    // 發送給輪詢觀眾
+    broadcastToPollingClients(broadcastMessage);
+    
+    console.log('📡 分頁音訊狀態已廣播給所有觀眾');
+}
+
+function handleRequestTabAudioState(wss, message) {
+    console.log('🎵 收到分頁音訊狀態查詢請求:', message.viewerId);
+    
+    // 回傳當前分頁音訊狀態
+    sendJSON(wss, {
+        type: 'tab_audio_state',
+        enabled: tabAudioState.enabled,
+        audioType: tabAudioState.audioType,
+        broadcasterId: tabAudioState.broadcasterId,
+        timestamp: Date.now()
+    });
+}
+
+// 🎵 處理音訊流狀態查詢請求（整合音樂和分頁音訊）
+function handleRequestAudioStreamStatus(wss, message) {
+    console.log('🎵 收到音訊流狀態查詢請求:', message.viewerId);
+    
+    // 整合音樂流和分頁音訊狀態
+    const audioStreamStatus = {
+        type: 'audio_stream_status',
+        musicStream: {
+            isPlaying: musicStreamState.isPlaying,
+            currentVideoId: musicStreamState.currentVideoId,
+            volume: musicStreamState.volume,
+            isMuted: musicStreamState.isMuted,
+            broadcasterId: musicStreamState.broadcasterId
+        },
+        tabAudioStream: {
+            enabled: tabAudioState.enabled,
+            audioType: tabAudioState.audioType,
+            broadcasterId: tabAudioState.broadcasterId
+        },
+        timestamp: Date.now()
+    };
+    
+    console.log('📡 回應音訊流狀態:', audioStreamStatus);
+    sendJSON(wss, audioStreamStatus);
+}
+
+// 主播啟用分頁音訊時的處理
+function handleTabAudioEnabled(broadcasterId) {
+    tabAudioState.enabled = true;
+    tabAudioState.broadcasterId = broadcasterId;
+    
+    console.log('🎵 主播啟用分頁音訊分享');
+    
+    // 廣播分頁音訊啟用消息
+    handleTabAudioChange({
+        type: 'tab_audio_enabled',
+        data: {
+            enabled: true,
+            audioType: 'tab',
+            broadcasterId: broadcasterId
+        }
+    });
+}
+
+// 主播停用分頁音訊時的處理
+function handleTabAudioDisabled(broadcasterId) {
+    tabAudioState.enabled = false;
+    
+    console.log('🎵 主播停用分頁音訊分享');
+    
+    // 廣播分頁音訊停用消息
+    handleTabAudioChange({
+        type: 'tab_audio_disabled',
+        data: {
+            enabled: false,
+            audioType: 'tab',
+            broadcasterId: broadcasterId
+        }
+    });
 }
 
 // 啟動伺服器

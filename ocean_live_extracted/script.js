@@ -165,6 +165,14 @@ async function initializeBroadcaster() {
     // 初始化聊天（統一處理，避免重複）
     initializeChat();
     
+    // 🎵 初始化分頁音訊重連管理器
+    setTimeout(() => {
+        if (window.tabAudioReconnectManager && streamingSocket) {
+            window.tabAudioReconnectManager.initialize(streamingSocket, myBroadcasterId || 'unknown');
+            console.log('✅ 分頁音訊重連管理器已初始化');
+        }
+    }, 1000);
+    
     // 初始化標題 WebSocket（延遲，避免衝突）
     setTimeout(() => {
         if (typeof initTitleWebSocket === 'function') {
@@ -2541,6 +2549,11 @@ async function toggleTabAudio() {
                     // 更新WebRTC連接中的音訊軌道
                     await updateAudioTracks(mixedAudioStream);
                     addMessage('系統', '🎉 背景音樂分享已成功啟用！觀眾現在可以聽到音樂了');
+                    
+                    // 🎵 發送分頁音訊啟用狀態
+                    if (window.tabAudioReconnectManager) {
+                        window.tabAudioReconnectManager.toggleTabAudio(true, 'tab');
+                    }
                 } else {
                     throw new Error('混音音訊流創建失敗');
                 }
@@ -2592,6 +2605,11 @@ async function toggleTabAudio() {
             }
             
             addMessage('系統', '✅ 背景音樂分享已停用，恢復為純麥克風音訊');
+            
+            // 🎵 發送分頁音訊停用狀態
+            if (window.tabAudioReconnectManager) {
+                window.tabAudioReconnectManager.toggleTabAudio(false, 'tab');
+            }
         } catch (error) {
             console.error('停用分頁音訊失敗:', error);
             addMessage('系統', '❌ 停用背景音樂分享時發生錯誤: ' + error.message);

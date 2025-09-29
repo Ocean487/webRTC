@@ -309,6 +309,31 @@ function connectWebSocket() {
 function handleWebSocketMessage(data) {
     console.log('收到消息:', data);
     
+    // 🎵 處理音樂流 관련消息
+    if (data.type && data.type.startsWith('music_')) {
+        if (window.musicStreamReconnectManager) {
+            window.musicStreamReconnectManager.handleMusicStreamChange(data);
+        }
+    }
+    
+    // 🎵 處理分頁音訊相關消息
+    if (data.type && data.type.startsWith('tab_audio')) {
+        if (window.tabAudioReconnectManager) {
+            window.tabAudioReconnectManager.handleTabAudioState(data.data || data);
+        }
+    }
+    
+    // 🎵 處理音訊流重連相關消息
+    if (data.type && data.type.includes('audio')) {
+        if (window.viewerAudioReconnectManager) {
+            if (data.type === 'audio_stream_status') {
+                window.viewerAudioReconnectManager.handleAudioStreamStatus(data);
+            } else if (data.type === 'audio_track_update') {
+                window.viewerAudioReconnectManager.handleTabAudioDetected(data);
+            }
+        }
+    }
+    
     switch(data.type) {
         case 'viewer_joined':
             window.receivedViewerJoined = true;
@@ -421,6 +446,28 @@ function handleWebSocketMessage(data) {
         case 'no_broadcaster':
             console.log('⏳ 沒有找到主播');
             displaySystemMessage('⏳ 主播尚未開始直播，請稍候...');
+            break;
+        case 'music_stream_state':
+            // 處理音樂流狀態響應
+            if (window.musicStreamReconnectManager) {
+                window.musicStreamReconnectManager.handleMusicStreamState(data);
+            }
+            break;
+        case 'tab_audio_state':
+            // 處理分頁音訊狀態響應
+            if (window.tabAudioReconnectManager) {
+                window.tabAudioReconnectManager.handleTabAudioState(data);
+            }
+            break;
+        case 'audio_stream_status':
+            // 處理整合音訊流狀態響應
+            if (window.musicStreamReconnectManager) {
+                window.musicStreamReconnectManager.handleAudioStreamStatus(data);
+            }
+            // 同時調用簡化版處理器
+            if (window.handleAudioStatusResponse) {
+                window.handleAudioStatusResponse(data);
+            }
             break;
         default:
             console.log('🔍 未知消息類型:', data.type, '內容:', data);

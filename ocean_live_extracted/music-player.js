@@ -99,13 +99,22 @@ function onPlayerStateChange(event) {
     const state = states[event.data] || '未知';
     console.log('YouTube播放器狀態:', state);
     
-    // 不重新載入直播，讓YouTube音訊自然通過系統音效混入
+    // 處理音樂狀態變更並發送到服務器
     if (event.data === YT.PlayerState.PLAYING) {
         console.log('🎵 YouTube 音樂開始播放');
+        sendMusicStateUpdate('music_start', youtubePlayer.getCurrentVideoData());
+        if (window.handleMusicStart) {
+            window.handleMusicStart(youtubePlayer.getCurrentVideoData());
+        }
     } else if (event.data === YT.PlayerState.PAUSED) {
         console.log('⏸️ YouTube 音樂暫停');
+        sendMusicStateUpdate('music_pause');
     } else if (event.data === YT.PlayerState.ENDED) {
         console.log('🔄 YouTube 音樂播放結束');
+        sendMusicStateUpdate('music_stop');
+        if (window.handleMusicStop) {
+            window.handleMusicStop();
+        }
     }
 }
 
@@ -399,6 +408,37 @@ function loadVideo(videoId) {
     }
 }
 
+// 🎵 發送音樂狀態更新到服務器
+function sendMusicStateUpdate(action, videoData = null) {
+    try {
+        // 檢查WebSocket連接
+        const socket = window.streamingSocket || window.socket;
+        if (!socket || socket.readyState !== WebSocket.OPEN) {
+            console.log('⚠️ WebSocket未連接，無法發送音樂狀態更新');
+            return;
+        }
+        
+        const message = {
+            type: 'music_stream_change',
+            action: action,
+            data: {
+                isPlaying: action === 'music_start',
+                currentVideoId: videoData ? videoData.video_id : youtubePlayer.getVideoData()?.video_id,
+                volume: currentVolume,
+                isMuted: isMuted,
+                broadcasterId: window.myBroadcasterId || window.getBroadcasterId?.()
+            },
+            timestamp: Date.now()
+        };
+        
+        console.log('📤 發送音樂狀態更新:', message);
+        socket.send(JSON.stringify(message));
+        
+    } catch (error) {
+        console.error('❌ 發送音樂狀態更新失敗:', error);
+    }
+}
+
 // 切換靜音
 function toggleMute() {
     isMuted = !isMuted;
@@ -519,6 +559,9 @@ function setVolume(value) {
         musicAudioElement.volume = currentVolume / 100;
     }
     
+    // 🎵 發送音量變更更新
+    sendMusicStateUpdate('music_volume_change');
+    
     console.log('音樂音量設為:', currentVolume + '%');
 }
 
@@ -548,6 +591,9 @@ function toggleMute() {
     if (musicAudioElement) {
         musicAudioElement.muted = isMuted;
     }
+    
+    // 🎵 發送靜音狀態變更更新
+    sendMusicStateUpdate('music_mute_change');
     
     console.log('音樂靜音狀態:', isMuted);
 }
