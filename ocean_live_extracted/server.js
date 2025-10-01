@@ -177,6 +177,19 @@ let isStreaming = false;
 let broadcaster = null;
 let viewers = new Map(); // viewerId -> WebSocket
 
+// MCU 相關狀態
+let mcuState = {
+    isActive: false,
+    broadcasterConnection: null,
+    viewerConnections: new Map(), // viewerId -> RTCPeerConnection
+    mediaStream: null,
+    stats: {
+        totalViewers: 0,
+        activeConnections: 0,
+        bandwidth: 0
+    }
+};
+
 // 音樂流狀態管理
 let musicStreamState = {
     isPlaying: false,
@@ -328,6 +341,14 @@ function setupWebSocketHandlers() {
                     case 'title_update':
                         handleTitleUpdate(message);
                         sendJSON(wss, { type: 'ack', event: 'title_update', ok: true });
+                        break;
+                    
+                    case 'mcu_connection_request':
+                        handleMCUConnectionRequest(wss, message);
+                        break;
+                    
+                    case 'mcu_stats_request':
+                        handleMCUStatsRequest(wss, message);
                         break;
                         
                     case 'effect_update':
@@ -538,9 +559,9 @@ function handleViewerJoin(wss, message) {
     updateViewerCount();
 }
 
-// 處理直播開始
+// 處理直播開始 - MCU 模式
 function handleStreamStart(message) {
-    console.log('直播開始');
+    console.log('🎬 [MCU] 直播開始');
     isStreaming = true;
     
     // 更新當前標題
@@ -548,12 +569,20 @@ function handleStreamStart(message) {
         currentStreamTitle = message.title;
     }
     
+    // 啟動 MCU 模式
+    if (!mcuState.isActive) {
+        console.log('🚀 [MCU] 啟動 MCU 服務器');
+        mcuState.isActive = true;
+        mcuState.stats.totalViewers = viewers.size;
+    }
+    
     // 通知所有觀眾直播已開始
     broadcastToViewers({
         type: 'stream_start',
         title: currentStreamTitle || message.title || '直播中',
-        message: '直播即將開始',
-        status: 'starting'
+        message: 'MCU 直播即將開始',
+        status: 'starting',
+        mcuMode: true
     });
     
     // 1秒後發送直播開始狀態
@@ -561,25 +590,40 @@ function handleStreamStart(message) {
         broadcastToViewers({
             type: 'stream_status',
             title: currentStreamTitle || message.title || '直播中',
-            message: '直播開始',
-            status: 'live'
+            message: 'MCU 直播開始',
+            status: 'live',
+            mcuMode: true,
+            mcuStats: mcuState.stats
         });
     }, 1000);
     
-    // 🎯 [REMOVED] 不再在這里發送 online_viewers，由消息處理直接發送
-    console.log(`🔄 [INFO] 直播開始處理完成，觀眾列表將由消息處理直接發送`);
+    console.log(`🔄 [MCU] 直播開始處理完成，MCU 模式已啟動`);
 }
 
-// 處理直播結束
+// 處理直播結束 - MCU 模式
 function handleStreamEnd() {
-    console.log('直播結束');
+    console.log('🎬 [MCU] 直播結束');
     isStreaming = false;
     currentStreamTitle = ''; // 清除標題
+    
+    // 停止 MCU 服務器
+    if (mcuState.isActive) {
+        console.log('🛑 [MCU] 停止 MCU 服務器');
+        mcuState.isActive = false;
+        mcuState.broadcasterConnection = null;
+        mcuState.viewerConnections.clear();
+        mcuState.mediaStream = null;
+        mcuState.stats = {
+            totalViewers: 0,
+            activeConnections: 0,
+            bandwidth: 0
+        };
+    }
     
     // 通知所有觀眾直播已結束
     broadcastToViewers({
         type: 'stream_end',
-        message: '直播已結束'
+        message: 'MCU 直播已結束'
     });
 }
 
@@ -612,99 +656,152 @@ function handleEffectUpdate(message) {
     console.log(`🎨 [特效] 已廣播特效 "${message.effect}" 給 ${viewerCount} 個觀眾`);
 }
 
-// 處理 WebRTC Offer
+// 處理 WebRTC Offer - MCU 模式
 function handleOffer(message) {
-    console.log('📡 處理 Offer from broadcaster to viewer:', message.viewerId);
-    console.log('   主播ID:', message.broadcasterId);
-    console.log('   觀眾是否存在:', viewers.has(message.viewerId));
-    console.log('   當前觀眾數量:', viewers.size);
+    console.log('📡 [MCU] 處理 Offer from broadcaster:', message.broadcasterId);
     
-    // 將 Offer 轉發給特定觀眾
+    // 檢查是否為主播的初始連接
+    if (message.broadcasterId && !message.viewerId) {
+        console.log('🎯 [MCU] 主播建立 MCU 連接');
+        handleBroadcasterMCUConnection(message);
+        return;
+    }
+    
+    // 檢查是否為觀眾請求連接
     if (message.viewerId && viewers.has(message.viewerId)) {
-        const viewerWs = viewers.get(message.viewerId);
-        console.log('   觀眾 WebSocket 狀態:', viewerWs.readyState);
-        
-        if (viewerWs.readyState === WebSocket.OPEN) {
-            const offerData = {
-                type: 'offer',
-                offer: message.offer,
-                broadcasterId: message.broadcasterId
-            };
-            viewerWs.send(JSON.stringify(offerData));
-            console.log('✅ Offer 已轉發給觀眾:', message.viewerId);
-        } else {
-            console.log('❌ 觀眾 WebSocket 未開啟，無法轉發 Offer');
-        }
-    } else {
-        console.log('❌ 找不到觀眾或觀眾ID無效:', message.viewerId);
-        console.log('   可用觀眾列表:', Array.from(viewers.keys()));
+        console.log('🎯 [MCU] 觀眾請求 MCU 連接:', message.viewerId);
+        handleViewerMCUConnection(message);
+        return;
     }
+    
+    console.log('❌ [MCU] 無效的 Offer 請求');
 }
 
-// 處理 WebRTC Answer
+// 處理主播 MCU 連接
+function handleBroadcasterMCUConnection(message) {
+    console.log('🎬 [MCU] 建立主播 MCU 連接');
+    
+    // 初始化 MCU 狀態
+    mcuState.isActive = true;
+    mcuState.broadcasterConnection = {
+        broadcasterId: message.broadcasterId,
+        offer: message.offer,
+        timestamp: Date.now()
+    };
+    
+    // 通知所有觀眾 MCU 已啟動
+    broadcastToViewers({
+        type: 'mcu_ready',
+        message: 'MCU 服務器已準備就緒，可以接收視頻流'
+    });
+    
+    console.log('✅ [MCU] 主播 MCU 連接已建立');
+}
+
+// 處理觀眾 MCU 連接
+function handleViewerMCUConnection(message) {
+    const viewerId = message.viewerId;
+    const viewerWs = viewers.get(viewerId);
+    
+    if (!viewerWs || viewerWs.readyState !== WebSocket.OPEN) {
+        console.log('❌ [MCU] 觀眾 WebSocket 未開啟:', viewerId);
+        return;
+    }
+    
+    console.log('👥 [MCU] 建立觀眾 MCU 連接:', viewerId);
+    
+    // 創建 MCU 到觀眾的連接
+    const mcuOffer = {
+        type: 'mcu_offer',
+        offer: message.offer,
+        viewerId: viewerId
+    };
+    
+    viewerWs.send(JSON.stringify(mcuOffer));
+    console.log('✅ [MCU] 已發送 MCU Offer 給觀眾:', viewerId);
+}
+
+// 處理 WebRTC Answer - MCU 模式
 function handleAnswer(message) {
-    console.log('📡 處理 Answer from viewer:', message.viewerId);
-    console.log('   主播是否存在:', !!broadcaster);
-    console.log('   主播 WebSocket 狀態:', broadcaster && broadcaster.ws ? broadcaster.ws.readyState : 'N/A');
+    console.log('📡 [MCU] 處理 Answer from viewer:', message.viewerId);
     
-    // 將 Answer 轉發給主播
-    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
-        const answerData = {
-            type: 'answer',
-            answer: message.answer,
-            viewerId: message.viewerId
-        };
-        broadcaster.ws.send(JSON.stringify(answerData));
-        console.log('✅ Answer 已轉發給主播');
-    } else {
-        console.log('❌ 找不到主播或主播 WebSocket 未開啟');
+    // 檢查是否為觀眾對 MCU 的回應
+    if (message.viewerId && mcuState.isActive) {
+        console.log('🎯 [MCU] 觀眾回應 MCU 連接:', message.viewerId);
+        
+        // 更新 MCU 統計
+        mcuState.stats.activeConnections++;
+        mcuState.stats.totalViewers = viewers.size;
+        
+        // 通知主播有新的觀眾連接
+        if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+            broadcaster.ws.send(JSON.stringify({
+                type: 'viewer_connected',
+                viewerId: message.viewerId,
+                mcuStats: mcuState.stats
+            }));
+        }
+        
+        console.log('✅ [MCU] 觀眾連接已建立:', message.viewerId);
+        return;
     }
+    
+    // 檢查是否為主播對 MCU 的回應
+    if (message.broadcasterId && mcuState.isActive) {
+        console.log('🎯 [MCU] 主播回應 MCU 連接');
+        
+        // 通知所有觀眾 MCU 連接已建立
+        broadcastToViewers({
+            type: 'mcu_connected',
+            message: 'MCU 連接已建立，開始接收視頻流'
+        });
+        
+        console.log('✅ [MCU] 主播 MCU 連接已建立');
+        return;
+    }
+    
+    console.log('❌ [MCU] 無效的 Answer 請求');
 }
 
-// 處理 ICE 候選
+// 處理 ICE 候選 - MCU 模式
 function handleIceCandidate(message) {
-    console.log('🧊 處理 ICE 候選:', message.broadcasterId ? 'from broadcaster' : 'from viewer');
+    console.log('🧊 [MCU] 處理 ICE 候選:', message.broadcasterId ? 'from broadcaster' : 'from viewer');
     
-    if (message.broadcasterId) {
-        // 來自主播的 ICE 候選，轉發給特定觀眾
-        console.log('   轉發給觀眾:', message.viewerId);
-        console.log('   觀眾是否存在:', viewers.has(message.viewerId));
+    if (message.broadcasterId && mcuState.isActive) {
+        // 來自主播的 ICE 候選，轉發給所有觀眾
+        console.log('🎯 [MCU] 轉發主播 ICE 候選給所有觀眾');
         
-        if (message.viewerId && viewers.has(message.viewerId)) {
-            const viewerWs = viewers.get(message.viewerId);
-            console.log('   觀眾 WebSocket 狀態:', viewerWs.readyState);
-            
+        const candidateData = {
+            type: 'mcu_ice_candidate',
+            candidate: message.candidate,
+            broadcasterId: message.broadcasterId
+        };
+        
+        // 廣播給所有觀眾
+        viewers.forEach((viewerWs, viewerId) => {
             if (viewerWs.readyState === WebSocket.OPEN) {
-                const candidateData = {
-                    type: 'ice_candidate',
-                    candidate: message.candidate,
-                    broadcasterId: message.broadcasterId
-                };
                 viewerWs.send(JSON.stringify(candidateData));
-                console.log('✅ ICE candidate 已轉發給觀眾');
-            } else {
-                console.log('❌ 觀眾 WebSocket 未開啟');
+                console.log('✅ [MCU] ICE candidate 已轉發給觀眾:', viewerId);
             }
-        } else {
-            console.log('❌ 找不到觀眾');
-        }
-    } else if (message.viewerId) {
+        });
+        
+    } else if (message.viewerId && mcuState.isActive) {
         // 來自觀眾的 ICE 候選，轉發給主播
-        console.log('   轉發給主播，觀眾ID:', message.viewerId);
-        console.log('   主播是否存在:', !!broadcaster);
-        console.log('   主播 WebSocket 狀態:', broadcaster && broadcaster.ws ? broadcaster.ws.readyState : 'N/A');
+        console.log('🎯 [MCU] 轉發觀眾 ICE 候選給主播:', message.viewerId);
         
         if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
             const candidateData = {
-                type: 'ice_candidate',
+                type: 'mcu_ice_candidate',
                 candidate: message.candidate,
                 viewerId: message.viewerId
             };
             broadcaster.ws.send(JSON.stringify(candidateData));
-            console.log('✅ ICE candidate 已轉發給主播');
+            console.log('✅ [MCU] ICE candidate 已轉發給主播');
         } else {
-            console.log('❌ 找不到主播或主播 WebSocket 未開啟');
+            console.log('❌ [MCU] 找不到主播或主播 WebSocket 未開啟');
         }
+    } else {
+        console.log('❌ [MCU] MCU 未啟動或無效的 ICE 候選');
     }
 }
 
@@ -744,12 +841,24 @@ function handleRequestBroadcasterInfo(ws, message) {
     }
 }
 
-// 處理觀眾請求 WebRTC 連接
+// 處理觀眾請求 WebRTC 連接 - MCU 模式
 function handleRequestWebRTCConnection(ws, message) {
-    console.log('📡 觀眾請求 WebRTC 連接:', message.viewerId);
+    console.log('📡 [MCU] 觀眾請求 WebRTC 連接:', message.viewerId);
     
-    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
-        // 通知主播有觀眾需要連接
+    if (mcuState.isActive) {
+        // MCU 模式：直接建立與 MCU 的連接
+        console.log('🎯 [MCU] 建立觀眾與 MCU 的連接');
+        
+        // 發送 MCU 連接請求給觀眾
+        ws.send(JSON.stringify({
+            type: 'mcu_connection_request',
+            viewerId: message.viewerId,
+            mcuStats: mcuState.stats
+        }));
+        
+        console.log('✅ [MCU] 已發送 MCU 連接請求給觀眾:', message.viewerId);
+    } else if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+        // 傳統 P2P 模式：通知主播
         broadcaster.ws.send(JSON.stringify({
             type: 'viewer_join',
             viewerId: message.viewerId,
@@ -2116,6 +2225,64 @@ function handleTabAudioDisabled(broadcasterId) {
             broadcasterId: broadcasterId
         }
     });
+}
+
+// 處理 MCU 連接請求
+function handleMCUConnectionRequest(ws, message) {
+    console.log('📡 [MCU] 處理 MCU 連接請求:', message.viewerId);
+    
+    if (mcuState.isActive) {
+        // 發送 MCU 連接信息給觀眾
+        ws.send(JSON.stringify({
+            type: 'mcu_connection_info',
+            viewerId: message.viewerId,
+            mcuStats: mcuState.stats,
+            connectionId: `mcu_${message.viewerId}_${Date.now()}`
+        }));
+        
+        console.log('✅ [MCU] 已發送 MCU 連接信息給觀眾:', message.viewerId);
+        
+        // 立即建立 MCU 連接並發送 offer
+        if (mcuState.broadcasterConnection && mcuState.broadcasterConnection.offer) {
+            console.log('🎯 [MCU] 立即建立觀眾 MCU 連接並發送 offer');
+            
+            const mcuOffer = {
+                type: 'mcu_offer',
+                offer: mcuState.broadcasterConnection.offer,
+                viewerId: message.viewerId
+            };
+            
+            ws.send(JSON.stringify(mcuOffer));
+            console.log('✅ [MCU] 已發送 MCU Offer 給觀眾:', message.viewerId);
+        } else {
+            console.log('⚠️ [MCU] 主播 offer 尚未準備好，等待主播連接');
+        }
+        
+    } else {
+        ws.send(JSON.stringify({
+            type: 'error',
+            message: 'MCU 服務器未啟動'
+        }));
+        console.log('❌ [MCU] MCU 服務器未啟動');
+    }
+}
+
+// 處理 MCU 統計請求
+function handleMCUStatsRequest(ws, message) {
+    console.log('📊 [MCU] 處理 MCU 統計請求');
+    
+    // 更新統計信息
+    mcuState.stats.totalViewers = viewers.size;
+    mcuState.stats.activeConnections = mcuState.viewerConnections.size;
+    
+    ws.send(JSON.stringify({
+        type: 'mcu_stats_response',
+        stats: mcuState.stats,
+        isActive: mcuState.isActive,
+        timestamp: Date.now()
+    }));
+    
+    console.log('✅ [MCU] 已發送 MCU 統計信息');
 }
 
 // 啟動伺服器

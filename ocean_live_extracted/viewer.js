@@ -7,6 +7,7 @@ let isConnected = false;
 let viewerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 3;
+let mcuConnectionRequested = false; // 防止重複請求 MCU 連接
 
 // 獲取URL參數中的主播ID
 function getStreamerIdFromUrl() {
@@ -334,6 +335,12 @@ function handleWebSocketMessage(data) {
         }
     }
     
+    // 🎯 處理 MCU 相關消息
+    if (data.type && data.type.startsWith('mcu_')) {
+        handleMCUMessage(data);
+        return;
+    }
+    
     switch(data.type) {
         case 'viewer_joined':
             window.receivedViewerJoined = true;
@@ -384,7 +391,15 @@ function handleWebSocketMessage(data) {
             window.receivedStreamStart = true;
             console.log('✅ 收到 stream_start 消息');
             console.log('🔍 [DEBUG] stream_start 數據:', data);
-            handleStreamStarted(data);
+            
+            // 檢查是否為 MCU 模式
+            if (data.mcuMode) {
+                console.log('🎯 [MCU] 檢測到 MCU 模式直播');
+                handleMCUStreamStarted(data);
+            } else {
+                handleStreamStarted(data);
+            }
+            
             updateConnectionStatus();
             break;
         case 'stream_status':
@@ -423,10 +438,22 @@ function handleWebSocketMessage(data) {
             handleOffer(data.offer);
             updateConnectionStatus();
             break;
+        case 'mcu_offer':
+            window.receivedOffer = true;
+            console.log('✅ [MCU] 收到 MCU offer');
+            mcuConnectionRequested = false; // 重置標記，允許後續重連
+            handleMCUOffer(data.offer);
+            updateConnectionStatus();
+            break;
         case 'ice_candidate':
             window.receivedIceCandidate = true;
             console.log('✅ 收到 ICE candidate');
             handleIceCandidate(data.candidate);
+            break;
+        case 'mcu_ice_candidate':
+            window.receivedIceCandidate = true;
+            console.log('✅ [MCU] 收到 MCU ICE candidate');
+            handleMCUIceCandidate(data.candidate);
             break;
         case 'ack':
             console.log('✅ 收到確認:', data);
@@ -2104,6 +2131,168 @@ function enableAudioOnUserInteraction() {
     
     // 顯示提示
     displaySystemMessage('🔊 點擊任意位置啟用音頻');
+}
+
+// MCU 相關函數
+function handleMCUMessage(data) {
+    console.log('🎯 [MCU] 處理 MCU 消息:', data.type);
+    
+    switch(data.type) {
+        case 'mcu_ready':
+            console.log('🎯 [MCU] MCU 服務器已準備就緒');
+            displaySystemMessage('🎯 MCU 服務器已準備就緒');
+            break;
+            
+        case 'mcu_connected':
+            console.log('🎯 [MCU] MCU 連接已建立');
+            displaySystemMessage('🎯 MCU 連接已建立');
+            break;
+            
+        case 'mcu_connection_request':
+            console.log('🎯 [MCU] 收到 MCU 連接請求');
+            // 不需要再次請求，等待服務器發送 offer
+            break;
+            
+        case 'mcu_connection_info':
+            console.log('🎯 [MCU] 收到 MCU 連接信息');
+            if (data.mcuStats) {
+                console.log('📊 [MCU] 統計信息:', data.mcuStats);
+            }
+            break;
+            
+        case 'mcu_stats_response':
+            console.log('📊 [MCU] 收到 MCU 統計響應');
+            if (data.stats) {
+                console.log('📊 [MCU] 統計信息:', data.stats);
+            }
+            break;
+            
+        default:
+            console.log('🎯 [MCU] 未知 MCU 消息類型:', data.type);
+    }
+}
+
+// 處理 MCU 直播開始
+function handleMCUStreamStarted(data) {
+    console.log('🎬 [MCU] 處理 MCU 直播開始:', data);
+    
+    const streamVideo = document.getElementById('streamVideo');
+    const videoPlaceholder = document.getElementById('videoPlaceholder');
+    const streamTitle = document.getElementById('streamTitle');
+    const streamerName = document.getElementById('streamerName');
+    const statusText = document.getElementById('statusText');
+    
+    // 添加 live 類別以顯示視頻
+    if (streamVideo) {
+        streamVideo.classList.add('live');
+        console.log('✅ [MCU] 已添加 live 類別到 stream-video');
+    }
+    
+    if (videoPlaceholder) videoPlaceholder.style.display = 'none';
+    
+    // 更新主播名稱為直播狀態
+    if (streamerName) {
+        const broadcasterName = window.currentBroadcasterName || '主播';
+        streamerName.textContent = `${broadcasterName} 正在 MCU 直播`;
+        console.log('✅ [MCU] 已更新主播名稱:', streamerName.textContent);
+    }
+    
+    // 更新狀態文字
+    if (statusText) {
+        statusText.textContent = 'MCU 直播中';
+        statusText.className = 'status-text live';
+        statusText.style.color = 'white';
+        statusText.style.backgroundColor = 'rgba(102, 126, 234, 0.9)';
+        statusText.style.fontWeight = '700';
+        console.log('✅ [MCU] 已更新狀態文字為 MCU 直播中');
+    }
+    
+    // 更新直播標題
+    if (streamTitle) {
+        if (data.title && data.title.trim() !== '') {
+            streamTitle.textContent = data.title;
+            console.log('🎬 [MCU] 直播開始，標題:', data.title);
+        } else {
+            streamTitle.textContent = 'MCU 精彩直播中';
+            console.log('🎬 [MCU] 直播開始，使用預設標題');
+        }
+    }
+    
+    displaySystemMessage('🎉 主播已開始 MCU 直播！');
+    
+    // 請求 MCU 連接
+    requestMCUConnection();
+}
+
+// 請求 MCU 連接
+function requestMCUConnection() {
+    console.log('🎯 [MCU] 請求 MCU 連接');
+    
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        console.error('❌ [MCU] WebSocket 未連接');
+        return;
+    }
+    
+    // 防止重複請求
+    if (mcuConnectionRequested) {
+        console.log('⚠️ [MCU] MCU 連接已請求，跳過重複請求');
+        return;
+    }
+    
+    mcuConnectionRequested = true;
+    
+    // 發送 MCU 連接請求
+    socket.send(JSON.stringify({
+        type: 'mcu_connection_request',
+        viewerId: viewerId,
+        streamerId: targetStreamerId
+    }));
+    
+    console.log('✅ [MCU] 已發送 MCU 連接請求');
+    displaySystemMessage('🎯 正在請求 MCU 連接...');
+}
+
+// 處理 MCU Offer
+async function handleMCUOffer(offer) {
+    console.log('🎯 [MCU] 處理 MCU Offer');
+    
+    if (!peerConnection) {
+        initializePeerConnection();
+    }
+    
+    try {
+        await peerConnection.setRemoteDescription(offer);
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        
+        if (socket && isConnected) {
+            console.log('📤 [MCU] 觀眾發送 MCU Answer');
+            socket.send(JSON.stringify({
+                type: 'answer',
+                answer: answer,
+                viewerId: viewerId,
+                streamerId: targetStreamerId,
+                mcuMode: true
+            }));
+        }
+    } catch (error) {
+        console.error('❌ [MCU] 處理 MCU offer 失敗:', error);
+        displaySystemMessage('❌ MCU 連接失敗，請重新整理頁面重試');
+    }
+}
+
+// 處理 MCU ICE Candidate
+async function handleMCUIceCandidate(candidate) {
+    console.log('🎯 [MCU] 處理 MCU ICE Candidate');
+    
+    if (peerConnection) {
+        try {
+            await peerConnection.addIceCandidate(candidate);
+            console.log('✅ [MCU] MCU ICE candidate 已添加');
+        } catch (error) {
+            console.error('❌ [MCU] 添加 MCU ICE candidate 失敗:', error);
+        }
+    }
 }
 
 console.log('✅ 观众端核心功能已加载完成');
