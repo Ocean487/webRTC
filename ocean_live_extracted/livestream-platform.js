@@ -9,11 +9,11 @@ function getBroadcasterIdFromUrl() {
     
     // 如果沒有URL參數，基於當前用戶生成ID
     if (currentUser && currentUser.id) {
-        return `broadcaster_${currentUser.id}`;
+        return currentUser.id.toString(); // 直接使用用戶ID，不加前綴
     }
     
     // 最後備份：使用時間戳生成唯一ID
-    return `broadcaster_${Date.now()}`;
+    return Date.now().toString();
 }
 
 // 全局變數存儲主播ID
@@ -78,6 +78,105 @@ function diagnoseLiveStreamIssue() {
 // 在控制台中可以調用 diagnoseLiveStreamIssue() 來診斷問題
 window.diagnoseLiveStreamIssue = diagnoseLiveStreamIssue;
 
+// 多主播相關功能
+let otherBroadcasters = []; // 其他主播列表
+
+// 載入其他主播列表
+async function loadOtherBroadcasters() {
+    try {
+        console.log('🔄 載入其他主播列表...');
+        const response = await fetch('/api/live-streams');
+        const data = await response.json();
+        
+        if (data.success) {
+            // 過濾掉自己
+            otherBroadcasters = data.streams.filter(b => b.broadcasterId !== myBroadcasterId);
+            console.log('✅ 載入其他主播列表成功:', otherBroadcasters.length, '個主播');
+            updateOtherBroadcastersDisplay();
+        } else {
+            console.error('❌ 載入其他主播列表失敗:', data.message);
+        }
+    } catch (error) {
+        console.error('❌ 載入其他主播列表錯誤:', error);
+    }
+}
+
+// 更新其他主播顯示
+function updateOtherBroadcastersDisplay() {
+    const broadcasterList = document.getElementById('otherBroadcastersList');
+    if (!broadcasterList) return;
+    
+    if (otherBroadcasters.length === 0) {
+        broadcasterList.innerHTML = '<div class="no-broadcasters">暫無其他主播在線</div>';
+        return;
+    }
+    
+    broadcasterList.innerHTML = otherBroadcasters.map(broadcaster => {
+        const statusClass = broadcaster.isStreaming ? 'live' : 'online';
+        const statusText = broadcaster.isStreaming ? '直播中' : '在線';
+        const viewerCount = broadcaster.viewerCount || 0;
+        
+        const avatarHtml = broadcaster.avatarUrl ? 
+            `<img src="${broadcaster.avatarUrl}" alt="${broadcaster.displayName}">` :
+            `<i class="fas fa-user"></i>`;
+        
+        return `
+            <div class="broadcaster-item">
+                <div class="broadcaster-avatar">
+                    ${avatarHtml}
+                </div>
+                <div class="broadcaster-info">
+                    <div class="broadcaster-name">${broadcaster.displayName}</div>
+                    <div class="broadcaster-stats">
+                        ${viewerCount} 觀看中
+                        ${broadcaster.streamTitle ? ' • ' + broadcaster.streamTitle : ''}
+                    </div>
+                </div>
+                <div class="broadcaster-status ${statusClass}">
+                    ${statusText}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 處理WebSocket消息中的多主播相關事件
+function handleMultiBroadcasterMessage(data) {
+    switch (data.type) {
+        case 'broadcaster_online':
+            console.log('📢 新主播上線:', data.broadcasterId);
+            // 重新載入主播列表
+            setTimeout(() => {
+                loadOtherBroadcasters();
+            }, 1000);
+            break;
+            
+        case 'broadcaster_offline':
+            console.log('📢 主播離線:', data.broadcasterId);
+            // 重新載入主播列表
+            setTimeout(() => {
+                loadOtherBroadcasters();
+            }, 1000);
+            break;
+            
+        case 'broadcaster_stream_started':
+            console.log('📢 其他主播開始直播:', data.broadcasterId);
+            // 重新載入主播列表
+            setTimeout(() => {
+                loadOtherBroadcasters();
+            }, 1000);
+            break;
+            
+        case 'broadcaster_stream_ended':
+            console.log('📢 其他主播結束直播:', data.broadcasterId);
+            // 重新載入主播列表
+            setTimeout(() => {
+                loadOtherBroadcasters();
+            }, 1000);
+            break;
+    }
+}
+
 
 // 初始化標題WebSocket連接
 function initTitleWebSocket() {
@@ -141,6 +240,7 @@ function updateStreamTitle() {
                 if (titleSocket && titleSocket.readyState === WebSocket.OPEN) {
                     titleSocket.send(JSON.stringify({
                         type: 'title_update',
+                        broadcasterId: myBroadcasterId,
                         title: currentStreamTitle,
                         timestamp: Date.now()
                     }));
@@ -155,6 +255,7 @@ function updateStreamTitle() {
                 if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
                     window.streamingSocket.send(JSON.stringify({
                         type: 'title_update',
+                        broadcasterId: myBroadcasterId,
                         title: currentStreamTitle,
                         timestamp: Date.now()
                     }));

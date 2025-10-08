@@ -349,147 +349,220 @@
 
         /* 直播卡片樣式 - 與browse.html一致 */
         .stream-card {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 20px;
-            overflow: hidden;
-            transition: all 0.3s ease;
+            padding: 0;
             cursor: pointer;
-            border: 2px solid transparent;
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            text-align: center;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
 
         .stream-card:hover {
-            transform: translateY(-5px);
-            border-color: #ff6b35;
-            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.2);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            border-color: rgba(102, 126, 234, 0.3);
         }
 
-        .stream-thumbnail {
-            position: relative;
-            aspect-ratio: 16/9;
-            background: linear-gradient(135deg, #667eea, #764ba2);
+        .stream-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stream-card:hover::before {
+            opacity: 1;
+        }
+
+        .stream-card-content {
+            padding: 2rem 1.5rem 1rem;
+        }
+
+        .stream-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+        }
+
+        .stream-avatar-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+
+        .streamer-avatar {
+            width: 100px;
+            height: 100px;
+            margin: 0 auto 1.5rem;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f8f9ff, #e8ecff);
             display: flex;
             align-items: center;
             justify-content: center;
             overflow: hidden;
+            box-shadow: 
+                0 0 0 3px rgba(102, 126, 234, 0.1),
+                0 10px 30px rgba(102, 126, 234, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            transition: all 0.3s ease;
+            position: relative;
         }
 
-        .stream-thumbnail .live-indicator {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            background: #ff6b35;
-            color: white;
+        .stream-card:hover .streamer-avatar {
+            transform: scale(1.1);
+            box-shadow: 
+                0 0 0 4px rgba(102, 126, 234, 0.2),
+                0 15px 40px rgba(102, 126, 234, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+
+        .streamer-avatar img {
+            width: 92px;
+            height: 92px;
+            object-fit: cover;
+            border-radius: 50%;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+
+        .streamer-avatar i {
+            font-size: 2.8rem;
+            color: #667eea;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .stream-status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
             padding: 0.5rem 1rem;
             border-radius: 20px;
+            font-size: 0.85rem;
             font-weight: 600;
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .stream-status-indicator.live {
+            background: linear-gradient(135deg, rgba(255, 71, 87, 0.9), rgba(255, 56, 56, 0.9));
+            color: white;
+            animation: pulse 2s infinite;
+            box-shadow: 0 4px 15px rgba(255, 71, 87, 0.3);
+        }
+
+        .stream-status-indicator.online {
+            background: linear-gradient(135deg, rgba(46, 213, 115, 0.9), rgba(38, 208, 101, 0.9));
+            color: white;
+            box-shadow: 0 4px 15px rgba(46, 213, 115, 0.3);
+        }
+
+        .stream-status-indicator i {
             font-size: 0.9rem;
+        }
+
+        .streamer-name {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #333;
+            margin-bottom: 0.8rem;
+            letter-spacing: -0.5px;
+        }
+
+        .streamer-stats {
+            display: flex;
+            justify-content: center;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        .streamer-stats span {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
-        }
-
-        .stream-thumbnail .live-dot {
-            width: 8px;
-            height: 8px;
-            background: white;
-            border-radius: 50%;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        .stream-thumbnail .viewer-count {
-            position: absolute;
-            bottom: 1rem;
-            right: 1rem;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 0.5rem 1rem;
+            gap: 0.4rem;
+            padding: 0.3rem 0.8rem;
+            background: rgba(102, 126, 234, 0.1);
             border-radius: 15px;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .stream-info {
-            padding: 1.5rem;
-            background: rgba(255, 255, 255, 0.95);
-        }
-
-        .streamer-profile {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .streamer-avatar {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 1.2rem;
-        }
-
-        .streamer-details h3 {
-            color: #1f2937;
-            margin: 0;
-            font-size: 1.1rem;
-            font-weight: 600;
-        }
-
-        .streamer-details p {
-            color: #6b7280;
-            margin: 0.3rem 0 0 0;
-            font-size: 0.9rem;
-        }
-
-        .stream-actions {
-            display: flex;
-            gap: 1rem;
-        }
-
-        .action-btn {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 10px;
             font-weight: 500;
+        }
+
+        .streamer-stats i {
+            color: #667eea;
+        }
+
+        .streamer-title {
+            font-size: 1rem;
+            color: #444;
+            line-height: 1.5;
+            margin-bottom: 1rem;
+            font-weight: 500;
+            min-height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stream-card-footer {
+            background: rgba(102, 126, 234, 0.05);
+            padding: 1rem 1.5rem;
+            margin-top: 1rem;
+            border-top: 1px solid rgba(102, 126, 234, 0.1);
+            display: flex;
+            gap: 1rem;
+        }
+
+        .stream-action-btn {
+            flex: 1;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.9rem;
             cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            text-align: center;
+            transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 0.5rem;
+            text-decoration: none;
         }
 
-        .action-btn.primary {
-            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
-            color: rgb(255, 255, 255);
+        .stream-action-btn.primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
         }
 
-        .action-btn.primary:hover {
+        .stream-action-btn.primary:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3);
+            box-shadow: 0 6px 25px rgba(102, 126, 234, 0.4);
         }
 
-        .action-btn.secondary {
-            background: rgba(253, 249, 25, 0.856);
-            color: rgb(0, 0, 0);
-            border: 1px solid rgba(245, 228, 74, 0.699);
+        .stream-action-btn.secondary {
+            background: rgba(255, 255, 255, 0.8);
+            color: #666;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
         }
 
-        .action-btn.secondary:hover {
-            background: rgba(253, 249, 25, 0.856);
-            color: rgb(0, 0, 0);
-            border: 1px solid rgba(245, 228, 74, 0.699);
+        .stream-action-btn.secondary:hover {
+            background: rgba(255, 255, 255, 0.95);
+            color: #333;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
         }
 
         .activity-item {
@@ -971,40 +1044,60 @@
                 
                 if (data.success && data.streams && data.streams.length > 0) {
                     // 顯示直播列表
-                    grid.innerHTML = data.streams.map(stream => `
-                        <div class="stream-card" onclick="watchStream('${stream.userId}')">
-                            <div class="stream-thumbnail">
-                                <div class="live-indicator">
-                                    <div class="live-dot"></div>
-                                    LIVE
-                                </div>
-                                <div class="viewer-count">
-                                    <i class="fas fa-eye"></i>
-                                    ${stream.viewerCount || 0}
-                                </div>
-                                <i class="fas fa-video" style="font-size: 3rem; color: rgba(255,255,255,0.3);"></i>
-                            </div>
-                            <div class="stream-info">
-                                <div class="streamer-profile">
-                                    <div class="streamer-avatar">${stream.username.substring(0, 2).toUpperCase()}</div>
-                                    <div class="streamer-details">
-                                        <h3>${stream.username}</h3>
-                                        <p>正在直播中</p>
+                    grid.innerHTML = data.streams.map(stream => {
+                        const statusClass = stream.isStreaming ? 'live' : 'online';
+                        const statusText = stream.isStreaming ? '直播中' : '在線';
+                        const statusIcon = stream.isStreaming ? 'fas fa-play-circle' : 'fas fa-circle';
+                        
+                        const avatarHtml = stream.avatarUrl ? 
+                            `<img src="${stream.avatarUrl}" alt="${stream.displayName}">` :
+                            `<img src="images/cute-dog-avatar.png" alt="可愛狗狗頭像">`;
+                        
+                        const startTime = stream.startTime ? 
+                            formatTimeAgo(new Date(stream.startTime)) : '--';
+                        
+                        const titleText = stream.streamTitle || '暫無直播標題';
+                        
+                        return `
+                            <div class="stream-card" onclick="watchStream('${stream.broadcasterId}')">
+                                <div class="stream-card-content">
+                                    <div class="stream-header">
+                                        <div class="stream-avatar-container">
+                                            <div class="streamer-avatar">
+                                                ${avatarHtml}
+                                            </div>
+                                        </div>
+                                        <div class="stream-status-indicator ${statusClass}">
+                                            <i class="${statusIcon}"></i>
+                                            ${statusText}
+                                        </div>
                                     </div>
+                                    <div class="streamer-name">${stream.displayName}</div>
+                                    <div class="streamer-stats">
+                                        <span>
+                                            <i class="fas fa-eye"></i>
+                                            ${stream.viewerCount} 觀看
+                                        </span>
+                                        <span>
+                                            <i class="fas fa-clock"></i>
+                                            ${startTime}
+                                        </span>
+                                    </div>
+                                    <div class="streamer-title">${titleText}</div>
                                 </div>
-                                <div class="stream-actions">
-                                    <button class="action-btn primary" onclick="event.stopPropagation(); watchStream('${stream.userId}')">
+                                <div class="stream-card-footer">
+                                    <button class="stream-action-btn primary" onclick="event.stopPropagation(); watchStream('${stream.broadcasterId}')">
                                         <i class="fas fa-play"></i>
-                                        觀看
+                                        觀看直播
                                     </button>
-                                    <button class="action-btn secondary" onclick="event.stopPropagation(); shareStream('${stream.userId}', '${stream.username}')">
+                                    <button class="stream-action-btn secondary" onclick="event.stopPropagation(); shareStream('${stream.broadcasterId}', '${stream.displayName}')">
                                         <i class="fas fa-share"></i>
                                         分享
                                     </button>
                                 </div>
                             </div>
-                        </div>
-                    `).join('');
+                        `;
+                    }).join('');
                 } else {
                     // 沒有直播時顯示提示
                     grid.innerHTML = `
@@ -1025,21 +1118,40 @@
             }
         }
 
+        // 格式化時間
+        function formatTimeAgo(date) {
+            const now = new Date();
+            const diff = now - date;
+            const minutes = Math.floor(diff / 60000);
+            const hours = Math.floor(diff / 3600000);
+            const days = Math.floor(diff / 86400000);
+            
+            if (minutes < 1) {
+                return '剛剛';
+            } else if (minutes < 60) {
+                return `${minutes}分鐘前`;
+            } else if (hours < 24) {
+                return `${hours}小時前`;
+            } else {
+                return `${days}天前`;
+            }
+        }
+
         // 觀看直播
-        function watchStream(userId) {
+        function watchStream(broadcasterId) {
             // 允許訪客模式觀看，不需要登入
-            // 跳轉到觀看頁面
-            window.location.href = `viewer.html?streamer=${userId}`;
+            // 跳轉到觀看頁面，使用broadcaster參數
+            window.location.href = `viewer.html?broadcaster=${broadcasterId}`;
         }
 
         // 分享直播
-        function shareStream(userId, username) {
-            const streamUrl = `${window.location.origin}/viewer.html?streamer=${userId}`;
+        function shareStream(broadcasterId, displayName) {
+            const streamUrl = `${window.location.origin}/viewer.html?broadcaster=${broadcasterId}`;
             
             if (navigator.share) {
                 navigator.share({
-                    title: `觀看 ${username} 的直播`,
-                    text: `${username} 正在 VibeLo 平台直播！`,
+                    title: `觀看 ${displayName} 的直播`,
+                    text: `${displayName} 正在 VibeLo 平台直播！`,
                     url: streamUrl
                 });
             } else {

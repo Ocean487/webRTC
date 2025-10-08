@@ -172,44 +172,20 @@ const DUPLICATE_WINDOW_MS = 6000; // 相同內容視為重複時間窗
 // WebSocket服務器將在HTTP/HTTPS服務器啟動後創建
 let wss;
 
-// 直播狀態
-let isStreaming = false;
-let broadcaster = null;
-let viewers = new Map(); // viewerId -> WebSocket
-
-// MCU 相關狀態
-let mcuState = {
-    isActive: false,
-    broadcasterConnection: null,
-    viewerConnections: new Map(), // viewerId -> RTCPeerConnection
-    mediaStream: null,
-    stats: {
-        totalViewers: 0,
-        activeConnections: 0,
-        bandwidth: 0
-    }
-};
-
-// 音樂流狀態管理
-let musicStreamState = {
-    isPlaying: false,
-    currentVideoId: null,
-    volume: 100,
-    isMuted: false,
-    broadcasterId: null
-};
-
-// 分頁音訊狀態管理
-let tabAudioState = {
-    enabled: false,
-    audioType: 'tab',
-    broadcasterId: null
-};
+// 多主播直播狀態管理
+let activeBroadcasters = new Map(); // broadcasterId -> { ws, userInfo, startTime, isStreaming, streamTitle, viewers }
+let allViewers = new Map(); // viewerId -> { ws, streamerId, userInfo }
 let chatUsers = new Map(); // WebSocket -> { role, username, timestamp }
-let activeBroadcasters = new Map(); // userId -> { ws, userInfo, startTime, viewerCount }
 let activeConnections = new Map(); // connectionId -> { type, userId, streamerId, ws }
-let viewerCount = 0;
-let currentStreamTitle = ''; // 當前直播標題
+
+// 每個主播的音樂流狀態管理
+let musicStreamStates = new Map(); // broadcasterId -> musicStreamState
+
+// 每個主播的分頁音訊狀態管理
+let tabAudioStates = new Map(); // broadcasterId -> tabAudioState
+
+// 全局統計
+let totalViewerCount = 0;
 
 // WebSocket 處理程序設置函數
 function setupWebSocketHandlers() {
@@ -257,7 +233,11 @@ function setupWebSocketHandlers() {
                     
                     // 🚨 [CRITICAL FIX] 確保 online_viewers 消息發送到正確的連接
                     if (message.requestViewers) {
-                        const viewerList = Array.from(viewers.keys());
+                        // 獲取當前主播的觀眾列表
+                        const broadcasterId = message.broadcasterId || wss.broadcasterId;
+                        const broadcaster = activeBroadcasters.get(broadcasterId);
+                        const viewerList = broadcaster ? Array.from(broadcaster.viewers.keys()) : [];
+                        
                         console.log(`🔄 [DIRECT] 直接發送 online_viewers 給當前連接，觀眾: ${viewerList.length} 個`);
                         
                         const onlineViewersMessage = {
@@ -272,8 +252,8 @@ function setupWebSocketHandlers() {
                         sendJSON(wss, onlineViewersMessage);
                         console.log(`✅ [DIRECT] online_viewers 消息已直接發送:`, onlineViewersMessage);
                     }
-                    break;                case 'stream_end':
-                        handleStreamEnd();
+                    break;                                    case 'stream_end':
+                        handleStreamEnd(message);
                         sendJSON(wss, { type: 'ack', event: 'stream_end', ok: true });
                         break;
                         
@@ -342,14 +322,6 @@ function setupWebSocketHandlers() {
                         handleTitleUpdate(message);
                         sendJSON(wss, { type: 'ack', event: 'title_update', ok: true });
                         break;
-                    
-                    case 'mcu_connection_request':
-                        handleMCUConnectionRequest(wss, message);
-                        break;
-                    
-                    case 'mcu_stats_request':
-                        handleMCUStatsRequest(wss, message);
-                        break;
                         
                     case 'effect_update':
                         handleEffectUpdate(message);
@@ -369,7 +341,7 @@ function setupWebSocketHandlers() {
             console.log('WebSocket 連接關閉');
             
             if (clientType === 'broadcaster') {
-                handleBroadcasterDisconnect();
+                handleBroadcasterDisconnect(clientId);
             } else if (clientType === 'viewer' && clientId) {
                 handleViewerDisconnect(clientId);
             }
@@ -397,29 +369,41 @@ function handleBroadcasterJoin(wss, message) {
     // 使用用戶ID作為主播ID，如果沒有則使用時間戳
     let broadcasterId = message.broadcasterId;
     
-    // 如果broadcasterId包含用戶ID，提取用戶ID
-    if (broadcasterId && broadcasterId.startsWith('broadcaster_')) {
-        const userId = broadcasterId.replace('broadcaster_', '');
-        broadcasterId = userId; // 使用實際的用戶ID
-    } else if (!broadcasterId) {
-        broadcasterId = `broadcaster_${Date.now()}`;
+    // 處理broadcasterId
+    if (!broadcasterId) {
+        // 如果沒有broadcasterId，使用用戶ID或生成一個
+        if (userInfo && userInfo.id) {
+            broadcasterId = userInfo.id.toString();
+        } else {
+            broadcasterId = Date.now().toString();
+        }
     }
     
-    broadcaster = {
-        wss: wss,
-        ws: wss,  // 添加ws屬性以保持一致性
-        id: broadcasterId,
-        timestamp: Date.now(),
-        userInfo: userInfo
-    };
-    
-    // 添加到活躍直播者列表
+    // 添加到多主播管理系統
     activeBroadcasters.set(broadcasterId, {
-        wss: wss,
-        ws: wss,  // 添加ws屬性以保持一致性
+        ws: wss,
         userInfo: userInfo,
         startTime: new Date(),
+        isStreaming: false,
+        streamTitle: '',
+        viewers: new Map(), // 該主播的觀眾列表
         viewerCount: 0
+    });
+    
+    // 初始化該主播的音樂流狀態
+    musicStreamStates.set(broadcasterId, {
+        isPlaying: false,
+        currentVideoId: null,
+        volume: 100,
+        isMuted: false,
+        broadcasterId: broadcasterId
+    });
+    
+    // 初始化該主播的分頁音訊狀態
+    tabAudioStates.set(broadcasterId, {
+        enabled: false,
+        audioType: 'tab',
+        broadcasterId: broadcasterId
     });
     
     // 添加到活躍連接列表
@@ -428,34 +412,30 @@ function handleBroadcasterJoin(wss, message) {
         type: 'broadcaster',
         userId: broadcasterId,
         streamerId: broadcasterId,
-        wss: wss
+        ws: wss
     });
     
     console.log('主播資訊:', userInfo);
-    console.log('已添加到活躍直播者列表:', broadcasterId);
+    console.log('已添加到多主播系統:', broadcasterId);
+    console.log('當前活躍主播數量:', activeBroadcasters.size);
     
-    // 向所有已連接的觀眾發送主播信息
-    if (viewers.size > 0) {
-        console.log('向', viewers.size, '個觀眾發送主播信息');
-        viewers.forEach((viewerWss, viewerId) => {
-            if (viewerWss.readyState === WebSocket.OPEN) {
-                viewerWss.send(JSON.stringify({
-                    type: 'broadcaster_info',
+    // 廣播新主播上線消息給所有觀眾
+    broadcastToAllViewers({
+        type: 'broadcaster_online',
+        broadcasterId: broadcasterId,
                     broadcasterInfo: userInfo,
-                    message: '等待主播開始直播'
-                }));
-            }
+        message: `主播 ${userInfo.displayName} 已上線`
         });
-    }
     
-    // 不再自動註冊為聊天用戶，讓主播的ChatSystem通過chat_join來註冊
-    console.log('主播WebRTC連接已建立，等待ChatSystem發送chat_join');
+    // 設置WebSocket的broadcasterId屬性
+    wss.broadcasterId = broadcasterId;
     
     // 發送確認訊息
     wss.send(JSON.stringify({
         type: 'broadcaster_joined',
         message: '主播已成功加入直播間',
-        broadcasterId: broadcasterId
+        broadcasterId: broadcasterId,
+        totalBroadcasters: activeBroadcasters.size
     }));
 }
 
@@ -482,8 +462,12 @@ function handleViewerJoin(wss, message) {
         wss.ghostName = ghostName;
     }
     
-    viewers.set(viewerId, wss);
-    viewerCount++;
+    // 添加到全局觀眾列表
+    allViewers.set(viewerId, {
+        ws: wss,
+        streamerId: streamerId,
+        userInfo: userInfo
+    });
     
     // 添加到活躍連接列表
     const connectionId = `viewer_${viewerId}_${Date.now()}`;
@@ -491,317 +475,365 @@ function handleViewerJoin(wss, message) {
         type: 'viewer',
         userId: viewerId,
         streamerId: streamerId,
-        wss: wss
+        ws: wss
     });
     
-    // 更新對應主播的觀眾數
-    if (activeBroadcasters.has(streamerId)) {
-        const broadcasterData = activeBroadcasters.get(streamerId);
-        broadcasterData.viewerCount = (broadcasterData.viewerCount || 0) + 1;
-        activeBroadcasters.set(streamerId, broadcasterData);
-    }
+    // 檢查目標主播是否存在
+    const targetBroadcaster = activeBroadcasters.get(streamerId);
+    if (targetBroadcaster) {
+        // 將觀眾添加到該主播的觀眾列表
+        targetBroadcaster.viewers.set(viewerId, wss);
+        targetBroadcaster.viewerCount++;
+        activeBroadcasters.set(streamerId, targetBroadcaster);
+        
+        console.log(`觀眾 ${viewerId} 已加入主播 ${streamerId} 的直播間`);
     
     // 發送確認訊息，包含分配的用戶信息和主播信息
-    const broadcasterInfo = broadcaster ? broadcaster.userInfo : null;
     wss.send(JSON.stringify({
         type: 'viewer_joined',
         message: '觀眾已成功加入直播間',
         viewerId: viewerId,
         userInfo: userInfo,
-        broadcasterInfo: broadcasterInfo,
-        streamerId: streamerId
-    }));
-    
-    // 移除歡迎消息，保持聊天室乾淨
-    
-    // 如果主播正在直播，發送直播開始訊息
-    if (isStreaming && broadcaster) {
+            broadcasterInfo: targetBroadcaster.userInfo,
+            streamerId: streamerId,
+            streamerName: targetBroadcaster.userInfo.displayName
+        }));
+        
+        // 如果該主播正在直播，發送直播開始訊息
+        if (targetBroadcaster.isStreaming) {
         console.log('觀眾加入時主播正在直播，發送 stream_start');
         wss.send(JSON.stringify({
             type: 'stream_start',
-            title: currentStreamTitle || '精彩直播中',
+                title: targetBroadcaster.streamTitle || '精彩直播中',
             message: '主播正在直播中',
-            status: 'live'
-        }));
-        
-        // 發送當前直播狀態
-        setTimeout(() => {
-            wss.send(JSON.stringify({
-                type: 'stream_status',
-                title: currentStreamTitle || '精彩直播中',
-                message: '直播進行中',
-                status: 'live'
+                status: 'live',
+                broadcasterId: streamerId
             }));
-        }, 500);
         
         // 通知主播有新觀眾需要連接
-        if (broadcaster.wss.readyState === WebSocket.OPEN) {
+            if (targetBroadcaster.ws.readyState === WebSocket.OPEN) {
             console.log('通知主播有新觀眾需要連接:', viewerId);
-            broadcaster.wss.send(JSON.stringify({
+                targetBroadcaster.ws.send(JSON.stringify({
                 type: 'viewer_join',
                 viewerId: viewerId
             }));
         }
     } else {
         console.log('觀眾加入時主播未在直播');
-        
-        // 即使主播未在直播，也發送主播信息以便觀眾端顯示等待信息
-        if (broadcaster && broadcaster.userInfo) {
             wss.send(JSON.stringify({
                 type: 'broadcaster_info',
-                broadcasterInfo: broadcaster.userInfo,
+                broadcasterInfo: targetBroadcaster.userInfo,
                 message: '等待主播開始直播'
             }));
         }
+    } else {
+        console.log('目標主播不存在:', streamerId);
+        // 發送主播列表給觀眾，讓他們選擇
+        const broadcasterList = Array.from(activeBroadcasters.entries()).map(([id, data]) => ({
+            broadcasterId: id,
+            displayName: data.userInfo.displayName,
+            isStreaming: data.isStreaming,
+            viewerCount: data.viewerCount
+        }));
+        
+        wss.send(JSON.stringify({
+            type: 'viewer_joined',
+            message: '目標主播不存在，請選擇其他主播',
+            viewerId: viewerId,
+            userInfo: userInfo,
+            broadcasterList: broadcasterList,
+            streamerId: null
+        }));
     }
     
-    // 更新所有觀眾的觀眾數量
-    updateViewerCount();
+    // 更新全局觀眾數量
+    totalViewerCount = allViewers.size;
+    updateAllViewerCounts();
 }
 
-// 處理直播開始 - MCU 模式
+// 處理直播開始
 function handleStreamStart(message) {
-    console.log('🎬 [MCU] 直播開始');
-    isStreaming = true;
+    const broadcasterId = message.broadcasterId;
+    console.log('直播開始，主播ID:', broadcasterId);
     
-    // 更新當前標題
-    if (message.title) {
-        currentStreamTitle = message.title;
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (!broadcaster) {
+        console.error('找不到主播:', broadcasterId);
+        return;
     }
     
-    // 啟動 MCU 模式
-    if (!mcuState.isActive) {
-        console.log('🚀 [MCU] 啟動 MCU 服務器');
-        mcuState.isActive = true;
-        mcuState.stats.totalViewers = viewers.size;
-    }
+    // 更新該主播的直播狀態
+    broadcaster.isStreaming = true;
+    broadcaster.streamTitle = message.title || '直播中';
+    broadcaster.startTime = new Date();
+    activeBroadcasters.set(broadcasterId, broadcaster);
     
-    // 通知所有觀眾直播已開始
-    broadcastToViewers({
+    console.log(`主播 ${broadcasterId} 開始直播，標題: ${broadcaster.streamTitle}`);
+    
+    // 通知該主播的所有觀眾直播已開始
+    broadcaster.viewers.forEach((viewerWs, viewerId) => {
+        if (viewerWs.readyState === WebSocket.OPEN) {
+            viewerWs.send(JSON.stringify({
         type: 'stream_start',
-        title: currentStreamTitle || message.title || '直播中',
-        message: 'MCU 直播即將開始',
-        status: 'starting',
-        mcuMode: true
+                title: broadcaster.streamTitle,
+        message: '直播即將開始',
+                status: 'starting',
+                broadcasterId: broadcasterId,
+                broadcasterName: broadcaster.userInfo.displayName
+            }));
+        }
+    });
+    
+    // 廣播新直播開始消息給所有觀眾（用於主播列表更新）
+    broadcastToAllViewers({
+        type: 'broadcaster_stream_started',
+        broadcasterId: broadcasterId,
+        broadcasterInfo: broadcaster.userInfo,
+        title: broadcaster.streamTitle,
+        message: `${broadcaster.userInfo.displayName} 開始直播`
     });
     
     // 1秒後發送直播開始狀態
     setTimeout(() => {
-        broadcastToViewers({
+        broadcaster.viewers.forEach((viewerWs, viewerId) => {
+            if (viewerWs.readyState === WebSocket.OPEN) {
+                viewerWs.send(JSON.stringify({
             type: 'stream_status',
-            title: currentStreamTitle || message.title || '直播中',
-            message: 'MCU 直播開始',
-            status: 'live',
-            mcuMode: true,
-            mcuStats: mcuState.stats
+                    title: broadcaster.streamTitle,
+            message: '直播開始',
+                    status: 'live',
+                    broadcasterId: broadcasterId
+                }));
+            }
         });
     }, 1000);
     
-    console.log(`🔄 [MCU] 直播開始處理完成，MCU 模式已啟動`);
+    console.log(`🔄 [INFO] 主播 ${broadcasterId} 直播開始處理完成`);
 }
 
-// 處理直播結束 - MCU 模式
-function handleStreamEnd() {
-    console.log('🎬 [MCU] 直播結束');
-    isStreaming = false;
-    currentStreamTitle = ''; // 清除標題
+// 處理直播結束
+function handleStreamEnd(message) {
+    const broadcasterId = message.broadcasterId;
+    console.log('直播結束，主播ID:', broadcasterId);
     
-    // 停止 MCU 服務器
-    if (mcuState.isActive) {
-        console.log('🛑 [MCU] 停止 MCU 服務器');
-        mcuState.isActive = false;
-        mcuState.broadcasterConnection = null;
-        mcuState.viewerConnections.clear();
-        mcuState.mediaStream = null;
-        mcuState.stats = {
-            totalViewers: 0,
-            activeConnections: 0,
-            bandwidth: 0
-        };
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (!broadcaster) {
+        console.error('找不到主播:', broadcasterId);
+        return;
     }
     
-    // 通知所有觀眾直播已結束
-    broadcastToViewers({
+    // 更新該主播的直播狀態
+    broadcaster.isStreaming = false;
+    broadcaster.streamTitle = '';
+    activeBroadcasters.set(broadcasterId, broadcaster);
+    
+    console.log(`主播 ${broadcasterId} 結束直播`);
+    
+    // 通知該主播的所有觀眾直播已結束
+    broadcaster.viewers.forEach((viewerWs, viewerId) => {
+        if (viewerWs.readyState === WebSocket.OPEN) {
+            viewerWs.send(JSON.stringify({
         type: 'stream_end',
-        message: 'MCU 直播已結束'
+                message: '直播已結束',
+                broadcasterId: broadcasterId
+            }));
+        }
+    });
+    
+    // 廣播直播結束消息給所有觀眾（用於主播列表更新）
+    broadcastToAllViewers({
+        type: 'broadcaster_stream_ended',
+        broadcasterId: broadcasterId,
+        broadcasterInfo: broadcaster.userInfo,
+        message: `${broadcaster.userInfo.displayName} 結束直播`
     });
 }
 
 // 處理直播標題更新
 function handleTitleUpdate(message) {
-    console.log('收到標題更新:', message.title);
-    currentStreamTitle = message.title || '';
+    const broadcasterId = message.broadcasterId;
+    console.log('收到標題更新:', message.title, '來自主播:', broadcasterId);
     
-    // 廣播標題更新給所有觀眾
-    broadcastToViewers({
+    if (!broadcasterId) {
+        console.error('標題更新缺少broadcasterId');
+        return;
+    }
+    
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (!broadcaster) {
+        console.error('找不到主播:', broadcasterId);
+        return;
+    }
+    
+    // 更新該主播的直播標題
+    broadcaster.streamTitle = message.title || '';
+    activeBroadcasters.set(broadcasterId, broadcaster);
+    
+    // 廣播標題更新給該主播的所有觀眾
+    broadcastToBroadcasterViewers(broadcasterId, {
         type: 'title_update',
-        title: currentStreamTitle,
-        timestamp: message.timestamp || Date.now()
+        title: message.title,
+        timestamp: message.timestamp || Date.now(),
+        broadcasterId: broadcasterId
     });
     
-    console.log('已廣播標題更新給', viewerCount, '個觀眾');
+    console.log(`已廣播標題更新給主播 ${broadcasterId} 的 ${broadcaster.viewers.size} 個觀眾`);
 }
 
 // 處理特效更新
 function handleEffectUpdate(message) {
-    console.log('🎨 [特效] 收到主播特效更新:', message.effect);
+    const broadcasterId = message.broadcasterId;
+    console.log('🎨 [特效] 收到主播特效更新:', message.effect, '來自主播:', broadcasterId);
     
-    // 廣播特效更新給所有觀眾
-    broadcastToViewers({
+    if (!broadcasterId) {
+        console.error('特效更新缺少broadcasterId');
+        return;
+    }
+    
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (!broadcaster) {
+        console.error('找不到主播:', broadcasterId);
+        return;
+    }
+    
+    // 廣播特效更新給該主播的所有觀眾
+    broadcastToBroadcasterViewers(broadcasterId, {
         type: 'effect_update',
         effect: message.effect,
-        timestamp: message.timestamp || Date.now()
+        timestamp: message.timestamp || Date.now(),
+        broadcasterId: broadcasterId
     });
     
-    console.log(`🎨 [特效] 已廣播特效 "${message.effect}" 給 ${viewerCount} 個觀眾`);
+    console.log(`🎨 [特效] 已廣播特效 "${message.effect}" 給主播 ${broadcasterId} 的 ${broadcaster.viewers.size} 個觀眾`);
 }
 
-// 處理 WebRTC Offer - MCU 模式
+// 處理 WebRTC Offer
 function handleOffer(message) {
-    console.log('📡 [MCU] 處理 Offer from broadcaster:', message.broadcasterId);
+    console.log('📡 處理 Offer from broadcaster to viewer:', message.viewerId);
+    console.log('   主播ID:', message.broadcasterId);
     
-    // 檢查是否為主播的初始連接
-    if (message.broadcasterId && !message.viewerId) {
-        console.log('🎯 [MCU] 主播建立 MCU 連接');
-        handleBroadcasterMCUConnection(message);
+    const broadcaster = activeBroadcasters.get(message.broadcasterId);
+    if (!broadcaster) {
+        console.log('❌ 找不到主播:', message.broadcasterId);
         return;
     }
     
-    // 檢查是否為觀眾請求連接
-    if (message.viewerId && viewers.has(message.viewerId)) {
-        console.log('🎯 [MCU] 觀眾請求 MCU 連接:', message.viewerId);
-        handleViewerMCUConnection(message);
-        return;
+    // 檢查觀眾是否在該主播的觀眾列表中
+    if (message.viewerId && broadcaster.viewers.has(message.viewerId)) {
+        const viewerWs = broadcaster.viewers.get(message.viewerId);
+        console.log('   觀眾 WebSocket 狀態:', viewerWs.readyState);
+        
+        if (viewerWs.readyState === WebSocket.OPEN) {
+            const offerData = {
+                type: 'offer',
+                offer: message.offer,
+                broadcasterId: message.broadcasterId
+            };
+            viewerWs.send(JSON.stringify(offerData));
+            console.log('✅ Offer 已轉發給觀眾:', message.viewerId);
+        } else {
+            console.log('❌ 觀眾 WebSocket 未開啟，無法轉發 Offer');
+        }
+    } else {
+        console.log('❌ 找不到觀眾或觀眾ID無效:', message.viewerId);
+        console.log('   該主播的觀眾列表:', Array.from(broadcaster.viewers.keys()));
     }
-    
-    console.log('❌ [MCU] 無效的 Offer 請求');
 }
 
-// 處理主播 MCU 連接
-function handleBroadcasterMCUConnection(message) {
-    console.log('🎬 [MCU] 建立主播 MCU 連接');
-    
-    // 初始化 MCU 狀態
-    mcuState.isActive = true;
-    mcuState.broadcasterConnection = {
-        broadcasterId: message.broadcasterId,
-        offer: message.offer,
-        timestamp: Date.now()
-    };
-    
-    // 通知所有觀眾 MCU 已啟動
-    broadcastToViewers({
-        type: 'mcu_ready',
-        message: 'MCU 服務器已準備就緒，可以接收視頻流'
-    });
-    
-    console.log('✅ [MCU] 主播 MCU 連接已建立');
-}
-
-// 處理觀眾 MCU 連接
-function handleViewerMCUConnection(message) {
-    const viewerId = message.viewerId;
-    const viewerWs = viewers.get(viewerId);
-    
-    if (!viewerWs || viewerWs.readyState !== WebSocket.OPEN) {
-        console.log('❌ [MCU] 觀眾 WebSocket 未開啟:', viewerId);
-        return;
-    }
-    
-    console.log('👥 [MCU] 建立觀眾 MCU 連接:', viewerId);
-    
-    // 創建 MCU 到觀眾的連接
-    const mcuOffer = {
-        type: 'mcu_offer',
-        offer: message.offer,
-        viewerId: viewerId
-    };
-    
-    viewerWs.send(JSON.stringify(mcuOffer));
-    console.log('✅ [MCU] 已發送 MCU Offer 給觀眾:', viewerId);
-}
-
-// 處理 WebRTC Answer - MCU 模式
+// 處理 WebRTC Answer
 function handleAnswer(message) {
-    console.log('📡 [MCU] 處理 Answer from viewer:', message.viewerId);
+    console.log('📡 處理 Answer from viewer:', message.viewerId);
     
-    // 檢查是否為觀眾對 MCU 的回應
-    if (message.viewerId && mcuState.isActive) {
-        console.log('🎯 [MCU] 觀眾回應 MCU 連接:', message.viewerId);
+    // 找到觀眾對應的主播
+    const viewerData = allViewers.get(message.viewerId);
+    if (!viewerData) {
+        console.log('❌ 找不到觀眾:', message.viewerId);
+        return;
+    }
+    
+    const broadcaster = activeBroadcasters.get(viewerData.streamerId);
+    if (!broadcaster) {
+        console.log('❌ 找不到主播:', viewerData.streamerId);
+        return;
+    }
+    
+    console.log('   主播 WebSocket 狀態:', broadcaster.ws ? broadcaster.ws.readyState : 'N/A');
+    
+    // 將 Answer 轉發給主播
+    if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+        const answerData = {
+            type: 'answer',
+            answer: message.answer,
+            viewerId: message.viewerId
+        };
+        broadcaster.ws.send(JSON.stringify(answerData));
+        console.log('✅ Answer 已轉發給主播');
+    } else {
+        console.log('❌ 主播 WebSocket 未開啟');
+    }
+}
+
+// 處理 ICE 候選
+function handleIceCandidate(message) {
+    console.log('🧊 處理 ICE 候選:', message.broadcasterId ? 'from broadcaster' : 'from viewer');
+    
+    if (message.broadcasterId) {
+        // 來自主播的 ICE 候選，轉發給特定觀眾
+        console.log('   轉發給觀眾:', message.viewerId);
         
-        // 更新 MCU 統計
-        mcuState.stats.activeConnections++;
-        mcuState.stats.totalViewers = viewers.size;
-        
-        // 通知主播有新的觀眾連接
-        if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
-            broadcaster.ws.send(JSON.stringify({
-                type: 'viewer_connected',
-                viewerId: message.viewerId,
-                mcuStats: mcuState.stats
-            }));
+        const broadcaster = activeBroadcasters.get(message.broadcasterId);
+        if (!broadcaster) {
+            console.log('❌ 找不到主播:', message.broadcasterId);
+            return;
         }
         
-        console.log('✅ [MCU] 觀眾連接已建立:', message.viewerId);
-        return;
-    }
-    
-    // 檢查是否為主播對 MCU 的回應
-    if (message.broadcasterId && mcuState.isActive) {
-        console.log('🎯 [MCU] 主播回應 MCU 連接');
-        
-        // 通知所有觀眾 MCU 連接已建立
-        broadcastToViewers({
-            type: 'mcu_connected',
-            message: 'MCU 連接已建立，開始接收視頻流'
-        });
-        
-        console.log('✅ [MCU] 主播 MCU 連接已建立');
-        return;
-    }
-    
-    console.log('❌ [MCU] 無效的 Answer 請求');
-}
-
-// 處理 ICE 候選 - MCU 模式
-function handleIceCandidate(message) {
-    console.log('🧊 [MCU] 處理 ICE 候選:', message.broadcasterId ? 'from broadcaster' : 'from viewer');
-    
-    if (message.broadcasterId && mcuState.isActive) {
-        // 來自主播的 ICE 候選，轉發給所有觀眾
-        console.log('🎯 [MCU] 轉發主播 ICE 候選給所有觀眾');
-        
-        const candidateData = {
-            type: 'mcu_ice_candidate',
-            candidate: message.candidate,
-            broadcasterId: message.broadcasterId
-        };
-        
-        // 廣播給所有觀眾
-        viewers.forEach((viewerWs, viewerId) => {
+        if (message.viewerId && broadcaster.viewers.has(message.viewerId)) {
+            const viewerWs = broadcaster.viewers.get(message.viewerId);
+            console.log('   觀眾 WebSocket 狀態:', viewerWs.readyState);
+            
             if (viewerWs.readyState === WebSocket.OPEN) {
+                const candidateData = {
+                    type: 'ice_candidate',
+                    candidate: message.candidate,
+                    broadcasterId: message.broadcasterId
+                };
                 viewerWs.send(JSON.stringify(candidateData));
-                console.log('✅ [MCU] ICE candidate 已轉發給觀眾:', viewerId);
+                console.log('✅ ICE candidate 已轉發給觀眾');
+            } else {
+                console.log('❌ 觀眾 WebSocket 未開啟');
             }
-        });
-        
-    } else if (message.viewerId && mcuState.isActive) {
+        } else {
+            console.log('❌ 找不到觀眾');
+        }
+    } else if (message.viewerId) {
         // 來自觀眾的 ICE 候選，轉發給主播
-        console.log('🎯 [MCU] 轉發觀眾 ICE 候選給主播:', message.viewerId);
+        console.log('   轉發給主播，觀眾ID:', message.viewerId);
         
-        if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+        const viewerData = allViewers.get(message.viewerId);
+        if (!viewerData) {
+            console.log('❌ 找不到觀眾:', message.viewerId);
+            return;
+        }
+        
+        const broadcaster = activeBroadcasters.get(viewerData.streamerId);
+        if (!broadcaster) {
+            console.log('❌ 找不到主播:', viewerData.streamerId);
+            return;
+        }
+        
+        console.log('   主播 WebSocket 狀態:', broadcaster.ws ? broadcaster.ws.readyState : 'N/A');
+        
+        if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
             const candidateData = {
-                type: 'mcu_ice_candidate',
+                type: 'ice_candidate',
                 candidate: message.candidate,
                 viewerId: message.viewerId
             };
             broadcaster.ws.send(JSON.stringify(candidateData));
-            console.log('✅ [MCU] ICE candidate 已轉發給主播');
+            console.log('✅ ICE candidate 已轉發給主播');
         } else {
-            console.log('❌ [MCU] 找不到主播或主播 WebSocket 未開啟');
+            console.log('❌ 主播 WebSocket 未開啟');
         }
-    } else {
-        console.log('❌ [MCU] MCU 未啟動或無效的 ICE 候選');
     }
 }
 
@@ -809,23 +841,32 @@ function handleIceCandidate(message) {
 function handleRequestBroadcasterInfo(ws, message) {
     console.log('📡 觀眾請求主播信息:', message.viewerId);
     
+    const viewerData = allViewers.get(message.viewerId);
+    if (!viewerData) {
+        console.log('❌ 找不到觀眾:', message.viewerId);
+        return;
+    }
+    
+    const broadcaster = activeBroadcasters.get(viewerData.streamerId);
     if (broadcaster && broadcaster.userInfo) {
         // 發送主播信息給觀眾
         const broadcasterInfoMessage = {
             type: 'broadcaster_info',
             broadcasterInfo: broadcaster.userInfo,
-            message: isStreaming ? '主播正在直播中' : '等待主播開始直播'
+            message: broadcaster.isStreaming ? '主播正在直播中' : '等待主播開始直播',
+            broadcasterId: viewerData.streamerId
         };
         
         ws.send(JSON.stringify(broadcasterInfoMessage));
         console.log('✅ 已發送主播信息給觀眾:', message.viewerId);
         
         // 如果正在直播，也發送直播開始消息
-        if (isStreaming) {
+        if (broadcaster.isStreaming) {
             const streamStartMessage = {
                 type: 'stream_start',
-                title: currentStreamTitle || '精彩直播中',
-                message: '主播正在直播'
+                title: broadcaster.streamTitle || '精彩直播中',
+                message: '主播正在直播',
+                broadcasterId: viewerData.streamerId
             };
             
             ws.send(JSON.stringify(streamStartMessage));
@@ -841,28 +882,27 @@ function handleRequestBroadcasterInfo(ws, message) {
     }
 }
 
-// 處理觀眾請求 WebRTC 連接 - MCU 模式
+// 處理觀眾請求 WebRTC 連接
 function handleRequestWebRTCConnection(ws, message) {
-    console.log('📡 [MCU] 觀眾請求 WebRTC 連接:', message.viewerId);
+    console.log('📡 觀眾請求 WebRTC 連接:', message.viewerId);
     
-    if (mcuState.isActive) {
-        // MCU 模式：直接建立與 MCU 的連接
-        console.log('🎯 [MCU] 建立觀眾與 MCU 的連接');
-        
-        // 發送 MCU 連接請求給觀眾
+    const viewerData = allViewers.get(message.viewerId);
+    if (!viewerData) {
+        console.log('❌ 找不到觀眾:', message.viewerId);
         ws.send(JSON.stringify({
-            type: 'mcu_connection_request',
-            viewerId: message.viewerId,
-            mcuStats: mcuState.stats
+            type: 'error',
+            message: '觀眾未找到，無法建立視頻連接'
         }));
-        
-        console.log('✅ [MCU] 已發送 MCU 連接請求給觀眾:', message.viewerId);
-    } else if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
-        // 傳統 P2P 模式：通知主播
+        return;
+    }
+    
+    const broadcaster = activeBroadcasters.get(viewerData.streamerId);
+    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+        // 通知主播有觀眾需要連接
         broadcaster.ws.send(JSON.stringify({
             type: 'viewer_join',
             viewerId: message.viewerId,
-            streamerId: message.streamerId || 'default'
+            streamerId: viewerData.streamerId
         }));
         console.log('✅ 已通知主播建立與觀眾的連接:', message.viewerId);
     } else {
@@ -905,7 +945,22 @@ function handleChatMessage(ws, message) {
     const username = message.username || '匿名用戶';
     const role = message.role || 'viewer';
     
-    console.log('收到聊天訊息:', messageText, '來自:', username, '角色:', role);
+    // 優先從消息中獲取broadcasterId，然後從WebSocket連接中獲取
+    let broadcasterId = message.broadcasterId || ws.broadcasterId;
+    
+    // 如果還是沒有，嘗試從activeConnections中查找
+    if (!broadcasterId) {
+        for (const [connectionId, connection] of activeConnections.entries()) {
+            if (connection.ws === ws && connection.type === 'broadcaster') {
+                broadcasterId = connection.userId;
+                break;
+            }
+        }
+    }
+    
+    console.log('收到聊天訊息:', messageText, '來自:', username, '角色:', role, '主播ID:', broadcasterId);
+    console.log('🔍 [DEBUG] WebSocket broadcasterId:', ws.broadcasterId);
+    console.log('🔍 [DEBUG] 訊息中的broadcasterId:', message.broadcasterId);
     
     try {
         // 驗證訊息內容
@@ -921,13 +976,27 @@ function handleChatMessage(ws, message) {
             username: username,
             message: messageText.trim(),
             text: messageText.trim(), // 同時提供 text 字段以保持兼容性
-            timestamp: message.timestamp || new Date().toISOString()
+            timestamp: message.timestamp || new Date().toISOString(),
+            broadcasterId: broadcasterId
         };
         
-        // 只廣播給ChatSystem用戶，不廣播給WebRTC連接
-        broadcastToChatUsers(chatMessage);
-        
-        console.log('已廣播聊天訊息:', chatMessage.message, '來自:', chatMessage.username, '角色:', chatMessage.role);
+        // 根據主播ID分發訊息
+        if (broadcasterId) {
+            // 發送給特定主播的觀眾和主播本人
+            broadcastToBroadcasterViewers(broadcasterId, chatMessage);
+            
+            // 也發送給主播本人
+            const broadcaster = activeBroadcasters.get(broadcasterId);
+            if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+                broadcaster.ws.send(JSON.stringify(chatMessage));
+            }
+            
+            console.log('已廣播聊天訊息給主播', broadcasterId, '的觀眾:', chatMessage.message, '來自:', chatMessage.username);
+        } else {
+            // 如果沒有主播ID，則廣播給所有聊天用戶（保持向後兼容）
+            broadcastToChatUsers(chatMessage);
+            console.log('已廣播聊天訊息給所有用戶:', chatMessage.message, '來自:', chatMessage.username);
+        }
         
     } catch (error) {
         console.error('處理聊天訊息時發生錯誤:', error);
@@ -938,78 +1007,75 @@ function handleChatMessage(ws, message) {
 function broadcastToChatUsers(message) {
     const messageStr = JSON.stringify(message);
     let broadcastCount = 0;
+    const broadcasterId = message.broadcasterId;
     
-    // 只發送給聊天用戶（ChatSystem連接）
-    chatUsers.forEach((userInfo, ws) => {
-        if (ws.readyState === WebSocket.OPEN) {
-            try {
-                ws.send(messageStr);
-                broadcastCount++;
-                console.log(`[聊天廣播] 發送給: ${userInfo.username} (${userInfo.role})`);
-            } catch (error) {
-                console.error('發送給聊天用戶失敗:', userInfo.username, error);
-                // 移除斷線的聊天用戶
-                chatUsers.delete(ws);
+    // 如果有broadcasterId，只發送給該主播相關的用戶
+    if (broadcasterId) {
+        // 發送給該主播的觀眾
+        const broadcaster = activeBroadcasters.get(broadcasterId);
+        if (broadcaster) {
+            broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                if (viewerWs.readyState === WebSocket.OPEN) {
+                    try {
+                        viewerWs.send(messageStr);
+                        broadcastCount++;
+                        console.log(`[聊天廣播] 發送給觀眾: ${viewerId}`);
+                    } catch (error) {
+                        console.error('發送給觀眾失敗:', viewerId, error);
+                    }
+                }
+            });
+            
+            // 發送給主播本人
+            if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+                try {
+                    broadcaster.ws.send(messageStr);
+                    broadcastCount++;
+                    console.log(`[聊天廣播] 發送給主播: ${broadcasterId}`);
+                } catch (error) {
+                    console.error('發送給主播失敗:', broadcasterId, error);
+                }
             }
         }
-    });
-    
-    console.log(`聊天訊息已廣播給 ${broadcastCount} 個ChatSystem用戶`);
-}
-
-// 廣播給所有客戶端
-function broadcastToAll(message) {
-    const messageStr = JSON.stringify(message);
-    let broadcastCount = 0;
-    
-    // 發送給主播（WebRTC連接）
-    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
-        try {
-            broadcaster.ws.send(messageStr);
-            broadcastCount++;
-        } catch (error) {
-            console.error('發送給主播失敗:', error);
-        }
+    } else {
+        // 如果沒有broadcasterId，則發送給所有聊天用戶（保持向後兼容）
+        chatUsers.forEach((userInfo, ws) => {
+            if (ws.readyState === WebSocket.OPEN) {
+                try {
+                    ws.send(messageStr);
+                    broadcastCount++;
+                    console.log(`[聊天廣播] 發送給: ${userInfo.username} (${userInfo.role})`);
+                } catch (error) {
+                    console.error('發送給聊天用戶失敗:', userInfo.username, error);
+                    // 移除斷線的聊天用戶
+                    chatUsers.delete(ws);
+                }
+            }
+        });
     }
     
-    // 發送給所有觀眾（WebRTC連接）
-    viewers.forEach((viewer, viewerId) => {
-        if (viewer.readyState === WebSocket.OPEN) {
-            try {
-                viewer.send(messageStr);
-                broadcastCount++;
-            } catch (error) {
-                console.error('發送給觀眾失敗:', viewerId, error);
-                // 移除斷線的觀眾
-                viewers.delete(viewerId);
-                viewerCount--;
-            }
-        }
-    });
-    
-    // 發送給所有聊天用戶（ChatSystem連接）
-    chatUsers.forEach((userInfo, ws) => {
-        if (ws.readyState === WebSocket.OPEN) {
-            try {
-                ws.send(messageStr);
-                broadcastCount++;
-                console.log(`[廣播] 發送給聊天用戶: ${userInfo.username} (${userInfo.role})`);
-            } catch (error) {
-                console.error('發送給聊天用戶失敗:', userInfo.username, error);
-                // 移除斷線的聊天用戶
-                chatUsers.delete(ws);
-            }
-        }
-    });
-    
-    console.log(`訊息已廣播給 ${broadcastCount} 個客戶端`);
-}// 處理主播聊天訊息
+    console.log(`聊天訊息已廣播給 ${broadcastCount} 個用戶`);
+}
+
+// 注意：broadcastToAll 函數已移除，請使用 broadcastToAllViewers 或 broadcastToBroadcasterViewers// 處理主播聊天訊息
 function handleBroadcasterChatMessage(message) {
+    const broadcasterId = message.broadcasterId;
     // 兼容前端可能傳來的 message 或 text 欄位
     const content = message.message || message.text || '';
-    console.log('主播聊天訊息:', content);
+    console.log('主播聊天訊息:', content, '來自主播:', broadcasterId);
     
-    // 廣播主播訊息給所有觀眾
+    if (!broadcasterId) {
+        console.error('主播聊天訊息缺少broadcasterId');
+        return;
+    }
+    
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (!broadcaster) {
+        console.error('找不到主播:', broadcasterId);
+        return;
+    }
+    
+    // 廣播主播訊息給該主播的所有觀眾
     const chatMessage = {
         type: 'chat_message',
         username: message.username || '主播',
@@ -1018,13 +1084,13 @@ function handleBroadcasterChatMessage(message) {
         userAvatar: message.userAvatar || null,
         timestamp: message.timestamp || new Date().toISOString(),
         isStreamer: true,
-        broadcasterId: message.broadcasterId
+        broadcasterId: broadcasterId
     };
     
-    // 發送給所有觀眾
-    broadcastToViewers(chatMessage);
+    // 發送給該主播的所有觀眾
+    broadcastToBroadcasterViewers(broadcasterId, chatMessage);
     
-    console.log('已廣播主播訊息給', viewerCount, '個觀眾');
+    console.log(`已廣播主播訊息給主播 ${broadcasterId} 的 ${broadcaster.viewers.size} 個觀眾`);
 }
 
 // 新協議聊天處理
@@ -1094,10 +1160,57 @@ async function handleUnifiedChat(payload, senderWs, clientType, clientId){
         }
 
         let delivered = 0;
-        // 廣播給觀眾 (若訊息來自觀眾仍要顯示給其他人 & 主播)
-    viewers.forEach((vws, vid) => { if(vws.readyState===WebSocket.OPEN){ if(sendJSON(vws, chatPacket)) delivered++; else console.log('[WARN] 發送觀眾失敗 viewerId=', vid); } });
-        // 主播端也收到 (包含自己, 用於送達狀態)
-        if(broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN){ sendJSON(broadcaster.ws, chatPacket); }
+        
+        // 根據發送者類型決定廣播範圍
+        if (clientType === 'broadcaster' && senderWs.broadcasterId) {
+            // 主播發送的訊息，只發送給該主播的觀眾
+            const broadcaster = activeBroadcasters.get(senderWs.broadcasterId);
+            if (broadcaster) {
+                broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                    if (viewerWs.readyState === WebSocket.OPEN) {
+                        if (sendJSON(viewerWs, chatPacket)) {
+                            delivered++;
+                        } else {
+                            console.log('[WARN] 發送觀眾失敗 viewerId=', viewerId);
+                        }
+                    }
+                });
+            }
+        } else if (clientType === 'viewer') {
+            // 觀眾發送的訊息，需要確定觀眾所屬的主播
+            const viewerInfo = allViewers.get(clientId);
+            if (viewerInfo && viewerInfo.streamerId) {
+                const broadcaster = activeBroadcasters.get(viewerInfo.streamerId);
+                if (broadcaster) {
+                    // 發送給該主播的所有觀眾（包括發送者本人）
+                    broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                        if (viewerWs.readyState === WebSocket.OPEN) {
+                            if (sendJSON(viewerWs, chatPacket)) {
+                                delivered++;
+                            } else {
+                                console.log('[WARN] 發送觀眾失敗 viewerId=', viewerId);
+                            }
+                        }
+                    });
+                    
+                    // 也發送給主播本人
+                    if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+                        sendJSON(broadcaster.ws, chatPacket);
+                    }
+                }
+            }
+        } else {
+            // 其他情況，廣播給所有觀眾（保持向後兼容）
+            allViewers.forEach((viewerInfo, viewerId) => {
+                if (viewerInfo.ws && viewerInfo.ws.readyState === WebSocket.OPEN) {
+                    if (sendJSON(viewerInfo.ws, chatPacket)) {
+                        delivered++;
+                    } else {
+                        console.log('[WARN] 發送觀眾失敗 viewerId=', viewerId);
+                    }
+                }
+            });
+        }
 
         // ACK
         sendJSON(senderWs, { type:'ack', event:'chat', ok:true, tempId, delivered, timestamp: new Date().toISOString() });
@@ -1109,15 +1222,33 @@ async function handleUnifiedChat(payload, senderWs, clientType, clientId){
 }
 
 // 處理主播斷線
-function handleBroadcasterDisconnect() {
-    console.log('主播斷線');
+function handleBroadcasterDisconnect(broadcasterId) {
+    console.log('主播斷線:', broadcasterId);
     
-    // 清理activeBroadcasters中的記錄
-    let broadcasterId = null;
-    if (broadcaster && broadcaster.id) {
-        broadcasterId = broadcaster.id;
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (broadcaster) {
+        // 通知該主播的所有觀眾主播已斷線
+        broadcaster.viewers.forEach((viewerWs, viewerId) => {
+            if (viewerWs.readyState === WebSocket.OPEN) {
+                viewerWs.send(JSON.stringify({
+                    type: 'broadcaster_offline',
+                    message: '主播已斷線，直播結束',
+                    broadcasterId: broadcasterId
+                }));
+            }
+        });
+        
+        // 從全局觀眾列表中移除該主播的觀眾
+        broadcaster.viewers.forEach((viewerWs, viewerId) => {
+            allViewers.delete(viewerId);
+        });
+        
+        // 清理主播相關數據
         activeBroadcasters.delete(broadcasterId);
-        console.log('已從活躍直播者列表移除:', broadcasterId);
+        musicStreamStates.delete(broadcasterId);
+        tabAudioStates.delete(broadcasterId);
+        
+        console.log('已從多主播系統移除:', broadcasterId);
     }
     
     // 清理activeConnections中的記錄
@@ -1128,109 +1259,165 @@ function handleBroadcasterDisconnect() {
         }
     }
     
-    broadcaster = null;
-    isStreaming = false;
-    
-    // 通知所有觀眾主播已斷線
-    broadcastToViewers({
-        type: 'stream_end',
-        message: '主播已斷線，直播結束'
-    });
+    // 更新全局統計
+    totalViewerCount = allViewers.size;
+    updateAllViewerCounts();
 }
 
 // 處理觀眾斷線
 function handleViewerDisconnect(viewerId) {
     console.log('觀眾斷線:', viewerId);
     
-    let streamerId = null;
-    
-    if (viewers.has(viewerId)) {
-        const viewerWs = viewers.get(viewerId);
-        
+    const viewerData = allViewers.get(viewerId);
+    if (viewerData) {
         // 如果是Ghost用戶，釋放Ghost名稱
-        if (viewerWs.ghostName) {
-            ghostManager.releaseGhostName(viewerWs.ghostName);
+        if (viewerData.ws.ghostName) {
+            ghostManager.releaseGhostName(viewerData.ws.ghostName);
         }
         
-        viewers.delete(viewerId);
-        viewerCount--;
-        updateViewerCount();
+        // 從對應主播的觀眾列表中移除
+        const broadcaster = activeBroadcasters.get(viewerData.streamerId);
+        if (broadcaster) {
+            broadcaster.viewers.delete(viewerId);
+            broadcaster.viewerCount--;
+            activeBroadcasters.set(viewerData.streamerId, broadcaster);
+            console.log(`已從主播 ${viewerData.streamerId} 的觀眾列表移除 ${viewerId}`);
+        }
+        
+        // 從全局觀眾列表移除
+        allViewers.delete(viewerId);
+        totalViewerCount--;
     }
     
     // 從activeConnections中找到並移除觀眾連接記錄
     for (const [connectionId, connection] of activeConnections.entries()) {
         if (connection.type === 'viewer' && connection.userId === viewerId) {
-            streamerId = connection.streamerId;
             activeConnections.delete(connectionId);
             console.log('已移除觀眾連接記錄:', connectionId);
             break;
         }
     }
     
-    // 更新對應主播的觀眾數
-    if (streamerId && activeBroadcasters.has(streamerId)) {
-        const broadcasterData = activeBroadcasters.get(streamerId);
-        broadcasterData.viewerCount = Math.max((broadcasterData.viewerCount || 1) - 1, 0);
-        activeBroadcasters.set(streamerId, broadcasterData);
-        console.log(`已更新主播 ${streamerId} 的觀眾數: ${broadcasterData.viewerCount}`);
-    }
+    // 更新所有觀眾數量
+    updateAllViewerCounts();
 }
 
 // 廣播訊息給所有觀眾
-function broadcastToViewers(message) {
-    viewers.forEach((viewer, viewerId) => {
-        if (viewer.readyState === WebSocket.OPEN) {
+function broadcastToAllViewers(message) {
+    allViewers.forEach((viewerData, viewerId) => {
+        if (viewerData.ws.readyState === WebSocket.OPEN) {
             try {
-                viewer.send(JSON.stringify(message));
+                viewerData.ws.send(JSON.stringify(message));
             } catch (error) {
                 console.error('發送訊息給觀眾失敗:', error);
                 // 移除斷線的觀眾
-                viewers.delete(viewerId);
-                viewerCount--;
+                allViewers.delete(viewerId);
+                totalViewerCount--;
             }
         }
     });
 }
 
-// 更新觀眾數量
-function updateViewerCount() {
+// 廣播訊息給特定主播的所有觀眾和主播本人
+function broadcastToBroadcasterViewers(broadcasterId, message) {
+    const broadcaster = activeBroadcasters.get(broadcasterId);
+    if (broadcaster) {
+        // 發送給該主播的所有觀眾
+        broadcaster.viewers.forEach((viewerWs, viewerId) => {
+            if (viewerWs.readyState === WebSocket.OPEN) {
+                try {
+                    viewerWs.send(JSON.stringify(message));
+                } catch (error) {
+                    console.error('發送訊息給觀眾失敗:', error);
+                    // 移除斷線的觀眾
+                    broadcaster.viewers.delete(viewerId);
+                    broadcaster.viewerCount--;
+                }
+            }
+        });
+    }
+}
+
+// 更新所有觀眾數量
+function updateAllViewerCounts() {
+    // 為每個主播更新其觀眾數量
+    activeBroadcasters.forEach((broadcaster, broadcasterId) => {
     const countMessage = {
         type: 'viewer_count_update',
-        count: viewerCount
+            count: broadcaster.viewerCount,
+            broadcasterId: broadcasterId
     };
     
-    // 更新所有觀眾的數量顯示
-    broadcastToViewers(countMessage);
+        // 更新該主播的觀眾數量顯示
+        broadcastToBroadcasterViewers(broadcasterId, countMessage);
     
     // 更新主播的數量顯示
-    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+        if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
         broadcaster.ws.send(JSON.stringify(countMessage));
     }
+    });
+    
+    // 發送全局統計
+    const globalCountMessage = {
+        type: 'global_viewer_count_update',
+        totalViewers: totalViewerCount,
+        totalBroadcasters: activeBroadcasters.size
+    };
+    
+    broadcastToAllViewers(globalCountMessage);
 }
 
 // 定期清理斷線的連接
 setInterval(() => {
     // 清理斷線的觀眾
-    viewers.forEach((viewer, viewerId) => {
-        if (viewer.readyState !== WebSocket.OPEN) {
+    allViewers.forEach((viewerData, viewerId) => {
+        if (viewerData.ws.readyState !== WebSocket.OPEN) {
             console.log('清理斷線觀眾:', viewerId);
-            viewers.delete(viewerId);
-            viewerCount--;
+            
+            // 從對應主播的觀眾列表中移除
+            const broadcaster = activeBroadcasters.get(viewerData.streamerId);
+            if (broadcaster) {
+                broadcaster.viewers.delete(viewerId);
+                broadcaster.viewerCount--;
+                activeBroadcasters.set(viewerData.streamerId, broadcaster);
+            }
+            
+            // 從全局觀眾列表移除
+            allViewers.delete(viewerId);
+            totalViewerCount--;
         }
     });
     
     // 清理斷線的主播
-    if (broadcaster && broadcaster.ws && broadcaster.ws.readyState !== WebSocket.OPEN) {
-        console.log('清理斷線主播');
-        broadcaster = null;
-        isStreaming = false;
-    }
+    activeBroadcasters.forEach((broadcaster, broadcasterId) => {
+        if (broadcaster.ws.readyState !== WebSocket.OPEN) {
+            console.log('清理斷線主播:', broadcasterId);
+            
+            // 通知該主播的所有觀眾
+            broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                if (viewerWs.readyState === WebSocket.OPEN) {
+                    viewerWs.send(JSON.stringify({
+                        type: 'broadcaster_offline',
+                        broadcasterId: broadcasterId,
+                        message: '主播已離線'
+                    }));
+                }
+            });
+            
+            // 從全局觀眾列表中移除該主播的觀眾
+            broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                allViewers.delete(viewerId);
+            });
+            
+            // 移除主播
+            activeBroadcasters.delete(broadcasterId);
+            musicStreamStates.delete(broadcasterId);
+            tabAudioStates.delete(broadcasterId);
+        }
+    });
     
     // 更新觀眾數量
-    if (viewerCount !== viewers.size) {
-        viewerCount = viewers.size;
-        updateViewerCount();
-    }
+    updateAllViewerCounts();
 }, 30000); // 每30秒檢查一次
 
 // === 登入和註冊路由 ===
@@ -1572,52 +1759,59 @@ app.get('/api/live-streams', async (req, res) => {
         const liveStreams = [];
         
         // 遍歷所有活躍的直播會話
-        for (const [userId, streamerData] of activeBroadcasters.entries()) {
-            if (streamerData && streamerData.ws && streamerData.ws.readyState === WebSocket.OPEN) {
-                // 計算觀眾數量
-                const viewerCount = Array.from(activeConnections.values())
-                    .filter(conn => conn.type === 'viewer' && conn.streamerId === userId)
-                    .length;
+        for (const [broadcasterId, broadcasterData] of activeBroadcasters.entries()) {
+            if (broadcasterData && broadcasterData.ws && broadcasterData.ws.readyState === WebSocket.OPEN) {
+                // 使用主播數據中的觀眾數量
+                const viewerCount = broadcasterData.viewerCount || 0;
                 
                 // 優先使用WebSocket中的用戶資訊
-                console.log('🔍 [DEBUG] 處理直播流:', userId, 'userInfo:', streamerData.userInfo);
+                console.log('🔍 [DEBUG] 處理直播流:', broadcasterId, 'userInfo:', broadcasterData.userInfo);
                 
-                if (streamerData.userInfo && streamerData.userInfo.displayName) {
-                    console.log('✅ 使用 WebSocket userInfo.displayName:', streamerData.userInfo.displayName);
+                if (broadcasterData.userInfo && broadcasterData.userInfo.displayName) {
+                    console.log('✅ 使用 WebSocket userInfo.displayName:', broadcasterData.userInfo.displayName);
                     liveStreams.push({
-                        userId: userId,
-                        username: streamerData.userInfo.displayName,
+                        broadcasterId: broadcasterId,
+                        displayName: broadcasterData.userInfo.displayName,
+                        avatarUrl: broadcasterData.userInfo.avatarUrl || null,
                         viewerCount: viewerCount,
-                        startTime: streamerData.startTime || new Date(),
-                        status: 'live'
+                        startTime: broadcasterData.startTime || new Date(),
+                        streamTitle: broadcasterData.streamTitle || '',
+                        isStreaming: broadcasterData.isStreaming || false,
+                        status: broadcasterData.isStreaming ? 'live' : 'online'
                     });
                 } else {
                     // 備用：從資料庫獲取用戶資訊
                     console.log('⚠️ WebSocket userInfo 不可用，嘗試從資料庫獲取用戶資訊');
                     try {
-                        const user = await db.getUserById(userId);
+                        const user = await db.getUserById(broadcasterId);
                         if (user) {
                             console.log('✅ 從資料庫獲取用戶資訊:', user.displayName || user.username);
                             liveStreams.push({
-                                userId: userId,
-                                username: user.displayName || user.username,
+                                broadcasterId: broadcasterId,
+                                displayName: user.displayName || user.username,
+                                avatarUrl: user.avatarUrl || null,
                                 viewerCount: viewerCount,
-                                startTime: streamerData.startTime || new Date(),
-                                status: 'live'
+                                startTime: broadcasterData.startTime || new Date(),
+                                streamTitle: broadcasterData.streamTitle || '',
+                                isStreaming: broadcasterData.isStreaming || false,
+                                status: broadcasterData.isStreaming ? 'live' : 'online'
                             });
                         } else {
-                            console.log('❌ 資料庫中找不到用戶:', userId);
+                            console.log('❌ 資料庫中找不到用戶:', broadcasterId);
                         }
                     } catch (userError) {
                         console.error('獲取用戶資訊失敗:', userError);
                         // 使用預設資訊
-                        console.log('⚠️ 使用預設用戶名:', `用戶${userId.substring(0, 8)}`);
+                        console.log('⚠️ 使用預設用戶名:', `用戶${broadcasterId.substring(0, 8)}`);
                         liveStreams.push({
-                            userId: userId,
-                            username: `用戶${userId.substring(0, 8)}`,
+                            broadcasterId: broadcasterId,
+                            displayName: `用戶${broadcasterId.substring(0, 8)}`,
+                            avatarUrl: null,
                             viewerCount: viewerCount,
-                            startTime: streamerData.startTime || new Date(),
-                            status: 'live'
+                            startTime: broadcasterData.startTime || new Date(),
+                            streamTitle: broadcasterData.streamTitle || '',
+                            isStreaming: broadcasterData.isStreaming || false,
+                            status: broadcasterData.isStreaming ? 'live' : 'online'
                         });
                     }
                 }
@@ -1630,7 +1824,9 @@ app.get('/api/live-streams', async (req, res) => {
         res.json({
             success: true,
             streams: liveStreams,
-            totalStreams: liveStreams.length
+            totalStreams: liveStreams.length,
+            totalViewers: totalViewerCount,
+            totalBroadcasters: activeBroadcasters.size
         });
         
     } catch (error) {
@@ -1639,6 +1835,91 @@ app.get('/api/live-streams', async (req, res) => {
             success: false,
             message: '服務器錯誤',
             streams: []
+        });
+    }
+});
+
+// 觀眾切換主播
+app.post('/api/switch-broadcaster', (req, res) => {
+    const { viewerId, fromBroadcasterId, toBroadcasterId } = req.body;
+    
+    if (!viewerId || !toBroadcasterId) {
+        return res.status(400).json({
+            success: false,
+            message: '缺少必要參數'
+        });
+    }
+    
+    try {
+        // 檢查目標主播是否存在
+        const targetBroadcaster = activeBroadcasters.get(toBroadcasterId);
+        if (!targetBroadcaster) {
+            return res.status(404).json({
+                success: false,
+                message: '目標主播不存在'
+            });
+        }
+        
+        // 檢查觀眾是否存在
+        const viewerData = allViewers.get(viewerId);
+        if (!viewerData) {
+            return res.status(404).json({
+                success: false,
+                message: '觀眾不存在'
+            });
+        }
+        
+        // 從舊主播的觀眾列表中移除
+        if (fromBroadcasterId && activeBroadcasters.has(fromBroadcasterId)) {
+            const fromBroadcaster = activeBroadcasters.get(fromBroadcasterId);
+            fromBroadcaster.viewers.delete(viewerId);
+            fromBroadcaster.viewerCount--;
+            activeBroadcasters.set(fromBroadcasterId, fromBroadcaster);
+        }
+        
+        // 添加到新主播的觀眾列表
+        targetBroadcaster.viewers.set(viewerId, viewerData.ws);
+        targetBroadcaster.viewerCount++;
+        activeBroadcasters.set(toBroadcasterId, targetBroadcaster);
+        
+        // 更新觀眾的streamerId
+        viewerData.streamerId = toBroadcasterId;
+        allViewers.set(viewerId, viewerData);
+        
+        // 發送切換成功消息給觀眾
+        viewerData.ws.send(JSON.stringify({
+            type: 'broadcaster_switched',
+            broadcasterId: toBroadcasterId,
+            broadcasterInfo: targetBroadcaster.userInfo,
+            message: `已切換到 ${targetBroadcaster.userInfo.displayName} 的直播間`
+        }));
+        
+        // 如果新主播正在直播，發送直播狀態
+        if (targetBroadcaster.isStreaming) {
+            viewerData.ws.send(JSON.stringify({
+                type: 'stream_start',
+                title: targetBroadcaster.streamTitle || '精彩直播中',
+                message: '主播正在直播中',
+                status: 'live',
+                broadcasterId: toBroadcasterId
+            }));
+        }
+        
+        // 更新觀眾數量
+        updateAllViewerCounts();
+        
+        res.json({
+            success: true,
+            message: '切換成功',
+            broadcasterId: toBroadcasterId,
+            broadcasterName: targetBroadcaster.userInfo.displayName
+        });
+        
+    } catch (error) {
+        console.error('切換主播失敗:', error);
+        res.status(500).json({
+            success: false,
+            message: '服務器錯誤'
         });
     }
 });
@@ -2225,64 +2506,6 @@ function handleTabAudioDisabled(broadcasterId) {
             broadcasterId: broadcasterId
         }
     });
-}
-
-// 處理 MCU 連接請求
-function handleMCUConnectionRequest(ws, message) {
-    console.log('📡 [MCU] 處理 MCU 連接請求:', message.viewerId);
-    
-    if (mcuState.isActive) {
-        // 發送 MCU 連接信息給觀眾
-        ws.send(JSON.stringify({
-            type: 'mcu_connection_info',
-            viewerId: message.viewerId,
-            mcuStats: mcuState.stats,
-            connectionId: `mcu_${message.viewerId}_${Date.now()}`
-        }));
-        
-        console.log('✅ [MCU] 已發送 MCU 連接信息給觀眾:', message.viewerId);
-        
-        // 立即建立 MCU 連接並發送 offer
-        if (mcuState.broadcasterConnection && mcuState.broadcasterConnection.offer) {
-            console.log('🎯 [MCU] 立即建立觀眾 MCU 連接並發送 offer');
-            
-            const mcuOffer = {
-                type: 'mcu_offer',
-                offer: mcuState.broadcasterConnection.offer,
-                viewerId: message.viewerId
-            };
-            
-            ws.send(JSON.stringify(mcuOffer));
-            console.log('✅ [MCU] 已發送 MCU Offer 給觀眾:', message.viewerId);
-        } else {
-            console.log('⚠️ [MCU] 主播 offer 尚未準備好，等待主播連接');
-        }
-        
-    } else {
-        ws.send(JSON.stringify({
-            type: 'error',
-            message: 'MCU 服務器未啟動'
-        }));
-        console.log('❌ [MCU] MCU 服務器未啟動');
-    }
-}
-
-// 處理 MCU 統計請求
-function handleMCUStatsRequest(ws, message) {
-    console.log('📊 [MCU] 處理 MCU 統計請求');
-    
-    // 更新統計信息
-    mcuState.stats.totalViewers = viewers.size;
-    mcuState.stats.activeConnections = mcuState.viewerConnections.size;
-    
-    ws.send(JSON.stringify({
-        type: 'mcu_stats_response',
-        stats: mcuState.stats,
-        isActive: mcuState.isActive,
-        timestamp: Date.now()
-    }));
-    
-    console.log('✅ [MCU] 已發送 MCU 統計信息');
 }
 
 // 啟動伺服器

@@ -185,6 +185,13 @@ async function initializeBroadcaster() {
         optimizeVideoEncodingForCompatibility();
     }, 3000);
     
+    // 載入其他主播列表
+    setTimeout(() => {
+        if (typeof loadOtherBroadcasters === 'function') {
+            loadOtherBroadcasters();
+        }
+    }, 4000);
+    
     console.log('✅ 主播端初始化完成');
 }
 
@@ -285,7 +292,7 @@ async function loadDevices() {
     }
 }
 
-// 開始/停止直播 - MCU 模式
+// 開始/停止直播
 async function toggleStream() {
     // 檢查用戶是否已登入
     if (!currentUser || currentUser.isGuest) {
@@ -295,168 +302,13 @@ async function toggleStream() {
     }
     
     if (!isStreaming) {
-        await startMCUStream();
+        await startStream();
     } else {
-        stopMCUStream();
+        stopStream();
     }
 }
 
-// 開始 MCU 直播
-async function startMCUStream() {
-    // 檢查用戶是否已登入
-    if (!currentUser || currentUser.isGuest) {
-        console.log('❌ 用戶未登入，無法開始直播');
-        addMessage('系統', '❌ 請先登入才能開始直播');
-        return;
-    }
-    
-    try {
-        console.log('🎬 [MCU] 開始 MCU 直播流程');
-        
-        // 1. 獲取媒體流
-        console.log('📹 [MCU] 獲取媒體流...');
-        const userStream = await navigator.mediaDevices.getUserMedia(getConstraints());
-        localStream = userStream;
-        
-        // 顯示本地視訊
-        const localVideo = document.getElementById('localVideo');
-        const placeholder = document.getElementById('previewPlaceholder');
-        
-        if (localVideo) {
-            localVideo.srcObject = localStream;
-            localVideo.style.display = 'block';
-        }
-        
-        if (placeholder) {
-            placeholder.style.display = 'none';
-        }
-        
-        console.log('✅ [MCU] 媒體流已獲取');
-        
-        // 2. 建立 WebSocket 連接
-        await connectToStreamingServer();
-        
-        // 3. 建立 MCU 連接
-        await establishMCUConnection();
-        
-        // 4. 開始直播
-        isStreaming = true;
-        updateStreamStatus(true);
-        startStreamTimer();
-        
-        // 5. 通知觀眾直播已開始
-        if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
-            const streamTitle = document.getElementById('streamTitleInput')?.value || '精彩直播中';
-            streamingSocket.send(JSON.stringify({
-                type: 'stream_start',
-                title: streamTitle,
-                message: 'MCU 直播即將開始',
-                status: 'starting',
-                requestViewers: true,
-                mcuMode: true
-            }));
-            console.log('✅ [MCU] 已發送直播開始消息');
-        }
-        
-        // addMessage('系統', '🎉 MCU 直播已開始！');
-        console.log('✅ [MCU] 直播流程完成');
-        
-    } catch (error) {
-        console.error('❌ [MCU] 開始直播失敗:', error);
-        addMessage('系統', '❌ MCU 直播啟動失敗: ' + error.message);
-    }
-}
-
-// 建立 MCU 連接
-async function establishMCUConnection() {
-    console.log('🔗 [MCU] 建立主播與 MCU 的連接');
-    
-    try {
-        // 創建 MCU PeerConnection
-        const mcuPeerConnection = new RTCPeerConnection(rtcConfiguration);
-        
-        // 添加本地媒體流
-        if (localStream) {
-            localStream.getTracks().forEach(track => {
-                mcuPeerConnection.addTrack(track, localStream);
-                console.log(`[MCU] 添加軌道: ${track.kind}`);
-            });
-        }
-        
-        // 創建 offer
-        const offer = await mcuPeerConnection.createOffer();
-        await mcuPeerConnection.setLocalDescription(offer);
-        
-        // 發送 offer 到 MCU 服務器
-        if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
-            streamingSocket.send(JSON.stringify({
-                type: 'offer',
-                offer: offer,
-                broadcasterId: getBroadcasterId(),
-                mcuMode: true
-            }));
-            console.log('✅ [MCU] 已發送 MCU offer');
-        }
-        
-        // 處理 MCU 回應
-        mcuPeerConnection.onicecandidate = (event) => {
-            if (event.candidate && streamingSocket) {
-                streamingSocket.send(JSON.stringify({
-                    type: 'ice_candidate',
-                    candidate: event.candidate,
-                    broadcasterId: getBroadcasterId(),
-                    mcuMode: true
-                }));
-            }
-        };
-        
-        // 存儲 MCU 連接
-        window.mcuPeerConnection = mcuPeerConnection;
-        
-        console.log('✅ [MCU] MCU 連接已建立');
-        
-    } catch (error) {
-        console.error('❌ [MCU] 建立 MCU 連接失敗:', error);
-        throw error;
-    }
-}
-
-// 停止 MCU 直播
-function stopMCUStream() {
-    console.log('🛑 [MCU] 停止 MCU 直播');
-    
-    try {
-        // 關閉 MCU 連接
-        if (window.mcuPeerConnection) {
-            window.mcuPeerConnection.close();
-            window.mcuPeerConnection = null;
-            console.log('✅ [MCU] MCU 連接已關閉');
-        }
-        
-        // 通知服務器直播結束
-        if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
-            streamingSocket.send(JSON.stringify({
-                type: 'stream_end',
-                mcuMode: true
-            }));
-            console.log('✅ [MCU] 已發送直播結束消息');
-        }
-        
-        // 停止直播
-        isStreaming = false;
-        updateStreamStatus(false);
-        stopStreamTimer();
-        
-        addMessage('系統', '📺 MCU 直播已結束');
-        console.log('✅ [MCU] 直播已停止');
-        
-    } catch (error) {
-        console.error('❌ [MCU] 停止直播失敗:', error);
-        addMessage('系統', '❌ 停止直播失敗: ' + error.message);
-    }
-}
-
-// 開始直播 (保留原函數作為備用)
+// 開始直播
 async function startStream() {
     // 檢查用戶是否已登入
     if (!currentUser || currentUser.isGuest) {
@@ -568,6 +420,7 @@ async function startStream() {
                 // 通知服務器直播開始，並請求已在線觀眾列表
                 streamingSocket.send(JSON.stringify({
                     type: 'stream_start',
+                    broadcasterId: getBroadcasterId(), // 添加主播ID
                     title: finalTitle,
                     message: '主播已開始直播',
                     timestamp: Date.now(),
@@ -589,6 +442,7 @@ async function startStream() {
                         
                         streamingSocket.send(JSON.stringify({
                             type: 'stream_start',
+                            broadcasterId: getBroadcasterId(), // 添加主播ID
                             title: finalTitle,
                             message: '主播已開始直播',
                             timestamp: Date.now(),
@@ -1774,20 +1628,6 @@ function connectToStreamingServer() {
                 console.log('[CHAT_DEBUG] 收到聊天封包', data);
             }
             
-            // 處理 MCU 相關消息
-            if (data.type === 'mcu_ready') {
-                console.log('🎯 [MCU] MCU 服務器已準備就緒');
-                // addMessage('系統', '🎯 MCU 服務器已準備就緒');
-            } else if (data.type === 'mcu_connected') {
-                console.log('🎯 [MCU] MCU 連接已建立');
-                addMessage('系統', '🎯 MCU 連接已建立');
-            } else if (data.type === 'viewer_connected') {
-                console.log('👥 [MCU] 觀眾已連接:', data.viewerId);
-                if (data.mcuStats) {
-                    console.log('📊 [MCU] 統計信息:', data.mcuStats);
-                }
-            }
-            
             // 特別關注 online_viewers 和 viewer_join 消息
             if (data.type === 'online_viewers' || data.type === 'viewer_join') {
                 console.log('🎯 [CRITICAL] WebRTC相關消息:', data);
@@ -1876,17 +1716,27 @@ function handleServerMessage(data) {
         case 'chat_message':
             handleChatMessage(data);
             break;
-        case 'chat': // 新的聊天協議處理 - 完全委託給ChatSystem
-            console.log('[SCRIPT] 收到 chat 消息，完全委託給ChatSystem處理:', data);
             
-            // 檢查 ChatSystem 是否存在
-            if (window.chatSystem) {
-                console.log('[SCRIPT] ChatSystem存在，完全跳過script.js處理');
-                // 讓ChatSystem完全處理，script.js不再介入
-                return;
+        // 多主播相關事件處理
+        case 'broadcaster_online':
+        case 'broadcaster_offline':
+        case 'broadcaster_stream_started':
+        case 'broadcaster_stream_ended':
+            if (typeof handleMultiBroadcasterMessage === 'function') {
+                handleMultiBroadcasterMessage(data);
+            }
+            break;
+        case 'chat': // 新的聊天協議處理
+            console.log('[SCRIPT] 收到 chat 消息:', data);
+            
+            // 檢查 ChatSystem 是否存在且已準備好
+            if (window.chatSystem && window.chatSystem.isReady) {
+                console.log('[SCRIPT] ChatSystem存在且已準備好，委託給ChatSystem處理');
+                // 直接調用ChatSystem的消息處理
+                window.chatSystem.handleMessage(data);
             } else {
-                console.log('[SCRIPT] ChatSystem不存在，使用後備處理');
-                // 只有在ChatSystem完全不存在時才使用後備處理
+                console.log('[SCRIPT] ChatSystem不存在或未準備好，使用後備處理');
+                // 後備處理：轉換為舊格式並使用handleChatMessage
                 handleChatMessage({
                     type: 'chat_message',
                     username: data.role === 'system' ? '系統' : data.username,
@@ -2279,7 +2129,7 @@ function handleChatMessage(data) {
     } else if (data.isStreamer) {
         // 來自主播的訊息（回顯確認）
         console.log('收到主播訊息回顯:', userName, messageText);
-        // 主播的消息已經在發送時本地顯示了，不需要重複顯示
+        addMessage(userName, messageText);
     } else if (data.isSystemMessage || data.viewerId === 'system') {
         // 系統消息
         addMessage('系統', messageText);

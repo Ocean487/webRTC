@@ -104,14 +104,16 @@ class ChatSystem {
                 this.processMessageQueue();
             };
             
-            this.socket.onmessage = (event) => {
+            // 使用 addEventListener 而不是直接設置 onmessage，避免覆蓋現有的處理器
+            this.socket.addEventListener('message', (event) => {
                 try {
                     const data = JSON.parse(event.data);
+                    console.log('[ChatSystem] 收到訊息:', data);
                     this.handleMessage(data);
                 } catch (error) {
                     console.error('解析訊息失敗:', error);
                 }
-            };
+            });
             
             this.socket.onclose = () => {
                 console.log('聊天室 WebSocket 已斷線');
@@ -327,13 +329,36 @@ class ChatSystem {
             }
         }
         
+        // 獲取broadcasterId
+        let broadcasterId = null;
+        if (this.isStreamer) {
+            // 主播端：從URL或全局變量獲取broadcasterId
+            if (window.getBroadcasterIdFromUrl && typeof window.getBroadcasterIdFromUrl === 'function') {
+                broadcasterId = window.getBroadcasterIdFromUrl();
+            } else if (window.myBroadcasterId) {
+                broadcasterId = window.myBroadcasterId;
+            } else if (window.currentUser && window.currentUser.id) {
+                broadcasterId = window.currentUser.id.toString();
+            }
+        } else {
+            // 觀眾端：從URL或全局變量獲取streamerId
+            if (window.getStreamerIdFromUrl && typeof window.getStreamerIdFromUrl === 'function') {
+                broadcasterId = window.getStreamerIdFromUrl();
+            } else if (window.targetStreamerId) {
+                broadcasterId = window.targetStreamerId;
+            }
+        }
+        
         const message = {
             type: 'chat',
             role: this.isStreamer ? 'broadcaster' : 'viewer',
             username: actualUsername,
             message: text,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            broadcasterId: broadcasterId
         };
+        
+        console.log('[ChatSystem] 發送訊息包含broadcasterId:', broadcasterId);
         
         console.log('[ChatSystem] 準備發送消息:', message);
         
@@ -342,8 +367,8 @@ class ChatSystem {
                 this.socket.send(JSON.stringify(message));
                 console.log('[ChatSystem] 已成功發送訊息到WebSocket:', message);
                 
-                // 不立即顯示自己的訊息，等待服務器回傳統一處理
-                // this.addMessage(message);
+                // 不立即顯示自己的訊息，等待服務器廣播回傳統一處理
+                // 這樣可以確保訊息只顯示一次
                 
             } catch (error) {
                 console.error('[ChatSystem] 發送訊息失敗:', error);
@@ -376,8 +401,7 @@ class ChatSystem {
                 console.log('[ChatSystem] 訊息發送者:', data.username, '當前用戶:', this.username);
                 console.log('[ChatSystem] 訊息角色:', data.role, '當前角色:', this.isStreamer ? 'broadcaster' : 'viewer');
                 
-                // 主播模式：顯示所有消息（包括自己的）
-                // 觀眾模式：也顯示所有消息（包括自己的），移除重複檢查邏輯
+                // 顯示所有消息（包括主播自己的訊息）
                 console.log('[ChatSystem] 顯示消息');
                 this.addMessage(data);
                 break;

@@ -3,1060 +3,228 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VibeLo - 直播瀏覽</title>
+    <title>瀏覽直播 - VibeLo</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    
+    <!-- Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="styles.css">
-    <style>
-        body {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            font-family: 'Noto Sans TC', sans-serif;
-        }
-
-        /* 導航欄 */
-        .navbar {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            padding: 1rem 0;
-            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
-            position: sticky;
-            top: 0;
-            z-index: 1000;
-        }
-
-        .nav-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 250px;
-        }
-
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: #667eea;
-            text-decoration: none;
-            margin-left: -1rem;
-        }
-
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-            flex: 1;
-            justify-content: center;
-        }
-
-        .nav-links a {
-            color: #333;
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-
-        .nav-links a:hover {
-            color: #667eea;
-        }
-
-        .nav-links a.active {
-            color: #667eea;
-            font-weight: 600;
-        }
-
-        /* 右側操作區域 */
-        .nav-actions {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            flex-shrink: 0;
-        }
-
-        .start-stream-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            text-decoration: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 50px;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        .start-stream-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-        }
-
-        .user-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-
-        .user-avatar:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-        }
-
-        /* 用戶下拉選單 */
-        .user-dropdown {
-            position: absolute !important;
-            top: 100% !important;
-            right: 0 !important;
-            background: white !important;
-            border-radius: 12px !important;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15) !important;
-            padding: 1rem 0 !important;
-            min-width: 200px !important;
-            z-index: 1000 !important;
-            opacity: 0 !important;
-            transform: translateY(-10px) !important;
-            transition: all 0.3s ease !important;
-            border: 1px solid rgba(102, 126, 234, 0.1) !important;
-            display: block !important;
-        }
-
-        .user-dropdown.show {
-            opacity: 1 !important;
-            transform: translateY(0) !important;
-        }
-
-        .menu-user-info {
-            padding: 0.75rem 1.5rem;
-            border-bottom: 1px solid #f0f0f0;
-            margin-bottom: 0.5rem;
-        }
-
-        .menu-user-name {
-            font-weight: 600;
-            color: #333;
-            font-size: 0.9rem;
-        }
-
-        .menu-link {
-            display: flex !important;
-            align-items: center !important;
-            gap: 0.75rem !important;
-            padding: 0.75rem 1.5rem !important;
-            color: #666 !important;
-            text-decoration: none !important;
-            transition: all 0.3s ease !important;
-            font-size: 0.9rem !important;
-        }
-
-        .menu-link:hover {
-            background: rgba(102, 126, 234, 0.1) !important;
-            color: #667eea !important;
-        }
-
-        .menu-link.logout {
-            border-top: 1px solid #f0f0f0 !important;
-            margin-top: 0.5rem !important;
-            color: #e74c3c !important;
-        }
-
-        .menu-link.logout:hover {
-            background: rgba(231, 76, 60, 0.1) !important;
-        }
-
-        /* 主內容區域 */
-        .main-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        /* 頁面標題和工具欄 */
-        .page-header {
-            text-align: center;
-            margin-bottom: 3rem;
-        }
-
-        .page-title {
-            color: white;
-            font-size: 3rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .page-subtitle {
-            color: rgba(255, 255, 255, 0.9);
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-        }
-
-        /* 搜索和篩選工具欄 */
-        .toolbar {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            padding: 2rem;
-            margin-bottom: 3rem;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-        }
-
-        .search-section {
-            display: flex;
-            gap: 1rem;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-        }
-
-        .search-box {
-            flex: 1;
-            min-width: 300px;
-            position: relative;
-        }
-
-        .search-input {
-            width: 100%;
-            padding: 1rem 1rem 1rem 3rem;
-            border: none;
-            border-radius: 15px;
-            background: rgba(255, 255, 255, 0.9);
-            font-size: 1rem;
-            transition: all 0.3s ease;
-        }
-
-        .search-input:focus {
-            outline: none;
-            background: white;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-        }
-
-        .search-icon {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: #666;
-        }
-
-        .filter-buttons {
-            display: flex;
-            gap: 1rem;
-            flex-wrap: wrap;
-            align-items: center;
-        }
-
-        .filter-btn {
-            padding: 0.75rem 1.5rem;
-            border: none;
-            border-radius: 25px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            white-space: nowrap;
-        }
-
-        .filter-btn:hover,
-        .filter-btn.active {
-            background: #ff6b35;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(255, 107, 53, 0.3);
-        }
-
-        /* 統計信息 */
-        .stats-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 2rem;
-            flex-wrap: wrap;
-            gap: 1rem;
-        }
-
-        .stats-info {
-            color: white;
-            font-size: 1.1rem;
-        }
-
-        .view-options {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .view-btn {
-            width: 40px;
-            height: 40px;
-            border: none;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.2);
-            color: white;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .view-btn:hover,
-        .view-btn.active {
-            background: #4ecdc4;
-        }
-
-        /* 直播網格 */
-        .streams-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-bottom: 3rem;
-        }
-
-        .streams-grid.list-view {
-            grid-template-columns: 1fr;
-        }
-
-        .streams-grid.list-view .stream-card {
-            display: flex;
-            flex-direction: row;
-            height: 120px;
-        }
-
-        .streams-grid.list-view .stream-thumbnail {
-            width: 200px;
-            height: 100%;
-            aspect-ratio: unset;
-            flex-shrink: 0;
-        }
-
-        .streams-grid.list-view .stream-info {
-            flex: 1;
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            padding: 1rem;
-        }
-
-        .streams-grid.list-view .streamer-profile {
-            flex: 1;
-            margin-bottom: 0;
-        }
-
-        .streams-grid.list-view .stream-actions {
-            flex-shrink: 0;
-            margin-left: 1rem;
-        }
-
-        .stream-card {
-            background: rgba(255, 255, 255, 0.1) !important;
-            backdrop-filter: blur(10px) !important;
-            border-radius: 20px !important;
-            overflow: hidden !important;
-            transition: all 0.3s ease !important;
-            cursor: pointer !important;
-            border: 2px solid transparent !important;
-        }
-
-        .stream-card:hover {
-            transform: translateY(-5px);
-            border-color: #ff6b35;
-            box-shadow: 0 15px 40px rgba(255, 107, 53, 0.2);
-        }
-
-        .stream-thumbnail {
-            position: relative !important;
-            aspect-ratio: 4/3 !important;
-            background: linear-gradient(135deg, #667eea, #764ba2) !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            overflow: hidden !important;
-        }
-
-        .stream-thumbnail .live-indicator {
-            position: absolute;
-            top: 1rem;
-            left: 1rem;
-            background: #ff6b35;
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 20px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .live-dot {
-            width: 8px;
-            height: 8px;
-            background: white;
-            border-radius: 50%;
-            animation: pulse 1.5s ease-in-out infinite;
-        }
-
-        .stream-thumbnail .viewer-count {
-            position: absolute;
-            bottom: 1rem;
-            right: 1rem;
-            background: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 0.5rem 1rem;
-            border-radius: 15px;
-            font-size: 0.9rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-
-        .stream-info {
-            padding: 1rem !important;
-            background: rgba(255, 255, 255, 0.95) !important;
-        }
-
-        .streamer-profile {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .streamer-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #ff6b35, #4ecdc4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-weight: bold;
-            font-size: 1rem;
-        }
-
-        .streamer-details h3 {
-            color: #1f2937 !important;
-            margin: 0;
-            font-size: 1rem;
-            font-weight: 600;
-        }
-
-        .streamer-details p {
-            color: #6b7280 !important;
-            margin: 0.2rem 0 0 0;
-            font-size: 0.8rem;
-        }
-
-
-        .stream-actions {
-            display: flex;
-            gap: 0.75rem;
-        }
-
-        .action-btn {
-            flex: 1;
-            padding: 0.75rem;
-            border: none;
-            border-radius: 10px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            text-decoration: none;
-            text-align: center;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-
-        .action-btn.primary {
-            background: linear-gradient(135deg, #ff6b35, #4ecdc4) !important;
-            color: white !important;
-        }
-
-        .action-btn.primary:hover {
-            transform: translateY(-2px) !important;
-            box-shadow: 0 5px 15px rgba(255, 107, 53, 0.3) !important;
-        }
-
-        .action-btn.secondary {
-            background: rgba(253, 249, 25, 0.856) !important;
-            color: rgb(0, 0, 0) !important;
-            border: 1px solid rgba(245, 228, 74, 0.699) !important;
-        }
-
-        .action-btn.secondary:hover {
-            background: rgba(253, 249, 25, 0.856) !important;
-            color: rgb(0, 0, 0) !important;
-            border: 1px solid rgba(245, 228, 74, 0.699) !important;
-        }
-
-
-        /* 載入和空狀態 */
-        .loading-state,
-        .empty-state {
-            text-align: center;
-            padding: 4rem 2rem;
-            color: white;
-        }
-
-        .loading-state i,
-        .empty-state i {
-            font-size: 4rem;
-            margin-bottom: 1rem;
-            color: #4ecdc4;
-        }
-
-        .loading-state i {
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
-        }
-
-        /* 響應式設計 */
-        @media (max-width: 768px) {
-            .main-container {
-                padding: 1rem;
-            }
-
-            .page-title {
-                font-size: 2rem;
-            }
-
-            .toolbar {
-                padding: 1.5rem;
-            }
-
-            .search-section {
-                flex-direction: column;
-            }
-
-            .search-box {
-                min-width: unset;
-            }
-
-            .stats-bar {
-                flex-direction: column;
-                text-align: center;
-            }
-
-            .streams-grid {
-                grid-template-columns: 1fr;
-                gap: 1rem;
-            }
-
-            .stream-actions {
-                flex-direction: column;
-            }
-        }
-    </style>
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="browse-styles-fixed.css">
 </head>
 <body>
     <!-- 導航欄 -->
     <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="logo">
-                <img src="images/vibelo-logo.png" alt="VibeLo" style="height: 40px; width: auto;">
-            </a>
-            <div class="nav-links">
-                <a href="index.html">首頁</a>
-                <a href="browse.html" class="active">瀏覽直播</a>
-                <a href="livestream_platform.html">開始直播</a>
-                <a href="about.html">關於</a>
-            </div>
-            <div class="nav-actions">
-                <a href="livestream_platform.html" class="start-stream-btn">
-                    <i class="fas fa-video"></i>
-                    開始直播
+            <div class="nav-brand">
+                <a href="index.html">
+                    <img src="images/vibelo-logo.png" alt="VibeLo" class="logo">
+                    
                 </a>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>首頁</span>
+                </a>
+                <a href="browse.html" class="nav-link active">
+                    <i class="fas fa-eye"></i>
+                    <span>瀏覽直播</span>
+                </a>
+                <a href="livestream_platform.html" class="nav-link">
+                    <i class="fas fa-video"></i>
+                    <span>開始直播</span>
+                </a>
+                <a href="about.html" class="nav-link">
+                    <i class="fas fa-info-circle"></i>
+                    <span>關於</span>
+                </a>
+            </div>
+            
+            <div class="nav-user">
                 <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
                     <i class="fas fa-user"></i>
                 </div>
             </div>
         </div>
+        
+        <!-- 移動端導航 -->
+        
     </nav>
 
-    <!-- 主內容 -->
-    <div class="main-container">
-        <!-- 頁面標題 -->
-        <div class="page-header">
-            <h1 class="page-title">🔴 直播瀏覽</h1>
-            <p class="page-subtitle">發現精彩的直播內容，與主播互動交流</p>
-        </div>
-
-        <!-- 搜索和篩選工具欄 -->
-        <div class="toolbar">
-            <div class="search-section">
-                <div class="search-box">
-                    <i class="fas fa-search search-icon"></i>
-                    <input type="text" class="search-input" placeholder="搜索主播名稱或內容..." id="searchInput">
+    <!-- 主要內容 -->
+    <main class="main-content">
+        <div class="browse-container">
+            <!-- 頁面標題 -->
+            <div class="page-header">
+                <h1><i class="fas fa-eye"></i> 瀏覽直播</h1>
+                <p>發現精彩的直播內容，選擇您喜歡的主播</p>
+            </div>
+            
+            <!-- 統計信息 -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number" id="totalViewers">0</div>
+                        <div class="stat-label">總觀看人數</div>
+                    </div>
                 </div>
-                <button class="filter-btn" onclick="refreshStreams()">
-                    <i class="fas fa-sync-alt"></i> 重新整理
-                </button>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number" id="totalBroadcasters">0</div>
+                        <div class="stat-label">在線主播</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-play-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number" id="liveStreams">0</div>
+                        <div class="stat-label">正在直播</div>
+                    </div>
+                </div>
             </div>
-            <div class="filter-buttons">
-                <button class="filter-btn active" data-filter="all">全部</button>
-                <button class="filter-btn" data-filter="popular">熱門</button>
-                <button class="filter-btn" data-filter="new">新直播</button>
-                <button class="filter-btn" data-filter="followed">關注的</button>
+            
+            <!-- 搜索和篩選 -->
+            <div class="search-filter-container">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="搜索主播名稱...">
+                    
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">
+                        <i class="fas fa-globe"></i>
+                        全部
+                    </button>
+                    <button class="filter-btn" data-filter="live">
+                        <i class="fas fa-play-circle"></i>
+                        正在直播
+                    </button>
+                    <button class="filter-btn" data-filter="online">
+                        <i class="fas fa-circle"></i>
+                        在線
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 主播列表 -->
+            <div class="streamers-container">
+                <div class="streamers-grid" id="streamersGrid">
+                    <!-- 主播卡片將在這裡動態生成 -->
+                </div>
+                
+                <!-- 空狀態 -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-video-slash"></i>
+                    </div>
+                    <h3>暫無主播在線</h3>
+                    <p>目前沒有主播在線，請稍後再來查看</p>
+                    <button class="btn btn-primary" onclick="refreshStreamers()">
+                        <i class="fas fa-refresh"></i>
+                        重新整理
+                    </button>
+                </div>
+                
+                <!-- 加載狀態 -->
+                <div class="loading-state" id="loadingState">
+                    <div class="loading-spinner"></div>
+                    <p>正在載入主播列表...</p>
+                </div>
             </div>
         </div>
+    </main>
 
-        <!-- 統計和視圖選項 -->
-        <div class="stats-bar">
-            <div class="stats-info">
-                <span id="streamCount">載入中...</span>
-            </div>
-            <div class="view-options">
-                <button class="view-btn active" data-view="grid" title="網格視圖">
-                    <i class="fas fa-th"></i>
-                </button>
-                <button class="view-btn" data-view="list" title="列表視圖">
-                    <i class="fas fa-list"></i>
+    <!-- 主播詳情模態框 -->
+    <div class="modal" id="streamerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">主播詳情</h3>
+                <button class="modal-close" onclick="closeStreamerModal()">
+                    <i class="fas fa-times"></i>
                 </button>
             </div>
-        </div>
-
-        <!-- 直播網格 -->
-        <div class="streams-grid" id="streamsGrid">
-            <div class="loading-state">
-                <i class="fas fa-spinner"></i>
-                <h3>正在載入直播列表...</h3>
-                <p>請稍候，我們正在為您搜尋精彩的直播內容</p>
+            <div class="modal-body">
+                <div class="streamer-detail">
+                    <div class="streamer-avatar-large">
+                        <img id="modalAvatar" src="" alt="">
+                    </div>
+                    <div class="streamer-info">
+                        <h4 id="modalStreamerName">主播名稱</h4>
+                        <div class="streamer-stats">
+                            <span class="stat">
+                                <i class="fas fa-eye"></i>
+                                <span id="modalViewerCount">0</span> 觀看
+                            </span>
+                            <span class="stat">
+                                <i class="fas fa-clock"></i>
+                                <span id="modalStartTime">--</span>
+                            </span>
+                        </div>
+                        <div class="streamer-title" id="modalStreamTitle">
+                            <!-- 直播標題 -->
+                        </div>
+                        <div class="streamer-status" id="modalStatus">
+                            <!-- 直播狀態 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeStreamerModal()">
+                    <i class="fas fa-times"></i>
+                    取消
+                </button>
+                <button class="btn btn-primary" id="watchStreamBtn" onclick="watchStream()">
+                    <i class="fas fa-play"></i>
+                    觀看直播
+                </button>
             </div>
         </div>
     </div>
 
-    <script>
-        // 用戶選單功能
-        function toggleUserMenu() {
-            console.log('toggleUserMenu 被調用');
-            
-            // 移除現有選單
-            const existingMenu = document.querySelector('.user-dropdown');
-            if (existingMenu) {
-                console.log('移除現有選單');
-                existingMenu.style.opacity = '0';
-                existingMenu.style.transform = 'translateY(-10px)';
-                setTimeout(() => {
-                    if (existingMenu.parentNode) {
-                        existingMenu.remove();
-                    }
-                }, 150);
-                return;
-            }
+    <!-- 用戶下拉選單 -->
+    <div class="user-dropdown" id="userDropdown" style="display: none;">
+        <div class="menu-user-info">
+            <div class="menu-user-name" id="userName">用戶</div>
+        </div>
+        <a href="index.html" class="menu-link">
+            <i class="fas fa-home"></i>
+            首頁
+        </a>
+        <a href="browse.html" class="menu-link">
+            <i class="fas fa-eye"></i>
+            瀏覽直播
+        </a>
+        <a href="livestream_platform.html" class="menu-link">
+            <i class="fas fa-video"></i>
+            開始直播
+        </a>
+        <a href="about.html" class="menu-link">
+            <i class="fas fa-info-circle"></i>
+            關於平台
+        </a>
+        <div class="menu-link logout" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i>
+            登出
+        </div>
+    </div>
 
-            // 創建新選單
-            const userAvatar = document.getElementById('userAvatar');
-            if (!userAvatar) {
-                console.error('找不到 userAvatar 元素');
-                return;
-            }
-            
-            console.log('創建新選單');
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const currentUserName = currentUser ? currentUser.displayName : '訪客';
-            console.log('當前用戶:', currentUserName);
-
-            const dropdown = document.createElement('div');
-            dropdown.className = 'user-dropdown';
-            dropdown.innerHTML = `
-                <div class="menu-user-info">
-                    <div class="menu-user-name">${currentUserName}</div>
-                </div>
-                <a href="index.html" class="menu-link">
-                    <i class="fas fa-home"></i>
-                    首頁
-                </a>
-                <a href="browse.html" class="menu-link">
-                    <i class="fas fa-eye"></i>
-                    瀏覽直播
-                </a>
-                <a href="livestream_platform.html" class="menu-link">
-                    <i class="fas fa-video"></i>
-                    開始直播
-                </a>
-                <a href="about.html" class="menu-link">
-                    <i class="fas fa-info-circle"></i>
-                    關於平台
-                </a>
-                ${currentUser ? `
-                <a href="#" onclick="logout(); event.preventDefault();" class="menu-link logout">
-                    <i class="fas fa-sign-out-alt"></i>
-                    登出
-                </a>
-                ` : `
-                <a href="login.html" class="menu-link">
-                    <i class="fas fa-sign-in-alt"></i>
-                    登入
-                </a>
-                `}
-            `;
-
-            userAvatar.appendChild(dropdown);
-            console.log('選單已添加到 DOM');
-
-            // 顯示動畫
-            setTimeout(() => {
-                dropdown.classList.add('show');
-                console.log('選單顯示動畫已觸發');
-            }, 10);
-
-            // 點擊外部關閉選單
-            document.addEventListener('click', function closeMenu(e) {
-                if (!userAvatar.contains(e.target)) {
-                    console.log('點擊外部，關閉選單');
-                    dropdown.style.opacity = '0';
-                    dropdown.style.transform = 'translateY(-10px)';
-                    setTimeout(() => {
-                        if (dropdown.parentNode) {
-                            dropdown.remove();
-                        }
-                    }, 150);
-                    document.removeEventListener('click', closeMenu);
-                }
-            });
-        }
-
-        // 登出功能
-        async function logout() {
-            try {
-                await fetch('/api/logout', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
-            } catch (error) {
-                console.error('登出請求失敗:', error);
-            }
-            
-            localStorage.removeItem('currentUser');
-            window.location.href = 'preview.html';
-        }
-
-        // 載入用戶資訊
-        async function loadUserInfo() {
-            try {
-                const response = await fetch('/api/user');
-                const data = await response.json();
-                
-                if (data.success && data.user) {
-                    // 更新頭像顯示
-                    const userAvatar = document.getElementById('userAvatar');
-                    if (userAvatar) {
-                        userAvatar.innerHTML = data.user.displayName.charAt(0).toUpperCase();
-                        userAvatar.title = data.user.displayName;
-                    }
-                    
-                    // 將用戶資訊存儲到 localStorage
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    console.log('用戶資訊已載入:', data.user.displayName);
-                } else {
-                    // 如果未登入，清除 localStorage 中的用戶資訊
-                    localStorage.removeItem('currentUser');
-                    console.log('用戶未登入');
-                }
-            } catch (error) {
-                console.error('載入用戶資訊失敗:', error);
-                // 發生錯誤時也清除用戶資訊
-                localStorage.removeItem('currentUser');
-            }
-        }
-
-        // 全局變數
-        let allStreams = [];
-        let filteredStreams = [];
-        let currentFilter = 'all';
-        let currentView = 'grid';
-
-        // 頁面載入時初始化
-        document.addEventListener('DOMContentLoaded', function() {
-            loadUserInfo();
-            initializePage();
-            setupEventListeners();
-            loadStreams();
-        });
-
-        // 初始化頁面
-        function initializePage() {
-            console.log('🎬 直播瀏覽頁面初始化');
-        }
-
-        // 設置事件監聽器
-        function setupEventListeners() {
-            // 搜索功能
-            const searchInput = document.getElementById('searchInput');
-            searchInput.addEventListener('input', debounce(handleSearch, 300));
-
-            // 篩選按鈕
-            document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    setActiveFilter(this.dataset.filter);
-                });
-            });
-
-            // 視圖切換
-            document.querySelectorAll('.view-btn[data-view]').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    setActiveView(this.dataset.view);
-                });
-            });
-
-            // 定期更新直播列表
-            setInterval(loadStreams, 30000); // 每30秒更新一次
-        }
-
-        // 載入直播列表
-        async function loadStreams() {
-            try {
-                const response = await fetch('/api/live-streams');
-                const data = await response.json();
-                
-                if (data.success) {
-                    allStreams = data.streams || [];
-                    updateStreamCount(allStreams.length);
-                    applyFilters();
-                } else {
-                    showEmptyState('載入失敗', '無法載入直播列表，請檢查網路連線');
-                }
-            } catch (error) {
-                console.error('載入直播列表失敗:', error);
-                showEmptyState('載入失敗', '無法連接到服務器，請稍後再試');
-            }
-        }
-
-        // 更新直播數量顯示
-        function updateStreamCount(count) {
-            const countElement = document.getElementById('streamCount');
-            if (count === 0) {
-                countElement.textContent = '目前沒有正在進行的直播';
-            } else {
-                countElement.textContent = `共 ${count} 個直播正在進行`;
-            }
-        }
-
-        // 處理搜索
-        function handleSearch(event) {
-            const query = event.target.value.toLowerCase().trim();
-            
-            if (query === '') {
-                filteredStreams = [...allStreams];
-            } else {
-                filteredStreams = allStreams.filter(stream => 
-                    stream.username.toLowerCase().includes(query) ||
-                    (stream.title && stream.title.toLowerCase().includes(query))
-                );
-            }
-            
-            renderStreams();
-        }
-
-        // 設置活躍篩選器
-        function setActiveFilter(filter) {
-            currentFilter = filter;
-            
-            // 更新按鈕狀態
-            document.querySelectorAll('.filter-btn[data-filter]').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`[data-filter="${filter}"]`).classList.add('active');
-            
-            applyFilters();
-        }
-
-        // 設置活躍視圖
-        function setActiveView(view) {
-            currentView = view;
-            
-            // 更新按鈕狀態
-            document.querySelectorAll('.view-btn[data-view]').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            document.querySelector(`[data-view="${view}"]`).classList.add('active');
-            
-            // 更新網格類名
-            const grid = document.getElementById('streamsGrid');
-            if (view === 'list') {
-                grid.classList.add('list-view');
-            } else {
-                grid.classList.remove('list-view');
-            }
-        }
-
-        // 應用篩選
-        function applyFilters() {
-            switch (currentFilter) {
-                case 'popular':
-                    filteredStreams = [...allStreams].sort((a, b) => (b.viewerCount || 0) - (a.viewerCount || 0));
-                    break;
-                case 'new':
-                    filteredStreams = [...allStreams].sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-                    break;
-                case 'followed':
-                    // 這裡可以添加關注邏輯
-                    filteredStreams = [...allStreams];
-                    break;
-                default:
-                    filteredStreams = [...allStreams];
-            }
-            
-            renderStreams();
-        }
-
-        // 渲染直播列表
-        function renderStreams() {
-            const grid = document.getElementById('streamsGrid');
-            
-            if (filteredStreams.length === 0) {
-                if (allStreams.length === 0) {
-                    showEmptyState('暫無直播', '目前沒有主播正在直播，稍後再來看看吧！');
-                } else {
-                    showEmptyState('無匹配結果', '沒有找到符合條件的直播，試試其他關鍵字吧');
-                }
-                return;
-            }
-            
-            grid.innerHTML = filteredStreams.map(stream => createStreamCard(stream)).join('');
-        }
-
-        // 創建直播卡片
-        function createStreamCard(stream) {
-            const avatarText = stream.username.substring(0, 2).toUpperCase();
-            
-            return `
-                <div class="stream-card" onclick="watchStream('${stream.userId}')">
-                    <div class="stream-thumbnail">
-                        <div class="live-indicator">
-                            <div class="live-dot"></div>
-                            LIVE
-                        </div>
-                        <div class="viewer-count">
-                            <i class="fas fa-eye"></i>
-                            ${stream.viewerCount || 0}
-                        </div>
-                        <i class="fas fa-video" style="font-size: 3rem; color: rgba(255,255,255,0.3);"></i>
-                    </div>
-                    <div class="stream-info">
-                        <div class="streamer-profile">
-                            <div class="streamer-avatar">${avatarText}</div>
-                            <div class="streamer-details">
-                                <h3>${stream.username}</h3>
-                                <p>正在直播中</p>
-                            </div>
-                        </div>
-                        <div class="stream-actions">
-                            <button class="action-btn primary" onclick="event.stopPropagation(); watchStream('${stream.userId}')">
-                                <i class="fas fa-play"></i>
-                                觀看
-                            </button>
-                            <button class="action-btn secondary" onclick="event.stopPropagation(); shareStream('${stream.userId}', '${stream.username}')">
-                                <i class="fas fa-share"></i>
-                                分享
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        // 顯示空狀態
-        function showEmptyState(title, message) {
-            const grid = document.getElementById('streamsGrid');
-            grid.innerHTML = `
-                <div class="empty-state">
-                    <i class="fas fa-video-slash"></i>
-                    <h3>${title}</h3>
-                    <p>${message}</p>
-                </div>
-            `;
-        }
-
-        // 觀看直播
-        function watchStream(userId) {
-            window.location.href = `viewer.html?streamer=${userId}`;
-        }
-
-        // 分享直播
-        function shareStream(userId, username) {
-            const streamUrl = `${window.location.origin}/viewer.html?streamer=${userId}`;
-            
-            if (navigator.share) {
-                navigator.share({
-                    title: `觀看 ${username} 的直播`,
-                    text: `${username} 正在 VibeLo 平台直播！`,
-                    url: streamUrl
-                });
-            } else {
-                navigator.clipboard.writeText(streamUrl).then(() => {
-                    alert('直播連結已複製到剪貼板！');
-                }).catch(() => {
-                    prompt('複製直播連結:', streamUrl);
-                });
-            }
-        }
-
-        // 重新整理直播列表
-        function refreshStreams() {
-            const grid = document.getElementById('streamsGrid');
-            grid.innerHTML = `
-                <div class="loading-state">
-                    <i class="fas fa-spinner"></i>
-                    <h3>正在重新載入...</h3>
-                    <p>請稍候</p>
-                </div>
-            `;
-            loadStreams();
-        }
-
-        // 獲取時間差
-        function getTimeAgo(startTime) {
-            const now = new Date();
-            const start = new Date(startTime);
-            const diffMs = now - start;
-            const diffMins = Math.floor(diffMs / 60000);
-            
-            if (diffMins < 1) return '剛開始';
-            if (diffMins < 60) return `${diffMins}分鐘前`;
-            
-            const diffHours = Math.floor(diffMins / 60);
-            if (diffHours < 24) return `${diffHours}小時前`;
-            
-            const diffDays = Math.floor(diffHours / 24);
-            return `${diffDays}天前`;
-        }
-
-        // 防抖函數
-        function debounce(func, wait) {
-            let timeout;
-            return function executedFunction(...args) {
-                const later = () => {
-                    clearTimeout(timeout);
-                    func(...args);
-                };
-                clearTimeout(timeout);
-                timeout = setTimeout(later, wait);
-            };
-        }
-    </script>
+    <!-- 腳本 -->
+    <script src="navigation.js"></script>
+    <script src="browse.js"></script>
 </body>
 </html>

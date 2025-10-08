@@ -48,6 +48,7 @@ function tryDirectWebSocketConnection() {
             if (currentStreamTitle) {
                 newSocket.send(JSON.stringify({
                     type: 'title_update',
+                    broadcasterId: getBroadcasterIdFromUrl(),
                     title: currentStreamTitle,
                     timestamp: Date.now()
                 }));
@@ -92,6 +93,7 @@ function updateStreamTitle() {
                 if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
                     window.streamingSocket.send(JSON.stringify({
                         type: 'title_update',
+                        broadcasterId: getBroadcasterIdFromUrl(),
                         title: currentStreamTitle,
                         timestamp: Date.now()
                     }));
@@ -109,6 +111,7 @@ function updateStreamTitle() {
                             if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
                                 window.streamingSocket.send(JSON.stringify({
                                     type: 'title_update',
+                                    broadcasterId: getBroadcasterIdFromUrl(),
                                     title: currentStreamTitle,
                                     timestamp: Date.now()
                                 }));

@@ -7,16 +7,17 @@ let isConnected = false;
 let viewerId = 'viewer_' + Math.random().toString(36).substr(2, 9);
 let reconnectAttempts = 0;
 let maxReconnectAttempts = 3;
-let mcuConnectionRequested = false; // 防止重複請求 MCU 連接
 
 // 獲取URL參數中的主播ID
 function getStreamerIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('streamer') || 'default';
+    return urlParams.get('broadcaster') || urlParams.get('streamer') || 'default';
 }
 
 // 全局變數存儲主播ID
 let targetStreamerId = getStreamerIdFromUrl();
+let availableBroadcasters = []; // 可用主播列表
+let currentBroadcasterInfo = null; // 當前主播信息
 
 // 初始化
 document.addEventListener('DOMContentLoaded', async function() {
@@ -48,6 +49,27 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // 初始化状态显示
     updateConnectionStatus();
+    
+    // 載入可用主播列表
+    loadAvailableBroadcasters();
+    
+    // 設置主播切換按鈕事件監聽器
+    const switchBroadcasterBtn = document.getElementById('switchBroadcasterBtn');
+    const browseAllBtn = document.getElementById('browseAllBtn');
+    
+    if (switchBroadcasterBtn) {
+        switchBroadcasterBtn.addEventListener('click', () => {
+            if (availableBroadcasters.length > 0) {
+                showBroadcasterSelector();
+            } else {
+                alert('目前沒有其他主播在線');
+            }
+        });
+    }
+    
+    if (browseAllBtn) {
+        browseAllBtn.addEventListener('click', goToBrowsePage);
+    }
     
     // 顯示歡迎消息
     displaySystemMessage('歡迎來到直播間！等待主播開始直播...');
@@ -118,6 +140,289 @@ function showGuestMode() {
     };
     
     console.log('已設置為訪客模式');
+}
+
+// 載入可用主播列表
+async function loadAvailableBroadcasters() {
+    try {
+        console.log('🔄 載入可用主播列表...');
+        const response = await fetch('/api/live-streams');
+        const data = await response.json();
+        
+        if (data.success) {
+            availableBroadcasters = data.streams || [];
+            console.log('✅ 載入主播列表成功:', availableBroadcasters.length, '個主播');
+            
+            // 如果目標主播不存在，顯示主播選擇界面
+            const targetExists = availableBroadcasters.some(b => b.broadcasterId === targetStreamerId);
+            if (!targetExists && availableBroadcasters.length > 0) {
+                showBroadcasterSelector();
+            }
+        } else {
+            console.error('❌ 載入主播列表失敗:', data.message);
+        }
+    } catch (error) {
+        console.error('❌ 載入主播列表錯誤:', error);
+    }
+}
+
+// 顯示主播選擇界面
+function showBroadcasterSelector() {
+    console.log('顯示主播選擇界面');
+    
+    // 創建主播選擇模態框
+    const modal = document.createElement('div');
+    modal.className = 'broadcaster-selector-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>選擇主播</h3>
+                <p>目標主播不存在，請選擇其他主播</p>
+            </div>
+            <div class="modal-body">
+                <div class="broadcaster-list" id="broadcasterList">
+                    ${createBroadcasterList()}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="goToBrowsePage()">
+                    <i class="fas fa-list"></i>
+                    瀏覽所有主播
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // 添加樣式
+    const style = document.createElement('style');
+    style.textContent = `
+        .broadcaster-selector-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            backdrop-filter: blur(10px);
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        .broadcaster-selector-modal .modal-content {
+            background: white;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        .broadcaster-selector-modal .modal-header {
+            padding: 30px 30px 20px;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .broadcaster-selector-modal .modal-header h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+        .broadcaster-selector-modal .modal-header p {
+            margin: 0;
+            color: #666;
+            font-size: 1rem;
+        }
+        .broadcaster-selector-modal .modal-body {
+            padding: 20px 30px;
+        }
+        .broadcaster-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .broadcaster-item {
+            display: flex;
+            align-items: center;
+            padding: 20px;
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+        .broadcaster-item:hover {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.05);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .broadcaster-item.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            color: #333;
+        }
+        .broadcaster-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #f8f9ff, #e8ecff);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        .broadcaster-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .broadcaster-avatar i {
+            font-size: 1.8rem;
+            color: #667eea;
+        }
+        .broadcaster-info {
+            flex: 1;
+        }
+        .broadcaster-name {
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #333;
+            font-size: 1.1rem;
+        }
+        .broadcaster-stats {
+            font-size: 0.95rem;
+            opacity: 0.8;
+            color: #666;
+        }
+        .broadcaster-status {
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .broadcaster-status.live {
+            background: #ff4757;
+            color: white;
+            box-shadow: 0 3px 10px rgba(255, 71, 87, 0.3);
+        }
+        .broadcaster-status.online {
+            background: #2ed573;
+            color: white;
+            box-shadow: 0 3px 10px rgba(46, 213, 115, 0.3);
+        }
+        .broadcaster-selector-modal .modal-footer {
+            padding: 20px 30px 30px;
+            text-align: center;
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .broadcaster-selector-modal .btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+        }
+        .broadcaster-selector-modal .btn-secondary {
+            background: #f8f9fa;
+            color: #333;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+        .broadcaster-selector-modal .btn-secondary:hover {
+            background: #e9ecef;
+            border-color: rgba(0, 0, 0, 0.2);
+            transform: translateY(-1px);
+        }
+    `;
+    
+    document.head.appendChild(style);
+    document.body.appendChild(modal);
+    
+    // 添加點擊事件
+    const broadcasterItems = modal.querySelectorAll('.broadcaster-item');
+    broadcasterItems.forEach(item => {
+        item.addEventListener('click', function() {
+            const broadcasterId = this.dataset.broadcasterId;
+            switchToBroadcaster(broadcasterId);
+        });
+    });
+}
+
+// 創建主播列表HTML
+function createBroadcasterList() {
+    return availableBroadcasters.map(broadcaster => {
+        const statusClass = broadcaster.isStreaming ? 'live' : 'online';
+        const statusText = broadcaster.isStreaming ? '直播中' : '在線';
+        const viewerCount = broadcaster.viewerCount || 0;
+        
+        const avatarHtml = broadcaster.avatarUrl ? 
+            `<img src="${broadcaster.avatarUrl}" alt="${broadcaster.displayName}">` :
+            `<img src="images/cute-dog-avatar.png" alt="可愛狗狗頭像">`;
+        
+        return `
+            <div class="broadcaster-item" data-broadcaster-id="${broadcaster.broadcasterId}">
+                <div class="broadcaster-avatar">
+                    ${avatarHtml}
+                </div>
+                <div class="broadcaster-info">
+                    <div class="broadcaster-name">${broadcaster.displayName}</div>
+                    <div class="broadcaster-stats">
+                        ${viewerCount} 觀看中
+                        ${broadcaster.streamTitle ? ' • ' + broadcaster.streamTitle : ''}
+                    </div>
+                </div>
+                <div class="broadcaster-status ${statusClass}">
+                    ${statusText}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// 切換到指定主播
+function switchToBroadcaster(broadcasterId) {
+    console.log('切換到主播:', broadcasterId);
+    
+    // 移除主播選擇模態框
+    const modal = document.querySelector('.broadcaster-selector-modal');
+    if (modal) {
+        modal.remove();
+    }
+    
+    // 重置WebRTC請求標記
+    window.webrtcRequestSent = false;
+    window.receivedOffer = false;
+    
+    // 清理現有的WebRTC連接
+    if (peerConnection) {
+        peerConnection.close();
+        peerConnection = null;
+    }
+    
+    // 更新目標主播ID
+    targetStreamerId = broadcasterId;
+    
+    // 重新連接WebSocket
+    if (socket) {
+        socket.close();
+    }
+    
+    // 重新初始化連接
+    setTimeout(() => {
+        connectWebSocket();
+    }, 1000);
+}
+
+// 跳轉到瀏覽頁面
+function goToBrowsePage() {
+    window.location.href = 'browse.html';
 }
 
 // 手動檢查登入狀態（只在用戶主動請求時執行）
@@ -335,12 +640,6 @@ function handleWebSocketMessage(data) {
         }
     }
     
-    // 🎯 處理 MCU 相關消息
-    if (data.type && data.type.startsWith('mcu_')) {
-        handleMCUMessage(data);
-        return;
-    }
-    
     switch(data.type) {
         case 'viewer_joined':
             window.receivedViewerJoined = true;
@@ -370,9 +669,10 @@ function handleWebSocketMessage(data) {
                 displaySystemMessage('等待主播開始直播...');
             }
             
-            // 請求建立WebRTC連接
-            if (socket && socket.readyState === WebSocket.OPEN) {
+            // 請求建立WebRTC連接（只請求一次）
+            if (socket && socket.readyState === WebSocket.OPEN && !window.webrtcRequestSent) {
                 console.log('📡 請求建立 WebRTC 連接');
+                window.webrtcRequestSent = true; // 標記已發送請求
                 socket.send(JSON.stringify({
                     type: 'request_webrtc_connection',
                     viewerId: viewerId,
@@ -391,15 +691,7 @@ function handleWebSocketMessage(data) {
             window.receivedStreamStart = true;
             console.log('✅ 收到 stream_start 消息');
             console.log('🔍 [DEBUG] stream_start 數據:', data);
-            
-            // 檢查是否為 MCU 模式
-            if (data.mcuMode) {
-                console.log('🎯 [MCU] 檢測到 MCU 模式直播');
-                handleMCUStreamStarted(data);
-            } else {
-                handleStreamStarted(data);
-            }
-            
+            handleStreamStarted(data);
             updateConnectionStatus();
             break;
         case 'stream_status':
@@ -438,22 +730,10 @@ function handleWebSocketMessage(data) {
             handleOffer(data.offer);
             updateConnectionStatus();
             break;
-        case 'mcu_offer':
-            window.receivedOffer = true;
-            console.log('✅ [MCU] 收到 MCU offer');
-            mcuConnectionRequested = false; // 重置標記，允許後續重連
-            handleMCUOffer(data.offer);
-            updateConnectionStatus();
-            break;
         case 'ice_candidate':
             window.receivedIceCandidate = true;
             console.log('✅ 收到 ICE candidate');
             handleIceCandidate(data.candidate);
-            break;
-        case 'mcu_ice_candidate':
-            window.receivedIceCandidate = true;
-            console.log('✅ [MCU] 收到 MCU ICE candidate');
-            handleMCUIceCandidate(data.candidate);
             break;
         case 'ack':
             console.log('✅ 收到確認:', data);
@@ -605,18 +885,21 @@ function handleStreamStarted(data) {
     console.log('🔄 直播開始，立即初始化 WebRTC 連接');
     initializePeerConnection();
     
-    // 如果 3 秒后还没有收到 offer，主动请求
-    setTimeout(function() {
-        if (!window.receivedOffer && socket && isConnected) {
-            console.log('⚠️ 3秒后仍未收到 offer，主动请求 WebRTC 连接');
-            socket.send(JSON.stringify({
-                type: 'request_webrtc_connection',
-                viewerId: viewerId,
-                streamerId: targetStreamerId
-            }));
-            displaySystemMessage('🔄 正在请求视频连接...');
-        }
-    }, 3000);
+    // 如果 3 秒后还没有收到 offer，主动请求（只请求一次）
+    if (!window.requestTimeout) {
+        window.requestTimeout = setTimeout(function() {
+            if (!window.receivedOffer && socket && isConnected && !window.webrtcRequestSent) {
+                console.log('⚠️ 3秒后仍未收到 offer，主动请求 WebRTC 连接');
+                window.webrtcRequestSent = true; // 標記已發送請求
+                socket.send(JSON.stringify({
+                    type: 'request_webrtc_connection',
+                    viewerId: viewerId,
+                    streamerId: targetStreamerId
+                }));
+                displaySystemMessage('🔄 正在请求视频连接...');
+            }
+        }, 3000);
+    }
 }
 
 // 處理直播標題更新
@@ -704,7 +987,7 @@ function updateBroadcasterInfo(broadcasterInfo) {
         if (broadcasterInfo.avatarUrl) {
             streamerAvatar.innerHTML = `<img src="${broadcasterInfo.avatarUrl}" alt="${broadcasterInfo.displayName}" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`;
         } else {
-            streamerAvatar.innerHTML = '<i class="fas fa-user"></i>';
+            streamerAvatar.innerHTML = '<img src="images/cute-dog-avatar.png" alt="可愛狗狗頭像" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">';
         }
     }
     
@@ -744,7 +1027,7 @@ function handleStreamEnded() {
     
     // 重置主播信息和標題
     document.getElementById('streamerName').textContent = '等待直播中...';
-    document.getElementById('streamerAvatar').innerHTML = '<i class="fas fa-user"></i>';
+    document.getElementById('streamerAvatar').innerHTML = '<img src="images/cute-dog-avatar.png" alt="可愛狗狗頭像" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">';
     
     // 重置標題時添加動畫效果
     if (streamTitle) {
@@ -2131,168 +2414,6 @@ function enableAudioOnUserInteraction() {
     
     // 顯示提示
     displaySystemMessage('🔊 點擊任意位置啟用音頻');
-}
-
-// MCU 相關函數
-function handleMCUMessage(data) {
-    console.log('🎯 [MCU] 處理 MCU 消息:', data.type);
-    
-    switch(data.type) {
-        case 'mcu_ready':
-            console.log('🎯 [MCU] MCU 服務器已準備就緒');
-            displaySystemMessage('🎯 MCU 服務器已準備就緒');
-            break;
-            
-        case 'mcu_connected':
-            console.log('🎯 [MCU] MCU 連接已建立');
-            displaySystemMessage('🎯 MCU 連接已建立');
-            break;
-            
-        case 'mcu_connection_request':
-            console.log('🎯 [MCU] 收到 MCU 連接請求');
-            // 不需要再次請求，等待服務器發送 offer
-            break;
-            
-        case 'mcu_connection_info':
-            console.log('🎯 [MCU] 收到 MCU 連接信息');
-            if (data.mcuStats) {
-                console.log('📊 [MCU] 統計信息:', data.mcuStats);
-            }
-            break;
-            
-        case 'mcu_stats_response':
-            console.log('📊 [MCU] 收到 MCU 統計響應');
-            if (data.stats) {
-                console.log('📊 [MCU] 統計信息:', data.stats);
-            }
-            break;
-            
-        default:
-            console.log('🎯 [MCU] 未知 MCU 消息類型:', data.type);
-    }
-}
-
-// 處理 MCU 直播開始
-function handleMCUStreamStarted(data) {
-    console.log('🎬 [MCU] 處理 MCU 直播開始:', data);
-    
-    const streamVideo = document.getElementById('streamVideo');
-    const videoPlaceholder = document.getElementById('videoPlaceholder');
-    const streamTitle = document.getElementById('streamTitle');
-    const streamerName = document.getElementById('streamerName');
-    const statusText = document.getElementById('statusText');
-    
-    // 添加 live 類別以顯示視頻
-    if (streamVideo) {
-        streamVideo.classList.add('live');
-        console.log('✅ [MCU] 已添加 live 類別到 stream-video');
-    }
-    
-    if (videoPlaceholder) videoPlaceholder.style.display = 'none';
-    
-    // 更新主播名稱為直播狀態
-    if (streamerName) {
-        const broadcasterName = window.currentBroadcasterName || '主播';
-        streamerName.textContent = `${broadcasterName} 正在 MCU 直播`;
-        console.log('✅ [MCU] 已更新主播名稱:', streamerName.textContent);
-    }
-    
-    // 更新狀態文字
-    if (statusText) {
-        statusText.textContent = 'MCU 直播中';
-        statusText.className = 'status-text live';
-        statusText.style.color = 'white';
-        statusText.style.backgroundColor = 'rgba(102, 126, 234, 0.9)';
-        statusText.style.fontWeight = '700';
-        console.log('✅ [MCU] 已更新狀態文字為 MCU 直播中');
-    }
-    
-    // 更新直播標題
-    if (streamTitle) {
-        if (data.title && data.title.trim() !== '') {
-            streamTitle.textContent = data.title;
-            console.log('🎬 [MCU] 直播開始，標題:', data.title);
-        } else {
-            streamTitle.textContent = 'MCU 精彩直播中';
-            console.log('🎬 [MCU] 直播開始，使用預設標題');
-        }
-    }
-    
-    displaySystemMessage('🎉 主播已開始 MCU 直播！');
-    
-    // 請求 MCU 連接
-    requestMCUConnection();
-}
-
-// 請求 MCU 連接
-function requestMCUConnection() {
-    console.log('🎯 [MCU] 請求 MCU 連接');
-    
-    if (!socket || socket.readyState !== WebSocket.OPEN) {
-        console.error('❌ [MCU] WebSocket 未連接');
-        return;
-    }
-    
-    // 防止重複請求
-    if (mcuConnectionRequested) {
-        console.log('⚠️ [MCU] MCU 連接已請求，跳過重複請求');
-        return;
-    }
-    
-    mcuConnectionRequested = true;
-    
-    // 發送 MCU 連接請求
-    socket.send(JSON.stringify({
-        type: 'mcu_connection_request',
-        viewerId: viewerId,
-        streamerId: targetStreamerId
-    }));
-    
-    console.log('✅ [MCU] 已發送 MCU 連接請求');
-    displaySystemMessage('🎯 正在請求 MCU 連接...');
-}
-
-// 處理 MCU Offer
-async function handleMCUOffer(offer) {
-    console.log('🎯 [MCU] 處理 MCU Offer');
-    
-    if (!peerConnection) {
-        initializePeerConnection();
-    }
-    
-    try {
-        await peerConnection.setRemoteDescription(offer);
-        const answer = await peerConnection.createAnswer();
-        await peerConnection.setLocalDescription(answer);
-        
-        if (socket && isConnected) {
-            console.log('📤 [MCU] 觀眾發送 MCU Answer');
-            socket.send(JSON.stringify({
-                type: 'answer',
-                answer: answer,
-                viewerId: viewerId,
-                streamerId: targetStreamerId,
-                mcuMode: true
-            }));
-        }
-    } catch (error) {
-        console.error('❌ [MCU] 處理 MCU offer 失敗:', error);
-        displaySystemMessage('❌ MCU 連接失敗，請重新整理頁面重試');
-    }
-}
-
-// 處理 MCU ICE Candidate
-async function handleMCUIceCandidate(candidate) {
-    console.log('🎯 [MCU] 處理 MCU ICE Candidate');
-    
-    if (peerConnection) {
-        try {
-            await peerConnection.addIceCandidate(candidate);
-            console.log('✅ [MCU] MCU ICE candidate 已添加');
-        } catch (error) {
-            console.error('❌ [MCU] 添加 MCU ICE candidate 失敗:', error);
-        }
-    }
 }
 
 console.log('✅ 观众端核心功能已加载完成');
