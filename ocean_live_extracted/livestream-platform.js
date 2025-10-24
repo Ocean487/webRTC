@@ -1316,6 +1316,10 @@ function applyNewEffect(effectType, videoElement) {
     document.querySelectorAll('.effect-btn').forEach(btn => {
         btn.classList.remove('active');
     });
+
+    if (typeof hideFilmFrameOverlay === 'function') {
+        hideFilmFrameOverlay(videoElement);
+    }
     
     if (effectType === 'clear') {
         // 通知觀眾端清除特效
@@ -1341,6 +1345,9 @@ function applyNewEffect(effectType, videoElement) {
                 videoContainer.style.border = '12px solid #1a1a1a';
                 videoContainer.style.boxShadow = 'inset 0 0 0 3px #333, 0 0 25px rgba(0,0,0,0.6)';
                 videoContainer.style.borderRadius = '8px'; // 覆蓋原本的圓角
+            }
+            if (typeof showFilmFrameOverlay === 'function') {
+                showFilmFrameOverlay(videoElement);
             }
             break;
         case 'bw':
@@ -1397,6 +1404,30 @@ function applyNewEffect(effectType, videoElement) {
     console.log(`已應用特效: ${effectType}`);
     if (typeof addMessage === 'function') {
         addMessage('系統', `✨ 已應用 ${getEffectName(effectType)} 特效`);
+    }
+}
+
+function showFilmFrameOverlay(videoElement) {
+    const container = videoElement?.parentElement;
+    if (!container) return;
+    if (container.querySelector('.film-frame-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'film-frame-overlay';
+    overlay.innerHTML = `
+        <div class="film-frame-bar top"></div>
+        <div class="film-frame-bar bottom"></div>
+        <div class="film-frame-strip left"></div>
+        <div class="film-frame-strip right"></div>`;
+    container.appendChild(overlay);
+}
+
+function hideFilmFrameOverlay(videoElement) {
+    const container = videoElement?.parentElement;
+    if (!container) return;
+    const overlay = container.querySelector('.film-frame-overlay');
+    if (overlay) {
+        overlay.remove();
     }
 }
 
@@ -1572,6 +1603,8 @@ function clearEffect() {
             videoContainer.style.boxShadow = '';
             videoContainer.style.borderRadius = '15px'; // 恢復原本的圓角
         }
+
+    hideFilmFrameOverlay(videoElement);
     }
     
     // 移除動畫覆蓋層

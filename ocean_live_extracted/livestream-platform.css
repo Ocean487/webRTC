@@ -613,6 +613,58 @@ body {
     margin-bottom: 1rem;
 }
 
+.film-frame-overlay {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.film-frame-bar {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 14%;
+    background: rgba(18, 18, 18, 0.93);
+    box-shadow: inset 0 0 25px rgba(0, 0, 0, 0.8);
+}
+
+.film-frame-bar.top {
+    top: 0;
+}
+
+.film-frame-bar.bottom {
+    bottom: 0;
+}
+
+.film-frame-strip {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: 10%;
+    background-color: rgba(12, 12, 12, 0.95);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8);
+    -webkit-mask: repeating-linear-gradient(
+        to bottom,
+        #000 0 36px,
+        transparent 36px 66px
+    );
+    mask: repeating-linear-gradient(
+        to bottom,
+        #000 0 36px,
+        transparent 36px 66px
+    );
+}
+
+.film-frame-strip.left {
+    left: 0;
+}
+
+.film-frame-strip.right {
+    right: 0;
+    transform: scaleX(-1);
+}
+
 #localVideo {
     width: 100%;
     height: 100%;
