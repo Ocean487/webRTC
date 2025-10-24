@@ -27,6 +27,7 @@ let tabAudioStream = null;
 let isTabAudioEnabled = false;
 let audioContext = null;
 let mixedAudioStream = null;
+let originalMicAudioTrack = null; // 🎵 保存原始麥克風音訊軌道
 
 // WebSocket 連接
 let streamingSocket = null;
@@ -2505,6 +2506,30 @@ async function updateAudioTracks(newAudioStream) {
         
         const newAudioTrack = audioTracks[0];
         
+        // 🎵 關鍵修復：更新 localStream 的音訊軌道
+        // 這樣當觀眾重整後重新加入時，會收到混音後的音訊
+        if (localStream) {
+            // 保存原始麥克風音訊軌道(只在第一次啟用分頁音訊時保存)
+            if (!originalMicAudioTrack && !isTabAudioEnabled) {
+                const oldAudioTracks = localStream.getAudioTracks();
+                if (oldAudioTracks.length > 0) {
+                    originalMicAudioTrack = oldAudioTracks[0];
+                    console.log('✅ 已保存原始麥克風音訊軌道:', originalMicAudioTrack.id);
+                }
+            }
+            
+            // 移除舊的音訊軌道
+            const oldAudioTracks = localStream.getAudioTracks();
+            oldAudioTracks.forEach(track => {
+                localStream.removeTrack(track);
+                console.log('已從 localStream 移除舊音訊軌道:', track.id);
+            });
+            
+            // 添加新的音訊軌道(混音或原始)
+            localStream.addTrack(newAudioTrack);
+            console.log('✅ 已將音訊軌道添加到 localStream:', newAudioTrack.id);
+        }
+        
         // 更新所有觀眾的WebRTC連接
         for (const [viewerId, peerConnection] of peerConnections) {
             try {
@@ -2618,12 +2643,19 @@ async function toggleTabAudio() {
             tabAudioBtn.style.background = '';
             tabAudioBtn.innerHTML = '<i class="fas fa-volume-off"></i>';
             
-            // 恢復到原始麥克風音訊
-            if (localStream && isStreaming) {
-                await updateAudioTracks(localStream);
+            // 🎵 恢復到原始麥克風音訊
+            if (originalMicAudioTrack && isStreaming) {
+                console.log('🔄 恢復原始麥克風音訊軌道:', originalMicAudioTrack.id);
+                
+                // 創建包含原始麥克風音訊的流
+                const originalMicStream = new MediaStream([originalMicAudioTrack]);
+                await updateAudioTracks(originalMicStream);
+                
+                addMessage('系統', '✅ 背景音樂分享已停用，恢復為純麥克風音訊');
+            } else {
+                console.warn('⚠️ 找不到原始麥克風音訊軌道');
+                addMessage('系統', '⚠️ 無法恢復原始音訊，請重新啟動攝影機');
             }
-            
-            addMessage('系統', '✅ 背景音樂分享已停用，恢復為純麥克風音訊');
             
             // 🎵 發送分頁音訊停用狀態
             if (window.tabAudioReconnectManager) {
