@@ -423,9 +423,17 @@ function handleBroadcasterJoin(wss, message) {
     broadcastToAllViewers({
         type: 'broadcaster_online',
         broadcasterId: broadcasterId,
-                    broadcasterInfo: userInfo,
+        broadcasterInfo: userInfo,
         message: `主播 ${userInfo.displayName} 已上線`
-        });
+    });
+    
+    // 廣播新主播上線消息給所有其他主播
+    broadcastToAllBroadcasters({
+        type: 'broadcaster_online',
+        broadcasterId: broadcasterId,
+        broadcasterInfo: userInfo,
+        message: `主播 ${userInfo.displayName} 已上線`
+    }, broadcasterId); // 排除自己
     
     // 設置WebSocket的broadcasterId屬性
     wss.broadcasterId = broadcasterId;
@@ -1227,6 +1235,9 @@ function handleBroadcasterDisconnect(broadcasterId) {
     
     const broadcaster = activeBroadcasters.get(broadcasterId);
     if (broadcaster) {
+        // 獲取主播資訊
+        const broadcasterInfo = broadcaster.userInfo || { displayName: '主播' };
+        
         // 通知該主播的所有觀眾主播已斷線
         broadcaster.viewers.forEach((viewerWs, viewerId) => {
             if (viewerWs.readyState === WebSocket.OPEN) {
@@ -1237,6 +1248,14 @@ function handleBroadcasterDisconnect(broadcasterId) {
                 }));
             }
         });
+        
+        // 通知其他主播有主播離線
+        broadcastToAllBroadcasters({
+            type: 'broadcaster_offline',
+            broadcasterId: broadcasterId,
+            broadcasterInfo: broadcasterInfo,
+            message: `主播 ${broadcasterInfo.displayName} 已離線`
+        }, broadcasterId);
         
         // 從全局觀眾列表中移除該主播的觀眾
         broadcaster.viewers.forEach((viewerWs, viewerId) => {
@@ -1318,6 +1337,24 @@ function broadcastToAllViewers(message) {
     });
 }
 
+// 廣播訊息給所有主播
+function broadcastToAllBroadcasters(message, excludeBroadcasterId = null) {
+    activeBroadcasters.forEach((broadcasterData, broadcasterId) => {
+        // 排除指定的主播（通常是自己）
+        if (excludeBroadcasterId && broadcasterId === excludeBroadcasterId) {
+            return;
+        }
+        
+        if (broadcasterData.ws && broadcasterData.ws.readyState === WebSocket.OPEN) {
+            try {
+                broadcasterData.ws.send(JSON.stringify(message));
+            } catch (error) {
+                console.error('發送訊息給主播失敗:', broadcasterId, error);
+            }
+        }
+    });
+}
+
 // 廣播訊息給特定主播的所有觀眾和主播本人
 function broadcastToBroadcasterViewers(broadcasterId, message) {
     const broadcaster = activeBroadcasters.get(broadcasterId);
@@ -1393,6 +1430,9 @@ setInterval(() => {
         if (broadcaster.ws.readyState !== WebSocket.OPEN) {
             console.log('清理斷線主播:', broadcasterId);
             
+            // 獲取主播資訊
+            const broadcasterInfo = broadcaster.userInfo || { displayName: '主播' };
+            
             // 通知該主播的所有觀眾
             broadcaster.viewers.forEach((viewerWs, viewerId) => {
                 if (viewerWs.readyState === WebSocket.OPEN) {
@@ -1403,6 +1443,14 @@ setInterval(() => {
                     }));
                 }
             });
+            
+            // 通知其他主播有主播離線
+            broadcastToAllBroadcasters({
+                type: 'broadcaster_offline',
+                broadcasterId: broadcasterId,
+                broadcasterInfo: broadcasterInfo,
+                message: `主播 ${broadcasterInfo.displayName} 已離線`
+            }, broadcasterId);
             
             // 從全局觀眾列表中移除該主播的觀眾
             broadcaster.viewers.forEach((viewerWs, viewerId) => {

@@ -1,5 +1,6 @@
 // 全局變數
 let localStream = null;
+let baseVideoStream = null; // 原始視訊流，用於恢復及特效處理
 let isStreaming = false;
 let isVideoEnabled = true;
 let isAudioEnabled = true;
@@ -2848,30 +2849,54 @@ function applyVideoEffect(effectType) {
     }
     
     try {
-        // 設置視頻源
-        window.videoEffectsProcessor.setVideoSource(localVideo);
-        
+        // 儲存原始視訊流，避免重複處理造成顏色累積
+        if (!baseVideoStream) {
+            baseVideoStream = localStream || localVideo.srcObject;
+            console.log('📼 保存原始視訊流供特效處理');
+        }
+
+        const sourceStream = baseVideoStream;
+        if (!sourceStream) {
+            console.error('找不到可用的原始視訊流');
+            addMessage('系統', '❌ 無法取得原始畫面進行特效處理');
+            return;
+        }
+
+        // 使用原始視訊流作為特效輸入
+        window.videoEffectsProcessor.setVideoSource(sourceStream);
+
         // 應用特效
         window.videoEffectsProcessor.setEffect(effectType);
-        
+
         // 開始處理
         window.videoEffectsProcessor.startProcessing();
-        
+
         // 等待一小段時間後獲取處理後的流
         setTimeout(() => {
             const processedStream = window.videoEffectsProcessor.getProcessedStream();
             if (processedStream) {
+                // 補上原始音訊軌道，確保直播聲音不受影響
+                if (sourceStream.getAudioTracks().length > 0 && processedStream.getAudioTracks().length === 0) {
+                    sourceStream.getAudioTracks().forEach(track => {
+                        const clonedTrack = track.clone();
+                        processedStream.addTrack(clonedTrack);
+                    });
+                }
+
                 // 替換本地視頻顯示
                 localVideo.srcObject = processedStream;
-                
+
+                // 更新全局流引用，確保後續操作使用特效後的流
+                localStream = processedStream;
+
                 // 更新所有觀眾的流
                 updateStreamForAllViewers(processedStream);
-                
+
                 addMessage('系統', `🎨 已套用 ${getEffectDisplayName(effectType)} 特效`);
                 console.log(`✅ 特效 ${effectType} 已成功應用`);
             }
-        }, 100);
-        
+        }, 150);
+
     } catch (error) {
         console.error('應用特效時出錯:', error);
         addMessage('系統', `❌ 特效應用失敗: ${error.message}`);
@@ -2885,20 +2910,29 @@ function restoreOriginalStream() {
     if (window.videoEffectsProcessor) {
         window.videoEffectsProcessor.stopProcessing();
     }
+
+    const originalStream = baseVideoStream || localStream;
     
-    // 重新獲取原始媒體流
-    if (localStream) {
+    if (originalStream) {
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
-            localVideo.srcObject = localStream;
-            
+            localVideo.srcObject = originalStream;
+
+            // 更新全局流引用
+            localStream = originalStream;
+
             // 更新所有觀眾的流
-            updateStreamForAllViewers(localStream);
-            
+            updateStreamForAllViewers(originalStream);
+
             addMessage('系統', '🔄 已恢復原始畫面');
             console.log('✅ 原始視頻流已恢復');
         }
     }
+
+    if (window.videoEffectsProcessor) {
+        window.videoEffectsProcessor.setEffect('none');
+    }
+    baseVideoStream = null;
 }
 
 // 更新所有觀眾的視頻流

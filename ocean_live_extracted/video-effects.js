@@ -37,20 +37,76 @@ class VideoEffectsProcessor {
         this.effectCanvas = document.createElement('canvas');
         this.effectContext = this.effectCanvas.getContext('2d');
         
+        this.sourceVideo = null; // 隱藏的原始影像來源
+        this.sourceVideoAttached = false;
+        
         console.log('✅ 視頻特效處理器已初始化');
     }
     
     // 設置輸入視頻源
-    setVideoSource(videoElement) {
+    setVideoSource(source) {
+        if (!source) {
+            console.warn('⚠️ 未提供有效的影像來源');
+            return;
+        }
+        
+        let videoElement = null;
+        
+        if (typeof MediaStream !== 'undefined' && source instanceof MediaStream) {
+            // 使用隱藏的 <video> 元素作為輸入來源，避免循環處理
+            if (!this.sourceVideo) {
+                this.sourceVideo = document.createElement('video');
+                this.sourceVideo.muted = true;
+                this.sourceVideo.playsInline = true;
+                this.sourceVideo.autoplay = true;
+                this.sourceVideo.style.position = 'absolute';
+                this.sourceVideo.style.left = '-9999px';
+                this.sourceVideo.style.width = '1px';
+                this.sourceVideo.style.height = '1px';
+            }
+            
+            if (this.sourceVideo.srcObject !== source) {
+                this.sourceVideo.srcObject = source;
+            }
+            
+            if (!this.sourceVideoAttached && document.body) {
+                document.body.appendChild(this.sourceVideo);
+                this.sourceVideoAttached = true;
+            }
+            
+            this.sourceVideo.play().catch(err => {
+                console.warn('⚠️ 無法播放隱藏影像來源:', err);
+            });
+            
+            videoElement = this.sourceVideo;
+        } else if (source instanceof HTMLVideoElement) {
+            videoElement = source;
+        } else {
+            console.warn('⚠️ 未支援的影像來源類型');
+            return;
+        }
+        
         this.video = videoElement;
         
-        // 設置畫布尺寸與視頻匹配
-        this.canvas.width = videoElement.videoWidth || 640;
-        this.canvas.height = videoElement.videoHeight || 480;
-        this.effectCanvas.width = this.canvas.width;
-        this.effectCanvas.height = this.canvas.height;
+        const updateDimensions = () => {
+            const width = videoElement.videoWidth || 640;
+            const height = videoElement.videoHeight || 480;
+            this.canvas.width = width;
+            this.canvas.height = height;
+            this.effectCanvas.width = width;
+            this.effectCanvas.height = height;
+            console.log(`📐 設置視頻特效尺寸: ${width}x${height}`);
+        };
         
-        console.log(`📐 設置視頻特效尺寸: ${this.canvas.width}x${this.canvas.height}`);
+        if (videoElement.readyState >= 2) {
+            updateDimensions();
+        } else {
+            const onLoaded = () => {
+                updateDimensions();
+                videoElement.removeEventListener('loadedmetadata', onLoaded);
+            };
+            videoElement.addEventListener('loadedmetadata', onLoaded);
+        }
     }
     
     // 開始處理特效
@@ -68,6 +124,13 @@ class VideoEffectsProcessor {
             cancelAnimationFrame(this.animationId);
             this.animationId = null;
         }
+        if (this.sourceVideo && !this.sourceVideo.paused) {
+            try {
+                this.sourceVideo.pause();
+            } catch (err) {
+                console.warn('⚠️ 無法暫停隱藏影像來源:', err);
+            }
+        }
         this.isProcessing = false;
         console.log('⏹️ 視頻特效處理已停止');
     }
@@ -77,11 +140,25 @@ class VideoEffectsProcessor {
         if (!this.isProcessing || !this.video) return;
         
         try {
-            // 將視頻幀繪製到畫布
-            this.context.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
+            if (this.video.readyState < 2) {
+                this.animationId = requestAnimationFrame(() => this.processFrame());
+                return;
+            }
             
-            // 應用當前特效
-            this.applyCurrentEffect();
+            // 清空處理畫布，避免殘影或顏色累積
+            this.effectContext.clearRect(0, 0, this.effectCanvas.width, this.effectCanvas.height);
+            
+            
+            this.effectContext.drawImage(this.video, 0, 0, this.effectCanvas.width, this.effectCanvas.height);
+            
+            // 從特效畫布讀取原始像素數據
+            const imageData = this.effectContext.getImageData(0, 0, this.effectCanvas.width, this.effectCanvas.height);
+            
+            // 應用特效處理
+            const processedData = this.applyEffectToImageData(imageData);
+            
+            // 將處理後的數據繪製到主畫布（用於輸出流）
+            this.context.putImageData(processedData, 0, 0);
             
             // 繼續處理下一幀
             this.animationId = requestAnimationFrame(() => this.processFrame());
@@ -91,61 +168,54 @@ class VideoEffectsProcessor {
         }
     }
     
-    // 應用當前特效
-    applyCurrentEffect() {
-        const imageData = this.context.getImageData(0, 0, this.canvas.width, this.canvas.height);
-        let processedData = imageData;
-        
+    // 應用特效到 imageData（新方法，替代 applyCurrentEffect）
+    applyEffectToImageData(imageData) {
         switch (this.currentEffect) {
             case 'vintage':
-                processedData = this.applyVintageEffect(imageData);
-                break;
+                return this.applyVintageEffect(imageData);
             case 'blackwhite':
-                processedData = this.applyBlackWhiteEffect(imageData);
-                break;
+                return this.applyBlackWhiteEffect(imageData);
             case 'sepia':
-                processedData = this.applySepiaEffect(imageData);
-                break;
+                return this.applySepiaEffect(imageData);
             case 'invert':
-                processedData = this.applyInvertEffect(imageData);
-                break;
+                return this.applyInvertEffect(imageData);
             case 'edge':
-                processedData = this.applyEdgeDetection(imageData);
-                break;
+                return this.applyEdgeDetection(imageData);
             case 'emboss':
-                processedData = this.applyEmbossEffect(imageData);
-                break;
+                return this.applyEmbossEffect(imageData);
             case 'blur':
-                processedData = this.applyBlurEffect(imageData);
-                break;
+                return this.applyBlurEffect(imageData);
             case 'bright':
-                processedData = this.applyBrightnessEffect(imageData);
-                break;
+                return this.applyBrightnessEffect(imageData);
             case 'rainbow':
-                processedData = this.applyRainbowEffect(imageData);
-                break;
+                return this.applyRainbowEffect(imageData);
             default:
                 // 'none' - 不應用特效
-                break;
+                return imageData;
         }
-        
-        // 將處理後的數據繪製回畫布
-        this.context.putImageData(processedData, 0, 0);
     }
     
-    // 復古特效
+    // 復古特效 - 老舊膠卷效果（咖啡橘色調）
     applyVintageEffect(imageData) {
         const data = imageData.data;
+
         for (let i = 0; i < data.length; i += 4) {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
-            
-            // 復古色調調整
-            data[i] = Math.min(255, r * 1.2 + 30);     // 增加紅色
-            data[i + 1] = Math.min(255, g * 1.1 + 20); // 略增綠色
-            data[i + 2] = Math.max(0, b * 0.8 - 10);   // 減少藍色
+
+            // 以溫暖色調的基底權重近似舊膠卷顏色
+            const warmBase = 0.393 * r + 0.449 * g + 0.189 * b;
+
+            const warmR = Math.min(255, warmBase * 1.08 + 8);
+            const warmG = Math.min(255, warmBase * 0.88 + 4);
+            const warmB = Math.min(255, warmBase * 0.62);
+
+            data[i] = warmR;
+            data[i + 1] = warmG;
+            data[i + 2] = warmB;
         }
+
         return imageData;
     }
     
@@ -168,10 +238,17 @@ class VideoEffectsProcessor {
             const r = data[i];
             const g = data[i + 1];
             const b = data[i + 2];
-            
-            data[i] = Math.min(255, r * 0.393 + g * 0.769 + b * 0.189);
-            data[i + 1] = Math.min(255, r * 0.349 + g * 0.686 + b * 0.168);
-            data[i + 2] = Math.min(255, r * 0.272 + g * 0.534 + b * 0.131);
+
+            // 以溫暖色調的基底權重近似舊膠卷顏色
+            const warmBase = 0.393 * r + 0.449 * g + 0.189 * b;
+
+            const warmR = Math.min(255, warmBase * 1.08 + 8);
+            const warmG = Math.min(255, warmBase * 0.88 + 4);
+            const warmB = Math.min(255, warmBase * 0.62);
+
+            data[i] = warmR;
+            data[i + 1] = warmG;
+            data[i + 2] = warmB;
         }
         return imageData;
     }
@@ -238,20 +315,25 @@ class VideoEffectsProcessor {
         const height = imageData.height;
         const newData = new Uint8ClampedArray(data);
         
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
+        // 中度模糊效果：5x5 模糊核心
+        const radius = 2; // 模糊半徑 2 (2*2+1 = 5)
+        const kernelSize = radius * 2 + 1; // 5x5
+        const kernelWeight = kernelSize * kernelSize; // 25 個像素
+        
+        for (let y = radius; y < height - radius; y++) {
+            for (let x = radius; x < width - radius; x++) {
                 const idx = (y * width + x) * 4;
                 
-                // 簡單的 3x3 平均模糊
+                // 5x5 平均模糊
                 for (let c = 0; c < 3; c++) {
                     let sum = 0;
-                    for (let dy = -1; dy <= 1; dy++) {
-                        for (let dx = -1; dx <= 1; dx++) {
+                    for (let dy = -radius; dy <= radius; dy++) {
+                        for (let dx = -radius; dx <= radius; dx++) {
                             const neighborIdx = ((y + dy) * width + (x + dx)) * 4 + c;
                             sum += data[neighborIdx];
                         }
                     }
-                    newData[idx + c] = sum / 9;
+                    newData[idx + c] = sum / kernelWeight;
                 }
             }
         }

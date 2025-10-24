@@ -1138,6 +1138,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // 等待其他腳本載入完成後再嘗試初始化
     setTimeout(initChatWhenReady, 2000);
+    
+    // 初始化載入其他主播列表
+    setTimeout(() => {
+        console.log('🔄 初始化載入其他主播列表');
+        loadOtherBroadcasters();
+    }, 3000);
 });
 
 // 設置彈窗相關事件
@@ -1277,9 +1283,35 @@ function applyEffect(effectType) {
     const videoElement = document.getElementById('localVideo');
     if (!videoElement) return;
     
-    // 清除之前的特效
-    clearEffect();
+    // 🎨 如果點擊的是當前已啟用的特效，則關閉特效
+    if (currentEffect === effectType) {
+        clearEffect();
+        // 移除所有特效按鈕的active狀態
+        document.querySelectorAll('.effect-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        // 通知觀眾端清除特效
+        broadcastEffectToViewers('clear');
+        return;
+    }
     
+    // 🎨 切換特效時：先清除舊特效，通知觀眾，稍微延遲後再套用新特效
+    if (currentEffect && currentEffect !== 'none') {
+        clearEffect();
+        broadcastEffectToViewers('clear');
+        
+        // 稍微延遲後再套用新特效，讓清除效果更明顯
+        setTimeout(() => {
+            applyNewEffect(effectType, videoElement);
+        }, 100);
+    } else {
+        // 如果沒有舊特效，直接套用新特效
+        applyNewEffect(effectType, videoElement);
+    }
+}
+
+// 🎨 新增：套用新特效的輔助函數
+function applyNewEffect(effectType, videoElement) {
     // 移除所有特效按鈕的active狀態
     document.querySelectorAll('.effect-btn').forEach(btn => {
         btn.classList.remove('active');
@@ -1297,10 +1329,19 @@ function applyEffect(effectType) {
     // 添加特效類別到影片元素
     switch (effectType) {
         case 'blur':
-            videoElement.style.filter = 'blur(2px)';
+            videoElement.style.filter = 'blur(8px)'; // 增強模糊效果從 2px 改為 8px
             break;
         case 'vintage':
-            videoElement.style.filter = 'sepia(0.8) contrast(1.2) brightness(0.9)';
+            // 老舊膠卷效果：褪色的暖色調
+            videoElement.style.filter = 'sepia(0.4) saturate(0.6) contrast(1.1) brightness(1.05) hue-rotate(-5deg)';
+            
+            // 添加膠卷邊框效果 - 使用容器而不是 video 本身
+            const videoContainer = videoElement.parentElement;
+            if (videoContainer) {
+                videoContainer.style.border = '12px solid #1a1a1a';
+                videoContainer.style.boxShadow = 'inset 0 0 0 3px #333, 0 0 25px rgba(0,0,0,0.6)';
+                videoContainer.style.borderRadius = '8px'; // 覆蓋原本的圓角
+            }
             break;
         case 'bw':
             videoElement.style.filter = 'grayscale(100%)';
@@ -1523,6 +1564,14 @@ function clearEffect() {
         videoElement.style.boxShadow = '';
         videoElement.style.borderImage = '';
         videoElement.style.background = '';
+        
+        // 清除容器的邊框效果
+        const videoContainer = videoElement.parentElement;
+        if (videoContainer) {
+            videoContainer.style.border = '';
+            videoContainer.style.boxShadow = '';
+            videoContainer.style.borderRadius = '15px'; // 恢復原本的圓角
+        }
     }
     
     // 移除動畫覆蓋層
@@ -1540,6 +1589,10 @@ function clearEffect() {
     document.querySelectorAll('.effect-btn').forEach(btn => {
         btn.classList.remove('active');
     });
+    
+    if (typeof restoreOriginalStream === 'function') {
+        restoreOriginalStream();
+    }
     
     addMessage('系統', '🧹 已清除所有特效');
 }
