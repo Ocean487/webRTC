@@ -2972,7 +2972,8 @@ function getEffectDisplayName(effectType) {
         'vintage': '復古濾鏡',
         'blackwhite': '黑白濾鏡',
         'sepia': '懷舊濾鏡',
-        'invert': '反轉濾鏡',
+    'invert': '反相濾鏡',
+    'glasses': '戴眼鏡特效',
         'edge': '邊緣檢測',
         'emboss': '浮雕效果',
         'blur': '模糊效果',
@@ -2983,9 +2984,11 @@ function getEffectDisplayName(effectType) {
     return displayNames[effectType] || effectType;
 }
 
-// 兼容性函數
-function applyEffect(effectType) {
-    applyVideoEffect(effectType);
+// 兼容性函數 - 僅在 UI 版本未載入時才提供後備處理
+if (!window.applyEffect) {
+    window.applyEffect = function(effectType) {
+        applyVideoEffect(effectType);
+    };
 }
 
 console.log('=== 检查全局函数可用性 ===');

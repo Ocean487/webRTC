@@ -124,10 +124,10 @@
                 <h4><i class="fas fa-palette"></i> 濾鏡效果</h4>
                 <div class="effect-grid">
                     <button class="effect-btn" data-effect="blur">
-                        <i class="fas fa-adjust"></i><br>模糊
+                        <i class="fas fa-tint"></i><br>模糊
                     </button>
-                    <button class="effect-btn" data-effect="vintage">
-                        <i class="fas fa-film"></i><br>復古
+                    <button class="effect-btn" data-effect="rainbow">
+                        <i class="fas fa-rainbow"></i><br>彩虹
                     </button>
                     <button class="effect-btn" data-effect="bw">
                         <i class="fas fa-eye"></i><br>黑白
@@ -135,23 +135,23 @@
                     <button class="effect-btn" data-effect="sepia">
                         <i class="fas fa-sun"></i><br>懷舊
                     </button>
+                    <button class="effect-btn" data-effect="warm">
+                        <i class="fas fa-palette"></i><br>暖色調
+                    </button>
+                    <button class="effect-btn" data-effect="invert">
+                        <i class="fas fa-adjust"></i><br>反相
+                    </button>
                 </div>
             </div>
 
             <div class="effect-category">
                 <h4><i class="fas fa-sparkles"></i> 美顏特效</h4>
                 <div class="effect-grid">
-                    <button class="effect-btn" data-effect="smooth">
-                        <i class="fas fa-magic"></i><br>磨皮
+                    <button class="effect-btn" data-effect="glasses">
+                        <i class="fas fa-glasses"></i><br>戴眼鏡
                     </button>
                     <button class="effect-btn" data-effect="bright">
                         <i class="fas fa-sun"></i><br>美白
-                    </button>
-                    <button class="effect-btn" data-effect="warm">
-                        <i class="fas fa-palette"></i><br>暖色調
-                    </button>
-                    <button class="effect-btn" data-effect="backgroundBlur">
-                        <i class="fas fa-eye-slash"></i><br>背景虛化
                     </button>
                 </div>
             </div>
@@ -183,8 +183,8 @@
                     <button class="effect-btn" data-effect="glow">
                         <i class="fas fa-lightbulb"></i><br>發光
                     </button>
-                    <button class="effect-btn" data-effect="rainbow">
-                        <i class="fas fa-rainbow"></i><br>彩虹
+                    <button class="effect-btn" data-effect="rainbowBorder">
+                        <i class="fas fa-border-style"></i><br>彩虹
                     </button>
                     <button class="effect-btn" data-effect="clear">
                         <i class="fas fa-times"></i><br>清除
@@ -413,11 +413,11 @@
     </div>
 
     <!-- JavaScript 文件 - 按依赖顺序加载 -->
+    <script src="livestream-platform.js"></script>
     <script src="script.js"></script>
-            <script src="video-effects.js"></script>
-            <script src="network-monitor.js"></script>
-            <script src="webrtc-sync-fix.js"></script>
-            <script src="livestream-platform-fixed.js"></script>
+    <script src="video-effects.js"></script>
+    <script src="network-monitor.js"></script>
+    <script src="webrtc-sync-fix.js"></script>
     <script src="chat-system.js"></script>
     <script src="music-player.js"></script>
             <script src="webrtc-diagnostics.js"></script>
@@ -585,46 +585,14 @@
                 effectBtns.forEach(btn => {
                     btn.addEventListener('click', function () {
                         const effect = this.getAttribute('data-effect');
-                        console.log('🎨 特效按钮被点击:', effect);
-                        
-                        // 移除其他按鈕的 active 狀態
-                        effectBtns.forEach(b => b.classList.remove('active'));
-                        
-                        // 特效對應關係
-                        const effectMap = {
-                            'blur': 'blur',
-                            'vintage': 'vintage', 
-                            'bw': 'blackwhite',
-                            'sepia': 'sepia',
-                            'bright': 'bright',
-                            'rainbow': 'rainbow',
-                            'clear': 'none'
-                        };
-                        
-                        const mappedEffect = effectMap[effect] || effect;
-                        
-                        if (effect === 'clear') {
-                            // 清除特效
-                            if (window.videoEffectsProcessor) {
-                                window.videoEffectsProcessor.setEffect('none');
-                                // 恢復原始視頻流
-                                restoreOriginalStream();
-                            }
-                            console.log('🧹 已清除所有特效');
-                        } else if (effect === 'backgroundBlur') {
-                            // 背景模糊使用專門的函數
-                            if (typeof toggleBackgroundBlur === 'function') {
-                                toggleBackgroundBlur();
-                                this.classList.add('active');
-                            } else {
-                                console.log('toggleBackgroundBlur 函数未加载');
-                            }
-                        } else if (window.videoEffectsProcessor) {
-                            // 使用視頻特效處理器
-                            this.classList.add('active');
-                            applyVideoEffect(mappedEffect);
+                        console.log('🎨 特效按鈕被點擊:', effect);
+
+                        if (typeof applyEffect === 'function') {
+                            applyEffect(effect, this);
+                        } else if (effect === 'invert' && typeof toggleBackgroundBlur === 'function') {
+                            toggleBackgroundBlur(this);
                         } else {
-                            console.log('videoEffectsProcessor 未初始化');
+                            console.log('applyEffect 函數未載入');
                         }
                     });
                 });

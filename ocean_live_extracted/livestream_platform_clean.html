@@ -49,16 +49,16 @@
             <div class="effect-category">
                 <h4><i class="fas fa-palette"></i> 濾鏡效果</h4>
                 <div class="effect-grid">
-                    <button class="effect-btn" onclick="applyEffect('blur')">
-                        <i class="fas fa-adjust"></i><br>模糊
+                    <button class="effect-btn" onclick="applyEffect('blur', this)">
+                        <i class="fas fa-tint"></i><br>模糊
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('vintage')">
+                    <button class="effect-btn" onclick="applyEffect('vintage', this)">
                         <i class="fas fa-film"></i><br>復古
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('bw')">
+                    <button class="effect-btn" onclick="applyEffect('bw', this)">
                         <i class="fas fa-eye"></i><br>黑白
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('sepia')">
+                    <button class="effect-btn" onclick="applyEffect('sepia', this)">
                         <i class="fas fa-sun"></i><br>懷舊
                     </button>
                 </div>
@@ -67,17 +67,17 @@
             <div class="effect-category">
                 <h4><i class="fas fa-sparkles"></i> 美顏特效</h4>
                 <div class="effect-grid">
-                    <button class="effect-btn" onclick="applyEffect('smooth')">
-                        <i class="fas fa-magic"></i><br>磨皮
+                    <button class="effect-btn" onclick="applyEffect('glasses', this)">
+                        <i class="fas fa-glasses"></i><br>戴眼鏡
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('bright')">
+                    <button class="effect-btn" onclick="applyEffect('bright', this)">
                         <i class="fas fa-sun"></i><br>美白
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('warm')">
+                    <button class="effect-btn" onclick="applyEffect('warm', this)">
                         <i class="fas fa-palette"></i><br>暖色調
                     </button>
-                    <button class="effect-btn" onclick="toggleBackgroundBlur()">
-                        <i class="fas fa-eye-slash"></i><br>背景虛化
+                    <button class="effect-btn" onclick="applyEffect('invert', this)">
+                        <i class="fas fa-adjust"></i><br>反相
                     </button>
                 </div>
             </div>
@@ -85,16 +85,16 @@
             <div class="effect-category">
                 <h4><i class="fas fa-sparkles"></i> 動畫特效</h4>
                 <div class="effect-grid">
-                    <button class="effect-btn" onclick="applyEffect('particles')">
+                    <button class="effect-btn" onclick="applyEffect('particles', this)">
                         <i class="fas fa-star"></i><br>粒子
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('hearts')">
+                    <button class="effect-btn" onclick="applyEffect('hearts', this)">
                         <i class="fas fa-heart"></i><br>愛心
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('confetti')">
+                    <button class="effect-btn" onclick="applyEffect('confetti', this)">
                         <i class="fas fa-star-and-crescent"></i><br>彩帶
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('snow')">
+                    <button class="effect-btn" onclick="applyEffect('snow', this)">
                         <i class="fas fa-snowflake"></i><br>雪花
                     </button>
                 </div>
@@ -103,16 +103,16 @@
             <div class="effect-category">
                 <h4><i class="fas fa-border-all"></i> 邊框樣式</h4>
                 <div class="effect-grid">
-                    <button class="effect-btn" onclick="applyEffect('neon')">
+                    <button class="effect-btn" onclick="applyEffect('neon', this)">
                         <i class="fas fa-highlighter"></i><br>霓虹
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('glow')">
+                    <button class="effect-btn" onclick="applyEffect('glow', this)">
                         <i class="fas fa-lightbulb"></i><br>發光
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('rainbow')">
+                    <button class="effect-btn" onclick="applyEffect('rainbow', this)">
                         <i class="fas fa-rainbow"></i><br>彩虹
                     </button>
-                    <button class="effect-btn" onclick="applyEffect('clear')">
+                    <button class="effect-btn" onclick="applyEffect('clear', this)">
                         <i class="fas fa-times"></i><br>清除
                     </button>
                 </div>

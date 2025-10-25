@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>特效測試</title>
+    <link rel="stylesheet" href="livestream-platform.css">
+    <style>
+        body {
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .test-controls button {
+            padding: 10px 20px;
+            font-size: 14px;
+            cursor: pointer;
+            border: 2px solid #667eea;
+            background: white;
+            border-radius: 8px;
+        }
+        .test-controls button.active {
+            background: #667eea;
+            color: white;
+        }
+        .video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 24px;
+        }
+        #testVideo {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: inherit;
+            position: relative;
+            z-index: 1;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 特效測試頁面</h1>
+        
+        <div class="test-controls">
+            <button onclick="testEffect('blur')">模糊</button>
+            <button onclick="testEffect('bw')">黑白</button>
+            <button onclick="testEffect('warm')">暖色調</button>
+            <button onclick="testEffect('rainbow')">彩虹濾鏡</button>
+            <button onclick="testEffect('rainbowBorder')">彩虹邊框</button>
+            <button onclick="testEffect('neon')">霓虹邊框</button>
+            <button onclick="testEffect('glow')">發光邊框</button>
+            <button onclick="testEffect('particles')">粒子</button>
+            <button onclick="testEffect('hearts')">愛心</button>
+            <button onclick="testEffect('confetti')">彩帶</button>
+            <button onclick="testEffect('snow')">雪花</button>
+            <button onclick="clearEffects()" style="background: #ff4757; color: white; border-color: #ff4757;">清除</button>
+        </div>
+        
+        <div class="video-container" id="videoContainer">
+            <div id="testVideo">測試視頻區域</div>
+        </div>
+        
+        <div style="margin-top: 20px; padding: 15px; background: white; border-radius: 8px;">
+            <h3>測試說明:</h3>
+            <ul>
+                <li>點擊上方按鈕測試不同特效</li>
+                <li>黑白/暖色調應該改變視頻顏色</li>
+                <li>動畫特效(粒子/愛心/彩帶/雪花)應該在視頻上方顯示動畫</li>
+                <li>邊框樣式(霓虹/發光/彩虹)應該在視頻外框顯示邊框效果</li>
+            </ul>
+            <p id="status" style="margin-top: 10px; color: #667eea; font-weight: bold;">狀態: 準備就緒</p>
+        </div>
+    </div>
+    
+    <script>
+        const videoContainer = document.getElementById('videoContainer');
+        const testVideo = document.getElementById('testVideo');
+        const status = document.getElementById('status');
+        
+        function testEffect(effect) {
+            clearEffects();
+            status.textContent = `狀態: 套用 ${effect} 特效...`;
+            
+            setTimeout(() => {
+                applyTestEffect(effect);
+                status.textContent = `狀態: ${effect} 特效已套用 ✓`;
+            }, 100);
+        }
+        
+        function applyTestEffect(effect) {
+            switch(effect) {
+                case 'blur':
+                    testVideo.style.filter = 'blur(8px)';
+                    break;
+                case 'bw':
+                    testVideo.style.filter = 'grayscale(100%)';
+                    testVideo.style.webkitFilter = 'grayscale(100%)';
+                    break;
+                case 'warm':
+                    testVideo.style.filter = 'sepia(0.8) saturate(1.5) hue-rotate(-20deg) brightness(1.1) contrast(1.1)';
+                    break;
+                case 'rainbow':
+                    testVideo.style.filter = 'hue-rotate(0deg) saturate(2)';
+                    testVideo.style.animation = 'rainbow-filter 3s linear infinite';
+                    break;
+                case 'rainbowBorder':
+                    videoContainer.classList.add('effect-rainbow-border');
+                    break;
+                case 'neon':
+                    videoContainer.classList.add('effect-neon-border');
+                    break;
+                case 'glow':
+                    videoContainer.classList.add('effect-glow-border');
+                    break;
+                case 'particles':
+                    createAnimationOverlay('particles');
+                    break;
+                case 'hearts':
+                    createAnimationOverlay('hearts');
+                    break;
+                case 'confetti':
+                    createAnimationOverlay('confetti');
+                    break;
+                case 'snow':
+                    createAnimationOverlay('snow');
+                    break;
+            }
+        }
+        
+        function clearEffects() {
+            testVideo.style.filter = '';
+            testVideo.style.webkitFilter = '';
+            testVideo.style.animation = '';
+            videoContainer.classList.remove('effect-rainbow-border', 'effect-neon-border', 'effect-glow-border');
+            
+            const overlay = videoContainer.querySelector('.animation-overlay');
+            if (overlay) {
+                overlay.remove();
+            }
+        }
+        
+        function createAnimationOverlay(type) {
+            const existing = videoContainer.querySelector('.animation-overlay');
+            if (existing) existing.remove();
+            
+            const overlay = document.createElement('div');
+            overlay.className = `animation-overlay ${type}`;
+            overlay.style.cssText = `
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                pointer-events: none;
+                overflow: hidden;
+                z-index: 10;
+            `;
+            
+            videoContainer.appendChild(overlay);
+            
+            for (let i = 0; i < 20; i++) {
+                createAnimationElement(overlay, type);
+            }
+            
+            setTimeout(() => {
+                if (overlay.parentNode) {
+                    overlay.remove();
+                }
+            }, 10000);
+        }
+        
+        function createAnimationElement(container, type) {
+            const element = document.createElement('div');
+            const symbols = {
+                'particles': '✨',
+                'hearts': '❤️',
+                'confetti': '🎉',
+                'snow': '❄️'
+            };
+            
+            element.textContent = symbols[type] || '✨';
+            element.style.cssText = `
+                position: absolute;
+                font-size: ${Math.random() * 20 + 15}px;
+                left: ${Math.random() * 100}%;
+                top: -50px;
+                animation: fall ${Math.random() * 3 + 2}s linear infinite;
+                animation-delay: ${Math.random() * 2}s;
+            `;
+            
+            container.appendChild(element);
+        }
+        
+        console.log('✅ 特效測試頁面已載入');
+    </script>
+</body>
+</html>

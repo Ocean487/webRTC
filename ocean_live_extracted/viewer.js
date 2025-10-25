@@ -776,6 +776,11 @@ function handleWebSocketMessage(data) {
                 window.handleAudioStatusResponse(data);
             }
             break;
+        case 'effect_update':
+            // 處理主播端的特效更新
+            console.log('🎨 收到特效更新:', data.effect);
+            applyViewerEffect(data.effect);
+            break;
         default:
             console.log('🔍 未知消息類型:', data.type, '內容:', data);
     }

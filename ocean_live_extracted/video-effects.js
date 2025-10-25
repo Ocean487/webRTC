@@ -31,11 +31,11 @@ class VideoEffectsProcessor {
     initializeCanvas() {
         // 創建主要畫布
         this.canvas = document.createElement('canvas');
-        this.context = this.canvas.getContext('2d');
+        this.context = this.canvas.getContext('2d', { willReadFrequently: true });
         
         // 創建特效處理畫布
         this.effectCanvas = document.createElement('canvas');
-        this.effectContext = this.effectCanvas.getContext('2d');
+        this.effectContext = this.effectCanvas.getContext('2d', { willReadFrequently: true });
         
         this.sourceVideo = null; // 隱藏的原始影像來源
         this.sourceVideoAttached = false;
