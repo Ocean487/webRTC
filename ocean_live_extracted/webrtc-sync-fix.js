@@ -165,6 +165,7 @@
             console.log('🔧 修復觀眾端視頻同步...');
             
             const originalStream = remoteVideo.srcObject;
+            const hasEffect = remoteVideo.dataset.viewerEffect && remoteVideo.dataset.viewerEffect !== 'clear';
             
             // 重新設置流
             remoteVideo.srcObject = null;
@@ -172,8 +173,10 @@
             setTimeout(() => {
                 remoteVideo.srcObject = originalStream;
                 
-                // 強制載入和播放
-                remoteVideo.load();
+                // 注意：不呼叫 load() 避免影響已套用的濾鏡和播放狀態
+                if (hasEffect) {
+                    console.log('🎨 偵測到特效，跳過 load() 避免重置狀態');
+                }
                 
                 // 多重播放嘗試
                 const playPromise = remoteVideo.play();
@@ -187,6 +190,8 @@
                         remoteVideo.play().then(() => {
                             console.log('✅ 靜音播放成功');
                             showVideoWithSync(remoteVideo);
+                        }).catch(err => {
+                            console.error('❌ 靜音播放也失敗:', err);
                         });
                     });
                 }
@@ -201,8 +206,15 @@
             remoteVideo.style.display = 'block';
             remoteVideo.style.opacity = '1';
             
-            // 添加成功動畫
-            remoteVideo.style.animation = 'videoFadeIn 0.5s ease-in';
+            // 添加成功動畫（保留彩虹等自定義動畫）
+            const hasCustomAnimation = remoteVideo.classList.contains('effect-rainbow-filter') ||
+                remoteVideo.dataset.viewerEffect === 'rainbow';
+
+            if (hasCustomAnimation) {
+                console.log('🎨 偵測到正在運行的彩虹濾鏡，保留原動畫設定');
+            } else {
+                remoteVideo.style.animation = 'videoFadeIn 0.5s ease-in';
+            }
             
             // 更新容器狀態 - 添加 live 類別隱藏等待文字
             const streamVideo = remoteVideo.closest('.stream-video');

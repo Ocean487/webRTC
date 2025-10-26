@@ -1,23 +1,140 @@
 // 觀眾端特效處理
 console.log('🎨 載入觀眾端特效處理模組...');
 
+// 記錄當前特效狀態，避免重複清除造成閃爍
+let currentViewerEffect = 'clear';
+const overlayEffects = new Set(['particles', 'hearts', 'confetti', 'snow']);
+
+// 重新啟動彩虹濾鏡動畫
+function restartRainbowFilterAnimation(videoElement) {
+    if (!videoElement) return;
+
+    videoElement.classList.add('effect-rainbow-filter');
+    videoElement.style.animation = 'none';
+    videoElement.style.webkitAnimation = 'none';
+    void videoElement.offsetHeight; // 觸發重排以重啟動畫
+    videoElement.style.setProperty('filter', 'saturate(2) hue-rotate(0deg)', 'important');
+    videoElement.style.setProperty('-webkit-filter', 'saturate(2) hue-rotate(0deg)', 'important');
+    videoElement.style.setProperty('animation', 'rainbow-filter 3s linear infinite', 'important');
+    videoElement.style.setProperty('-webkit-animation', 'rainbow-filter 3s linear infinite', 'important');
+}
+
+// 嘗試確保影片在套用特效後保持播放
+function ensureRemoteVideoPlaying(videoElement) {
+    if (!videoElement || !videoElement.srcObject) return;
+    if (!videoElement.paused) {
+        console.log('✅ 影片正在播放中');
+        return;
+    }
+
+    console.log('🔁 應用特效後影片偵測為暫停，嘗試恢復播放');
+    const originalMuted = videoElement.muted;
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    const tryPlay = (muteBeforePlay) => {
+        if (muteBeforePlay) {
+            videoElement.muted = true;
+        }
+
+        const playPromise = videoElement.play();
+        if (playPromise && typeof playPromise.then === 'function') {
+            playPromise.then(() => {
+                console.log('✅ 影片播放已恢復');
+                if (!muteBeforePlay) {
+                    videoElement.muted = originalMuted;
+                } else if (!originalMuted) {
+                    // 如果原本未靜音，嘗試恢復音量
+                    setTimeout(() => {
+                        videoElement.muted = false;
+                    }, 100);
+                }
+            }).catch(error => {
+                console.warn('⚠️ 嘗試播放失敗:', error.message);
+                retryCount++;
+                
+                if (!muteBeforePlay && retryCount < maxRetries) {
+                    // 第二次嘗試使用靜音播放，以符合瀏覽器自動播放政策
+                    console.log('🔁 嘗試靜音播放...');
+                    tryPlay(true);
+                } else if (retryCount < maxRetries) {
+                    // 延遲重試
+                    console.log(`🔁 延遲 500ms 後重試 (${retryCount}/${maxRetries})...`);
+                    setTimeout(() => tryPlay(true), 500);
+                } else {
+                    console.error('❌ 播放重試次數已達上限，顯示手動播放提示');
+                }
+            });
+        }
+    };
+
+    tryPlay(false);
+}
+
 // 觀眾端特效應用函數
 function applyViewerEffect(effectType) {
     const remoteVideo = document.getElementById('remoteVideo');
     if (!remoteVideo) {
-        console.warn('找不到遠程視頻元素');
-        return;
+        console.error('❌ 找不到遠程視頻元素 #remoteVideo');
+    ensureRemoteVideoPlaying(remoteVideo);
+    return;
     }
 
-    const videoContainer = remoteVideo.parentElement;
-
-    // 清除現有特效
-    resetViewerEffectStyles(remoteVideo);
+    // 使用正確的容器選擇器
+    const videoContainer = document.getElementById('streamVideo');
+    
+    if (!videoContainer) {
+        console.error('❌ 找不到視頻容器 #streamVideo');
+        return;
+    }
+    
+    console.log('🔍 [DEBUG] 視頻元素狀態:', {
+        id: remoteVideo.id,
+        display: remoteVideo.style.display,
+        computedDisplay: window.getComputedStyle(remoteVideo).display,
+        visibility: window.getComputedStyle(remoteVideo).visibility,
+        opacity: window.getComputedStyle(remoteVideo).opacity,
+        className: remoteVideo.className
+    });
+    
+    console.log('🔍 [DEBUG] 視頻容器狀態:', {
+        id: videoContainer.id,
+        className: videoContainer.className,
+        hasLiveClass: videoContainer.classList.contains('live'),
+        overflow: window.getComputedStyle(videoContainer).overflow,
+        isolation: window.getComputedStyle(videoContainer).isolation
+    });
 
     if (effectType === 'clear') {
-        console.log('🧹 清除所有特效');
+        if (currentViewerEffect !== 'clear') {
+            resetViewerEffectStyles(remoteVideo, videoContainer);
+            currentViewerEffect = 'clear';
+            delete remoteVideo.dataset.viewerEffect;
+            console.log('🧹 清除所有特效');
+        } else {
+            console.log('ℹ️ 已處於無特效狀態，略過重複清除');
+        }
         return;
     }
+
+    // 避免重複清除導致閃爍，針對需要重新啟動的特效做個別處理
+    if (effectType === currentViewerEffect) {
+        if (effectType === 'rainbow') {
+            console.log('🔁 重新啟動彩虹濾鏡動畫');
+            restartRainbowFilterAnimation(remoteVideo);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (overlayEffects.has(effectType)) {
+            console.log('🔁 重新啟動動畫覆蓋層效果');
+            createViewerAnimationOverlay(effectType);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else {
+            console.log('ℹ️ 特效未變更，保持現狀');
+        }
+        return;
+    }
+
+    // 先移除前一個特效，確保狀態乾淨
+    resetViewerEffectStyles(remoteVideo, videoContainer);
 
     console.log(`🎨 應用特效: ${effectType}`);
 
@@ -27,8 +144,11 @@ function applyViewerEffect(effectType) {
             remoteVideo.style.filter = 'blur(8px)';
             break;
         case 'rainbow':
-            remoteVideo.style.filter = 'hue-rotate(0deg) saturate(2)';
-            remoteVideo.style.animation = 'rainbow-filter 3s linear infinite';
+            restartRainbowFilterAnimation(remoteVideo);
+            console.log('✅ 彩虹濾鏡已應用到視頻元素並重新啟動動畫');
+            console.log('   - 視頻類別:', remoteVideo.className);
+            console.log('   - 計算樣式 filter:', window.getComputedStyle(remoteVideo).filter);
+            console.log('   - 計算樣式 animation:', window.getComputedStyle(remoteVideo).animation);
             break;
         case 'bw':
             remoteVideo.style.filter = 'grayscale(100%)';
@@ -41,7 +161,7 @@ function applyViewerEffect(effectType) {
             remoteVideo.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
             break;
         case 'warm':
-            remoteVideo.style.filter = 'sepia(0.8) saturate(1.5) hue-rotate(-20deg) brightness(1.1) contrast(1.1)';
+            remoteVideo.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
             break;
         case 'invert':
             remoteVideo.style.filter = 'invert(1) hue-rotate(180deg)';
@@ -49,16 +169,24 @@ function applyViewerEffect(effectType) {
         case 'rainbowBorder':
             if (videoContainer) {
                 videoContainer.classList.add('effect-rainbow-border');
+                console.log('✅ 彩虹邊框已應用到容器');
+                console.log('   - 容器類別:', videoContainer.className);
+                console.log('   - 容器樣式 overflow:', window.getComputedStyle(videoContainer).overflow);
+                console.log('   - 容器樣式 isolation:', window.getComputedStyle(videoContainer).isolation);
             }
             break;
         case 'neon':
-            remoteVideo.style.filter = 'contrast(1.2) saturate(1.3)';
             if (videoContainer) {
                 videoContainer.classList.add('effect-neon-border');
+                console.log('✅ 霓虹邊框已應用到容器');
+                console.log('   - 容器類別:', videoContainer.className);
+                console.log('   - 容器樣式 overflow:', window.getComputedStyle(videoContainer).overflow);
+                console.log('   - 容器樣式 isolation:', window.getComputedStyle(videoContainer).isolation);
             }
             break;
         case 'glow':
             if (videoContainer) {
+                ensureLightningBorderOverlay(videoContainer);
                 videoContainer.classList.add('effect-glow-border');
             }
             break;
@@ -75,21 +203,35 @@ function applyViewerEffect(effectType) {
             createViewerAnimationOverlay('confetti');
             break;
         case 'snow':
-            createViewerAnimationOverlay('snow');
+        createViewerAnimationOverlay('snow');
             break;
     }
+
+    currentViewerEffect = effectType;
+    remoteVideo.dataset.viewerEffect = effectType;
+    ensureRemoteVideoPlaying(remoteVideo);
 }
 
-function resetViewerEffectStyles(videoElement) {
+function resetViewerEffectStyles(videoElement, videoContainer) {
     if (!videoElement) return;
 
-    videoElement.style.filter = '';
-    videoElement.style.webkitFilter = '';
-    videoElement.style.animation = '';
+    // 清除所有濾鏡和動畫
+    videoElement.style.removeProperty('filter');
+    videoElement.style.removeProperty('-webkit-filter');
+    videoElement.style.removeProperty('animation');
+    videoElement.style.removeProperty('-webkit-animation');
+    videoElement.classList.remove('effect-rainbow-filter');
+    currentViewerEffect = 'clear';
+    delete videoElement.dataset.viewerEffect;
+    
+    console.log('🧹 已清除視頻元素的所有特效');
 
-    const container = videoElement.parentElement;
+    // 使用傳入的容器或查找容器
+    const container = videoContainer || document.getElementById('streamVideo') || videoElement.parentElement;
     if (container) {
         container.classList.remove('effect-neon-border', 'effect-glow-border', 'effect-rainbow-border');
+        removeLightningBorderOverlay(container);
+        console.log('🧹 已清除容器的所有邊框特效');
     }
 
     // 移除眼鏡覆蓋層
@@ -102,6 +244,31 @@ function resetViewerEffectStyles(videoElement) {
     const animationOverlay = container?.querySelector('.animation-overlay');
     if (animationOverlay) {
         animationOverlay.remove();
+    }
+}
+
+function ensureLightningBorderOverlay(container) {
+    if (!container) return;
+    if (container.querySelector('.lightning-border-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'lightning-border-overlay';
+    overlay.innerHTML = `
+        <div class="lightning-layer border-outer"></div>
+        <div class="lightning-layer main-card"></div>
+        <div class="lightning-layer glow-layer-1"></div>
+        <div class="lightning-layer glow-layer-2"></div>
+        <div class="lightning-layer overlay-1"></div>
+        <div class="lightning-layer overlay-2"></div>
+        <div class="lightning-layer background-glow"></div>
+    `;
+    container.appendChild(overlay);
+}
+
+function removeLightningBorderOverlay(container) {
+    const overlay = container?.querySelector('.lightning-border-overlay');
+    if (overlay) {
+        overlay.remove();
     }
 }
 

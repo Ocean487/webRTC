@@ -96,7 +96,12 @@ window.testEffect = function(effectType) {
     // 清除舊特效
     video.style.filter = '';
     video.style.animation = '';
+    video.classList.remove('effect-rainbow-filter');
     container.classList.remove('effect-rainbow-border', 'effect-neon-border', 'effect-glow-border');
+    const lightningOverlay = container.querySelector('.lightning-border-overlay');
+    if (lightningOverlay) {
+        lightningOverlay.remove();
+    }
     document.querySelectorAll('.animation-overlay').forEach(el => el.remove());
     
     console.log('🧹 已清除舊特效');
@@ -111,7 +116,7 @@ window.testEffect = function(effectType) {
             break;
             
         case 'warm':
-            video.style.filter = 'sepia(0.8) saturate(1.5) hue-rotate(-20deg) brightness(1.1) contrast(1.1)';
+            video.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
             console.log('✅ 套用暖色調特效');
             console.log('   filter:', video.style.filter);
             break;
@@ -122,8 +127,7 @@ window.testEffect = function(effectType) {
             break;
             
         case 'rainbow':
-            video.style.filter = 'hue-rotate(0deg) saturate(2)';
-            video.style.animation = 'rainbow-filter 3s linear infinite';
+            video.classList.add('effect-rainbow-filter');
             console.log('✅ 套用彩虹濾鏡特效');
             break;
             
@@ -140,8 +144,9 @@ window.testEffect = function(effectType) {
             break;
             
         case 'glow':
+            ensureLightningBorderOverlay(container);
             container.classList.add('effect-glow-border');
-            console.log('✅ 套用發光邊框');
+            console.log('✅ 套用閃電邊框');
             break;
             
         case 'particles':
@@ -167,7 +172,7 @@ window.testEffect = function(effectType) {
             
         default:
             console.warn('⚠️ 未知的特效類型:', effectType);
-            console.log('可用特效: bw, warm, blur, rainbow, rainbowBorder, neon, glow, particles, hearts, confetti, snow');
+            console.log('可用特效: bw, warm, blur, rainbow, rainbowBorder, neon, glow(閃電), particles, hearts, confetti, snow');
     }
     
     // 驗證

@@ -322,6 +322,11 @@ function setupWebSocketHandlers() {
                         handleTitleUpdate(message);
                         sendJSON(wss, { type: 'ack', event: 'title_update', ok: true });
                         break;
+                    
+                    case 'broadcaster_info':
+                        handleBroadcasterInfo(wss, message);
+                        sendJSON(wss, { type: 'ack', event: 'broadcaster_info', ok: true });
+                        break;
                         
                     case 'effect_update':
                         handleEffectUpdate(message);
@@ -387,7 +392,8 @@ function handleBroadcasterJoin(wss, message) {
         isStreaming: false,
         streamTitle: '',
         viewers: new Map(), // 該主播的觀眾列表
-        viewerCount: 0
+        viewerCount: 0,
+        currentEffect: 'clear'
     });
     
     // 初始化該主播的音樂流狀態
@@ -533,6 +539,18 @@ function handleViewerJoin(wss, message) {
                 broadcasterInfo: targetBroadcaster.userInfo,
                 message: '等待主播開始直播'
             }));
+        }
+
+        // 初次同步主播當前特效，確保觀眾刷新後狀態一致
+        if (typeof targetBroadcaster.currentEffect !== 'undefined' && targetBroadcaster.currentEffect !== null) {
+            wss.send(JSON.stringify({
+                type: 'effect_update',
+                effect: targetBroadcaster.currentEffect,
+                broadcasterId: streamerId,
+                timestamp: Date.now(),
+                initialSync: true
+            }));
+            console.log(`🎨 已回傳主播 ${streamerId} 的初始特效:`, targetBroadcaster.currentEffect);
         }
     } else {
         console.log('目標主播不存在:', streamerId);
@@ -688,6 +706,48 @@ function handleTitleUpdate(message) {
     console.log(`已廣播標題更新給主播 ${broadcasterId} 的 ${broadcaster.viewers.size} 個觀眾`);
 }
 
+// 處理主播資訊更新（例如顯示名稱等）
+function handleBroadcasterInfo(wss, message) {
+    try {
+        // 取得主播ID：優先使用訊息中的，否則使用該連線上的
+        const broadcasterId = message.broadcasterId || wss.broadcasterId;
+        if (!broadcasterId) {
+            console.warn('[broadcaster_info] 缺少 broadcasterId，已忽略');
+            return;
+        }
+
+        const broadcaster = activeBroadcasters.get(broadcasterId);
+        if (!broadcaster) {
+            console.warn('[broadcaster_info] 找不到主播記錄:', broadcasterId);
+            return;
+        }
+
+        // 更新服務端保存的主播資訊（若提供）
+        const newDisplayName = message.displayName || message.broadcaster;
+        if (newDisplayName && typeof newDisplayName === 'string') {
+            broadcaster.userInfo = broadcaster.userInfo || {};
+            broadcaster.userInfo.displayName = newDisplayName;
+            activeBroadcasters.set(broadcasterId, broadcaster);
+        }
+
+        // 組裝廣播給觀眾的格式（觀眾端偏好 broadcasterInfo 物件）
+        const payload = {
+            type: 'broadcaster_info',
+            broadcasterId,
+            broadcasterInfo: broadcaster.userInfo || { displayName: newDisplayName || '主播' },
+            // 向後相容：也帶上簡單欄位
+            broadcaster: (broadcaster.userInfo && broadcaster.userInfo.displayName) || newDisplayName || '主播',
+            timestamp: message.timestamp || Date.now()
+        };
+
+        // 僅發送給該主播的觀眾
+        broadcastToBroadcasterViewers(broadcasterId, payload);
+        console.log(`[broadcaster_info] 已廣播給主播 ${broadcasterId} 的觀眾，名稱:`, payload.broadcaster);
+    } catch (err) {
+        console.error('處理 broadcaster_info 錯誤:', err);
+    }
+}
+
 // 處理特效更新
 function handleEffectUpdate(message) {
     const broadcasterId = message.broadcasterId;
@@ -704,6 +764,10 @@ function handleEffectUpdate(message) {
         return;
     }
     
+    // 記錄主播當前特效，供新觀眾同步
+    broadcaster.currentEffect = message.effect || 'clear';
+    activeBroadcasters.set(broadcasterId, broadcaster);
+
     // 廣播特效更新給該主播的所有觀眾
     broadcastToBroadcasterViewers(broadcasterId, {
         type: 'effect_update',
@@ -990,16 +1054,28 @@ function handleChatMessage(ws, message) {
         
         // 根據主播ID分發訊息
         if (broadcasterId) {
-            // 發送給特定主播的觀眾和主播本人
-            broadcastToBroadcasterViewers(broadcasterId, chatMessage);
-            
-            // 也發送給主播本人
             const broadcaster = activeBroadcasters.get(broadcasterId);
-            if (broadcaster && broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
-                broadcaster.ws.send(JSON.stringify(chatMessage));
+            if (broadcaster) {
+                // 發送給該主播的所有觀眾
+                broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                    if (viewerWs.readyState === WebSocket.OPEN) {
+                        try {
+                            viewerWs.send(JSON.stringify(chatMessage));
+                        } catch (error) {
+                            console.error('發送訊息給觀眾失敗:', error);
+                            broadcaster.viewers.delete(viewerId);
+                            broadcaster.viewerCount--;
+                        }
+                    }
+                });
+                
+                // 總是發送給主播（無論訊息是誰發的）
+                if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+                    broadcaster.ws.send(JSON.stringify(chatMessage));
+                }
+                
+                console.log('已廣播聊天訊息給主播', broadcasterId, '和其', broadcaster.viewers.size, '個觀眾:', chatMessage.message, '來自:', chatMessage.username);
             }
-            
-            console.log('已廣播聊天訊息給主播', broadcasterId, '的觀眾:', chatMessage.message, '來自:', chatMessage.username);
         } else {
             // 如果沒有主播ID，則廣播給所有聊天用戶（保持向後兼容）
             broadcastToChatUsers(chatMessage);

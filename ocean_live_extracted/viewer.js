@@ -19,9 +19,13 @@ let targetStreamerId = getStreamerIdFromUrl();
 let availableBroadcasters = []; // 可用主播列表
 let currentBroadcasterInfo = null; // 當前主播信息
 
+// 將主播ID存儲到全局window對象，供其他模組使用
+window.targetStreamerId = targetStreamerId;
+
 // 初始化
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('=== VibeLo 观众端初始化 ===');
+    console.log('✅ 觀眾目標主播ID:', targetStreamerId);
     
     // 檢查 HTTPS 安全上下文
     if (location.protocol === 'https:') {
@@ -646,6 +650,12 @@ function handleWebSocketMessage(data) {
             console.log('✅ 收到 viewer_joined 消息:', data);
             displaySystemMessage('✅ 已成功加入直播間');
             updateConnectionStatus();
+
+            if (data.streamerId && data.streamerId !== targetStreamerId) {
+                console.log('🔄 更新目標主播ID:', targetStreamerId, '→', data.streamerId);
+                targetStreamerId = data.streamerId;
+                window.targetStreamerId = data.streamerId;
+            }
             
             // 處理分配的用戶信息
             if (data.userInfo) {
@@ -681,9 +691,21 @@ function handleWebSocketMessage(data) {
             }
             break;
         case 'broadcaster_info':
+            // 只處理當前觀看的主播
+            if (data.broadcasterId && data.broadcasterId !== targetStreamerId) {
+                console.log('⚠️ broadcaster_info 來自其他主播，忽略');
+                break;
+            }
             // 處理主播信息（當主播未在直播時）
             if (data.broadcasterInfo) {
                 updateBroadcasterInfo(data.broadcasterInfo);
+                displaySystemMessage(data.message || `正在等待「${data.broadcasterInfo.displayName || '主播'}」開始直播`);
+            } else if (data.broadcaster || data.displayName) {
+                const name = data.displayName || data.broadcaster;
+                const streamerName = document.getElementById('streamerName');
+                if (streamerName && name) streamerName.textContent = `${name} 正在直播`;
+                displaySystemMessage(data.message || `正在等待「${name}」開始直播`);
+            } else {
                 displaySystemMessage(data.message || '等待主播開始直播');
             }
             break;
@@ -691,6 +713,14 @@ function handleWebSocketMessage(data) {
             window.receivedStreamStart = true;
             console.log('✅ 收到 stream_start 消息');
             console.log('🔍 [DEBUG] stream_start 數據:', data);
+            console.log('🔍 [DEBUG] stream_start broadcasterId:', data.broadcasterId, '當前觀看的主播:', targetStreamerId);
+            
+            // 檢查是否為當前觀看的主播
+            if (data.broadcasterId && data.broadcasterId !== targetStreamerId) {
+                console.log('⚠️ stream_start 來自其他主播，忽略');
+                break;
+            }
+            
             handleStreamStarted(data);
             updateConnectionStatus();
             break;
@@ -778,11 +808,37 @@ function handleWebSocketMessage(data) {
             break;
         case 'effect_update':
             // 處理主播端的特效更新
-            console.log('🎨 收到特效更新:', data.effect);
-            applyViewerEffect(data.effect);
+            console.log('🎨 收到特效更新:', data.effect, '來自主播:', data.broadcasterId);
+            console.log('🔍 [DEBUG] 當前觀看的主播:', targetStreamerId);
+            
+            // 檢查是否為當前觀看的主播的特效更新
+            if (data.broadcasterId && data.broadcasterId !== targetStreamerId) {
+                console.log('⚠️ 特效更新來自其他主播，忽略');
+                break;
+            }
+            
+            if (typeof applyViewerEffect === 'function') {
+                // 如果是初始同步，延遲套用以確保影片已開始播放
+                if (data.initialSync) {
+                    console.log('🎨 初始特效同步，延遲套用以確保影片播放');
+                    setTimeout(() => {
+                        const remoteVideo = document.getElementById('remoteVideo');
+                        if (remoteVideo && remoteVideo.srcObject) {
+                            console.log('🎨 套用初始特效:', data.effect);
+                            applyViewerEffect(data.effect);
+                        }
+                    }, 1500); // 延遲 1.5 秒確保影片已播放
+                } else {
+                    applyViewerEffect(data.effect);
+                }
+            } else {
+                console.warn('⚠️ applyViewerEffect 函數未定義');
+            }
             break;
         default:
+            // 記錄未處理的消息類型
             console.log('🔍 未知消息類型:', data.type, '內容:', data);
+            break;
     }
 }
 
@@ -910,6 +966,13 @@ function handleStreamStarted(data) {
 // 處理直播標題更新
 function handleTitleUpdate(data) {
     console.log('收到標題更新:', data);
+    console.log('🔍 [DEBUG] 標題更新 broadcasterId:', data.broadcasterId, '當前觀看的主播:', targetStreamerId);
+    
+    // 檢查是否為當前觀看的主播的標題更新
+    if (data.broadcasterId && data.broadcasterId !== targetStreamerId) {
+        console.log('⚠️ 標題更新來自其他主播，忽略');
+        return;
+    }
     
     const streamTitle = document.getElementById('streamTitle');
     if (streamTitle) {
@@ -1162,6 +1225,7 @@ function initializePeerConnection() {
         const remoteVideo = document.getElementById('remoteVideo');
         const videoPlaceholder = document.getElementById('videoPlaceholder');
         const playPrompt = document.getElementById('playPrompt');
+        const streamVideo = document.getElementById('streamVideo');
         
         if (remoteVideo && event.streams && event.streams[0]) {
             const stream = event.streams[0];
@@ -1196,6 +1260,12 @@ function initializePeerConnection() {
             }
             
             remoteVideo.srcObject = stream;
+            
+            // 確保視頻容器有 live 類別（CSS 要求）
+            if (streamVideo && !streamVideo.classList.contains('live')) {
+                streamVideo.classList.add('live');
+                console.log('✅ 添加 live 類別到 stream-video 容器');
+            }
             
             // 確保視頻元素顯示
             remoteVideo.style.display = 'block';

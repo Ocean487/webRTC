@@ -117,8 +117,34 @@ function connectToStreamingServer() {
                             addMessage(message.username, message.text);
                             break;
                             
+                        case 'broadcaster_info':
+                            // 將主播資訊轉發給全域處理器（若存在）
+                            if (typeof window.handleWebSocketMessage === 'function') {
+                                window.handleWebSocketMessage(message);
+                            } else if (typeof window.updateBroadcasterInfo === 'function') {
+                                window.updateBroadcasterInfo(message.broadcasterInfo || { displayName: message.displayName || message.broadcaster });
+                            } else {
+                                console.log('[fallback] broadcaster_info 收到，但無全域處理器');
+                            }
+                            break;
+
+                        case 'title_update':
+                            if (typeof window.handleWebSocketMessage === 'function') {
+                                window.handleWebSocketMessage(message);
+                            } else if (typeof window.handleTitleUpdate === 'function') {
+                                window.handleTitleUpdate(message);
+                            } else {
+                                console.log('[fallback] title_update 收到，但無全域處理器');
+                            }
+                            break;
+
                         default:
-                            console.log('未知訊息類型:', message.type);
+                            // 優先嘗試轉發給頁面層級的處理器，避免誤報未知類型
+                            if (typeof window.handleWebSocketMessage === 'function') {
+                                window.handleWebSocketMessage(message);
+                            } else {
+                                console.log('未知訊息類型:', message.type);
+                            }
                     }
                 } catch (error) {
                     console.error('解析訊息失敗:', error);

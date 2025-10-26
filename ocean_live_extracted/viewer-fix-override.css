@@ -317,8 +317,8 @@
 }
 
 /* 當直播開始時隱藏等待文字並恢復正常佈局 */
-.stream-video.live::before,
-.stream-video.live::after {
+.stream-video.live:not(.effect-neon-border):not(.effect-rainbow-border)::before,
+.stream-video.live:not(.effect-neon-border):not(.effect-rainbow-border)::after {
     display: none !important;
 }
 

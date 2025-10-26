@@ -11,7 +11,114 @@ let messageCount = 0;
 let viewerCount = 0;
 let currentQuality = '720';
 let dataTransferInterval = null;
-let currentAudioOutput = null; // 當前音訊輸出端
+let currentAudioOutput = 'default'; // 當前音訊輸出端
+
+const DEVICE_STORAGE_KEYS = {
+    camera: 'broadcaster_camera_device_id',
+    microphone: 'broadcaster_microphone_device_id',
+    audioOutput: 'broadcaster_audio_output_id'
+};
+
+if (typeof window !== 'undefined') {
+    window.currentAudioOutput = currentAudioOutput;
+}
+
+function getStoredDeviceId(type) {
+    const key = DEVICE_STORAGE_KEYS[type];
+    if (!key || typeof localStorage === 'undefined') {
+        return null;
+    }
+    try {
+        return localStorage.getItem(key);
+    } catch (err) {
+        console.warn('讀取裝置偏好失敗:', err);
+        return null;
+    }
+}
+
+function rememberDeviceSelection(type, deviceId) {
+    const key = DEVICE_STORAGE_KEYS[type];
+    if (!key || typeof localStorage === 'undefined') {
+        return;
+    }
+    try {
+        if (deviceId) {
+            localStorage.setItem(key, deviceId);
+        }
+    } catch (err) {
+        console.warn('儲存裝置偏好失敗:', err);
+    }
+}
+
+function populateDeviceSelect(selectEl, devices, type, placeholder) {
+    console.log(`📝 [populateDeviceSelect] 開始填充 ${placeholder}:`, {
+        selectEl: !!selectEl,
+        deviceCount: devices.length,
+        type: type
+    });
+
+    if (!selectEl) {
+        console.error(`❌ ${placeholder}選擇器元素不存在 (ID: ${type}Select)`);
+        return null;
+    }
+
+    // 清空現有選項
+    selectEl.innerHTML = '';
+    console.log(`✅ 已清空 ${placeholder} 選擇器`);
+
+    if (!devices.length) {
+        const option = document.createElement('option');
+        option.value = '';
+        option.textContent = `未找到${placeholder}`;
+        option.disabled = true;
+        option.selected = true;
+        selectEl.appendChild(option);
+        console.warn(`⚠️ 未找到任何${placeholder}裝置`);
+        return null;
+    }
+
+    const storedId = getStoredDeviceId(type);
+    const existingValue = selectEl.value;
+    const deviceIds = devices.map(device => device.deviceId || '');
+
+    console.log(`📋 ${placeholder} 裝置列表:`, devices.map(d => ({
+        id: d.deviceId,
+        label: d.label || '無標籤'
+    })));
+
+    // 添加所有設備選項
+    devices.forEach((device, index) => {
+        const option = document.createElement('option');
+        option.value = device.deviceId || '';
+        option.textContent = device.label || `${placeholder} ${index + 1}`;
+        selectEl.appendChild(option);
+    });
+
+    console.log(`✅ 已添加 ${devices.length} 個${placeholder}選項`);
+
+    // 選擇優先的設備
+    const preferredId = [storedId, existingValue].find(id => id && deviceIds.includes(id));
+    if (preferredId) {
+        selectEl.value = preferredId;
+        console.log(`✅ ${placeholder}已選擇儲存的裝置:`, preferredId);
+    } else if (devices.length > 0) {
+        selectEl.selectedIndex = 0;
+        const firstDevice = devices[0];
+        console.log(`✅ ${placeholder}已選擇第一個裝置:`, firstDevice.label || firstDevice.deviceId);
+    }
+
+    const finalValue = selectEl.value || null;
+    if (finalValue) {
+        rememberDeviceSelection(type, finalValue);
+        console.log(`💾 已儲存 ${placeholder} 選擇:`, finalValue);
+    }
+
+    return finalValue;
+}
+
+// 控制直播開始延遲訊息的計時器，避免停止後又被延遲任務喚起
+let streamStartTimer = null;
+let streamStartRetryTimer = null;
 
 // 主播ID相關 - 使用 livestream-platform.js 中宣告的版本
 
@@ -32,6 +139,7 @@ let originalMicAudioTrack = null; // 🎵 保存原始麥克風音訊軌道
 
 // WebSocket 連接
 let streamingSocket = null;
+window.streamingSocket = null; // 讓其他模組可以透過 window 訪問
 let peerConnections = new Map(); // viewerId -> RTCPeerConnection
 
 // WebRTC 配置 - 優化視頻編碼兼容性
@@ -128,6 +236,28 @@ const rtcConfiguration = {
 async function initializeBroadcaster() {
     console.log('🚀 開始初始化主播端...');
     
+    // 等待 DOM 完全載入
+    if (document.readyState !== 'complete') {
+        console.log('⏳ 等待 DOM 完全載入...');
+        await new Promise(resolve => {
+            if (document.readyState === 'complete') {
+                resolve();
+            } else {
+                window.addEventListener('load', resolve, { once: true });
+            }
+        });
+    }
+    
+    // 立即初始化主播ID並存儲到全局
+    if (!myBroadcasterId) {
+        myBroadcasterId = getBroadcasterIdFromUrl();
+        console.log('✅ 主播ID已初始化:', myBroadcasterId);
+    }
+    window.myBroadcasterId = myBroadcasterId; // 確保全局可訪問
+
+    // 先行初始化設備列表，避免下拉選單停留在「載入中...」
+    await initializeDeviceSelectors();
+    
     // 首先載入用戶資料
     if (typeof loadCurrentUser === 'function') {
         const userLoaded = await loadCurrentUser();
@@ -148,10 +278,9 @@ async function initializeBroadcaster() {
     }
     
     console.log('✅ 用戶已登入，繼續初始化直播功能');
-    
-    // 初始化設備和基本功能
-    loadDevices();
-    checkAudioOutputSupport();
+
+    // 再次刷新裝置列表（確保權限授權後取得完整標籤）
+    await initializeDeviceSelectors(true);
     simulateInitialActivity();
     
     // 初始化標題輸入
@@ -164,8 +293,8 @@ async function initializeBroadcaster() {
     console.log('🔍 [DEBUG] 準備調用 connectToStreamingServer');
     connectToStreamingServer();
     
-    // 初始化聊天（統一處理，避免重複）
-    initializeChat();
+    // ❌ 移除這裡的 initializeChat()，改在 WebSocket 連接成功後才調用
+    // initializeChat(); // 已移至 connectToStreamingServer 的 onopen 事件中
     
     // 🎵 初始化分頁音訊重連管理器
     setTimeout(() => {
@@ -236,62 +365,165 @@ function checkAudioOutputSupport() {
 }
 
 // 載入可用裝置
-async function loadDevices() {
+async function loadDevices(forceRefresh = false) {
+    console.log('🔍 [loadDevices] 開始載入裝置...', { forceRefresh });
+
+    if (!navigator.mediaDevices || typeof navigator.mediaDevices.enumerateDevices !== 'function') {
+        console.error('❌ 瀏覽器不支援裝置列舉');
+        return;
+    }
+
+    // 驗證 DOM 元素存在
+    const cameraSelect = document.getElementById('cameraSelect');
+    const microphoneSelect = document.getElementById('microphoneSelect');
+    const audioOutputSelect = document.getElementById('audioOutputSelect');
+    
+    console.log('🔍 [loadDevices] DOM 元素檢查:', {
+        cameraSelect: !!cameraSelect,
+        microphoneSelect: !!microphoneSelect,
+        audioOutputSelect: !!audioOutputSelect
+    });
+
+    if (!cameraSelect || !microphoneSelect || !audioOutputSelect) {
+        console.error('❌ 設備選擇器元素不存在，延遲 500ms 後重試...');
+        setTimeout(() => loadDevices(forceRefresh), 500);
+        return;
+    }
+
     try {
-        // 先請求權限以獲取裝置標籤
-        await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        
+        let devices = await navigator.mediaDevices.enumerateDevices();
+        console.log(`📋 初始裝置列表 (${devices.length} 個):`, devices.map(d => ({
+            kind: d.kind,
+            label: d.label || '(無標籤)',
+            deviceId: d.deviceId
+        })));
+
+        let hasLabels = devices.some(device => !!device.label);
+        console.log('🏷️ 裝置標籤狀態:', hasLabels ? '已有標籤' : '無標籤');
+
+        const shouldAttemptPermission = (!hasLabels && !window.__deviceLabelAttempted) || (forceRefresh && !hasLabels);
+        if (shouldAttemptPermission && typeof navigator.mediaDevices.getUserMedia === 'function') {
+            console.log('🔐 嘗試請求裝置權限以獲取標籤...');
+            try {
+                window.__deviceLabelAttempted = true;
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                console.log('✅ 權限請求成功，停止臨時流');
+                tempStream.getTracks().forEach(track => track.stop());
+                devices = await navigator.mediaDevices.enumerateDevices();
+                hasLabels = devices.some(device => !!device.label);
+                console.log(`📋 重新列舉裝置 (${devices.length} 個):`, devices.map(d => ({
+                    kind: d.kind,
+                    label: d.label || '(無標籤)',
+                    deviceId: d.deviceId
+                })));
+            } catch (permError) {
+                console.warn('⚠️ 無法預先取得裝置權限:', permError);
+            }
+        }
+
         const cameras = devices.filter(device => device.kind === 'videoinput');
         const microphones = devices.filter(device => device.kind === 'audioinput');
-        const speakers = devices.filter(device => device.kind === 'audiooutput');
+        const audioOutputs = devices
+            .filter(device => device.kind === 'audiooutput')
+            .map(device => ({ deviceId: device.deviceId || 'default', label: device.label }));
 
-        const cameraSelect = document.getElementById('cameraSelect');
-        const microphoneSelect = document.getElementById('microphoneSelect');
-        const audioOutputSelect = document.getElementById('audioOutputSelect');
-
-        // 載入攝影機
-        cameraSelect.innerHTML = '';
-        cameras.forEach((camera, index) => {
-            const option = document.createElement('option');
-            option.value = camera.deviceId;
-            option.textContent = camera.label || `攝影機 ${index + 1}`;
-            cameraSelect.appendChild(option);
+        console.log('📊 裝置統計:', {
+            cameras: cameras.length,
+            microphones: microphones.length,
+            audioOutputs: audioOutputs.length
         });
 
-        // 載入麥克風
-        microphoneSelect.innerHTML = '';
-        microphones.forEach((mic, index) => {
-            const option = document.createElement('option');
-            option.value = mic.deviceId;
-            option.textContent = mic.label || `麥克風 ${index + 1}`;
-            microphoneSelect.appendChild(option);
+        if (!audioOutputs.some(output => output.deviceId === 'default')) {
+            audioOutputs.unshift({ deviceId: 'default', label: '預設音訊輸出端' });
+            console.log('➕ 添加預設音訊輸出端');
+        }
+
+        console.log('📝 開始填充設備選擇器...');
+        const selectedCamera = populateDeviceSelect(cameraSelect, cameras, 'camera', '攝影機');
+        const selectedMicrophone = populateDeviceSelect(microphoneSelect, microphones, 'microphone', '麥克風');
+
+        let selectedOutput = null;
+        if (audioOutputSelect) {
+            selectedOutput = populateDeviceSelect(audioOutputSelect, audioOutputs, 'audioOutput', '音訊輸出端');
+        }
+
+        if (selectedCamera) {
+            rememberDeviceSelection('camera', selectedCamera);
+        }
+        if (selectedMicrophone) {
+            rememberDeviceSelection('microphone', selectedMicrophone);
+        }
+        if (selectedOutput) {
+            rememberDeviceSelection('audioOutput', selectedOutput);
+            currentAudioOutput = selectedOutput;
+        } else if (!currentAudioOutput) {
+            currentAudioOutput = 'default';
+        }
+
+        window.currentAudioOutput = currentAudioOutput;
+
+        console.log('📊 設備檢測完成:', {
+            攝影機: cameras.length,
+            麥克風: microphones.length,
+            音訊輸出: audioOutputs.length,
+            已選擇攝影機: selectedCamera,
+            已選擇麥克風: selectedMicrophone,
+            已選擇音訊輸出: selectedOutput
         });
 
-        // 載入音訊輸出端
-        audioOutputSelect.innerHTML = '';
-        
-        // 添加預設選項
-        const defaultOption = document.createElement('option');
-        defaultOption.value = 'default';
-        defaultOption.textContent = '預設音訊輸出端';
-        audioOutputSelect.appendChild(defaultOption);
-        
-        // 添加檢測到的音訊輸出端
-        speakers.forEach((speaker, index) => {
-            const option = document.createElement('option');
-            option.value = speaker.deviceId;
-            option.textContent = speaker.label || `音訊輸出端 ${index + 1}`;
-            audioOutputSelect.appendChild(option);
-        });
+        // 在控制台顯示載入的裝置詳情
+        console.log('📹 攝影機列表:', cameras.map(c => ({ id: c.deviceId, label: c.label })));
+        console.log('🎤 麥克風列表:', microphones.map(m => ({ id: m.deviceId, label: m.label })));
+        console.log('🔊 音訊輸出列表:', audioOutputs.map(o => ({ id: o.deviceId, label: o.label })));
 
-        console.log('檢測到的音訊輸出端:', speakers.length, speakers.map(s => s.label));
+        if (!hasLabels && typeof addMessage === 'function') {
+            addMessage('系統', '⚠️ 無法取得裝置名稱，可能未授權存取裝置');
+        } else if (hasLabels) {
+            console.log('✅ 成功取得所有裝置標籤');
+        }
 
     } catch (error) {
         console.error('無法載入裝置列表:', error);
-        addMessage('系統', '⚠️ 無法檢測音視訊裝置，請檢查瀏覽器權限');
+        if (typeof addMessage === 'function') {
+            addMessage('系統', '⚠️ 無法檢測音視訊裝置，請檢查瀏覽器權限');
+        }
     }
+}
+
+async function initializeDeviceSelectors(forceRefresh = false) {
+    console.log('🚦 [initializeDeviceSelectors] 執行', { forceRefresh });
+
+    if (!navigator.mediaDevices) {
+        console.warn('⚠️ mediaDevices API 不支援，無法初始化設備選擇器');
+        return;
+    }
+
+    const canRequestPermission = typeof navigator.mediaDevices.getUserMedia === 'function';
+    if (canRequestPermission && !window.__devicePermissionRequested) {
+        window.__devicePermissionRequested = true;
+        try {
+            const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+            console.log('✅ (initializeDeviceSelectors) 已取得裝置權限');
+            tempStream.getTracks().forEach(track => track.stop());
+        } catch (err) {
+            console.warn('⚠️ (initializeDeviceSelectors) 無法預先取得裝置權限:', err);
+        }
+    }
+
+    await loadDevices(forceRefresh);
+
+    if (!window.__deviceChangeListenerRegistered) {
+        const handleDeviceChange = () => initializeDeviceSelectors(true);
+        if (typeof navigator.mediaDevices.addEventListener === 'function') {
+            navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+        } else {
+            navigator.mediaDevices.ondevicechange = handleDeviceChange;
+        }
+        window.__deviceChangeListenerRegistered = true;
+        console.log('🔄 已註冊裝置變更監聽器');
+    }
+
+    checkAudioOutputSupport();
 }
 
 // 開始/停止直播
@@ -332,6 +564,14 @@ async function startStream() {
         const placeholder = document.getElementById('previewPlaceholder');
         
         localVideo.srcObject = localStream;
+        if (localVideo.setSinkId && currentAudioOutput) {
+            try {
+                await localVideo.setSinkId(currentAudioOutput);
+                console.log('音訊輸出端已套用至直播視訊元素:', currentAudioOutput);
+            } catch (sinkError) {
+                console.warn('無法套用指定音訊輸出端:', sinkError);
+            }
+        }
         localVideo.style.display = 'block';
         placeholder.style.display = 'none';
 
@@ -400,8 +640,13 @@ async function startStream() {
         }
         
         // 等待 WebSocket 連接建立後通知服務器直播已開始
-        setTimeout(() => {
-            console.log('🔍 [DEBUG] 檢查 streamingSocket 狀態:', streamingSocket ? streamingSocket.readyState : 'undefined');
+        streamStartTimer = setTimeout(() => {
+                // 若已停止直播，則不再送出任何開始訊息
+                if (!isStreaming) {
+                    console.log('� 已停止直播，取消延遲的 stream_start 動作');
+                    return;
+                }
+            console.log('�🔍 [DEBUG] 檢查 streamingSocket 狀態:', streamingSocket ? streamingSocket.readyState : 'undefined');
             
             if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
                 // 獲取直播標題
@@ -436,7 +681,12 @@ async function startStream() {
                 connectToStreamingServer();
                 
                 // 延遲重試發送 stream_start
-                setTimeout(() => {
+                streamStartRetryTimer = setTimeout(() => {
+                    // 若已停止直播，則不再重試
+                    if (!isStreaming) {
+                        console.log('🛑 已停止直播，取消重試的 stream_start 動作');
+                        return;
+                    }
                     if (streamingSocket && streamingSocket.readyState === WebSocket.OPEN) {
                         const titleInput = document.getElementById('streamTitleInput');
                         const streamTitle = titleInput ? titleInput.value.trim() : '';
@@ -487,6 +737,16 @@ function stopStream() {
         localStream = null;
     }
 
+    // 清除可能尚未執行的延遲發送計時器，避免誤觸重新開始
+    if (streamStartTimer) {
+        clearTimeout(streamStartTimer);
+        streamStartTimer = null;
+    }
+    if (streamStartRetryTimer) {
+        clearTimeout(streamStartRetryTimer);
+        streamStartRetryTimer = null;
+    }
+
     // 隱藏視訊，顯示預覽
     const localVideo = document.getElementById('localVideo');
     const placeholder = document.getElementById('previewPlaceholder');
@@ -520,17 +780,21 @@ function stopStream() {
 // 獲取約束條件
 function getConstraints() {
     const quality = getQualitySettings(currentQuality);
+    const cameraSelectEl = document.getElementById('cameraSelect');
+    const microphoneSelectEl = document.getElementById('microphoneSelect');
+    const selectedCameraId = cameraSelectEl ? cameraSelectEl.value : getStoredDeviceId('camera');
+    const selectedMicrophoneId = microphoneSelectEl ? microphoneSelectEl.value : getStoredDeviceId('microphone');
     return {
         video: {
             ...quality,
             facingMode: currentFacingMode,
-            deviceId: document.getElementById('cameraSelect').value || undefined
+            deviceId: selectedCameraId || undefined
         },
         audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            deviceId: document.getElementById('microphoneSelect').value || undefined
+            deviceId: selectedMicrophoneId || undefined
         }
     };
 }
@@ -777,6 +1041,14 @@ async function changeQuality() {
 
 // 切換視訊裝置
 async function switchVideoDevice() {
+    const cameraSelect = document.getElementById('cameraSelect');
+    if (!cameraSelect) {
+        console.warn('找不到攝影機選擇器');
+        return;
+    }
+
+    rememberDeviceSelection('camera', cameraSelect.value);
+
     if (!isStreaming) return;
 
     try {
@@ -790,7 +1062,7 @@ async function switchVideoDevice() {
         const newStream = await navigator.mediaDevices.getUserMedia({
             video: {
                 ...getQualitySettings(currentQuality),
-                deviceId: document.getElementById('cameraSelect').value
+                deviceId: cameraSelect.value
             },
             audio: false
         });
@@ -967,7 +1239,14 @@ async function testAudioOutput() {
 // 切換音訊輸出端
 async function switchAudioOutput() {
     try {
-        const selectedOutputId = document.getElementById('audioOutputSelect').value;
+        const audioOutputSelect = document.getElementById('audioOutputSelect');
+        if (!audioOutputSelect) {
+            console.warn('找不到音訊輸出選擇器');
+            return;
+        }
+
+        const selectedOutputId = audioOutputSelect.value;
+        rememberDeviceSelection('audioOutput', selectedOutputId);
         const localVideo = document.getElementById('localVideo');
         
         // 檢查瀏覽器是否支援 setSinkId
@@ -1042,6 +1321,14 @@ async function switchAudioOutput() {
 
 // 切換音訊裝置
 async function switchAudioDevice() {
+    const microphoneSelect = document.getElementById('microphoneSelect');
+    if (!microphoneSelect) {
+        console.warn('找不到麥克風選擇器');
+        return;
+    }
+
+    rememberDeviceSelection('microphone', microphoneSelect.value);
+
     if (!isStreaming) return;
 
     try {
@@ -1058,7 +1345,7 @@ async function switchAudioDevice() {
                 echoCancellation: true,
                 noiseSuppression: true,
                 autoGainControl: true,
-                deviceId: document.getElementById('microphoneSelect').value
+                deviceId: microphoneSelect.value
             }
         });
 
@@ -1593,7 +1880,8 @@ function connectToStreamingServer() {
         console.log('🔧 統一使用WSS加密連接');
         
         // 創建WebSocket連接
-        streamingSocket = new WebSocket(wsUrl);
+    streamingSocket = new WebSocket(wsUrl);
+    window.streamingSocket = streamingSocket;
         
         streamingSocket.onopen = function() {
             console.log('✅ 已連接到直播服務器');
@@ -1618,6 +1906,20 @@ function connectToStreamingServer() {
             
             console.log('🔍 [DEBUG] 發送主播加入訊息:', joinMessage);
             streamingSocket.send(JSON.stringify(joinMessage));
+            
+            // ✅ 在 WebSocket 連接成功後才初始化聊天系統
+            console.log('🔍 [DEBUG] WebSocket 已連接，現在初始化聊天系統');
+            setTimeout(() => {
+                if (!window.chatSystem) {
+                    initializeChat();
+                } else {
+                    console.log('⚠️ ChatSystem 已存在，不重複初始化');
+                    // 如果已存在，更新其 socket 引用
+                    if (window.chatSystem.setSocket) {
+                        window.chatSystem.setSocket(streamingSocket);
+                    }
+                }
+            }, 500); // 延遲 500ms 確保連接穩定
         };
         
         streamingSocket.onmessage = function(event) {
@@ -1641,6 +1943,8 @@ function connectToStreamingServer() {
         };
         
         streamingSocket.onclose = function(event) {
+            window.streamingSocket = null;
+            streamingSocket = null;
             console.log('❌ 與直播服務器斷開連接', {
                 code: event.code,
                 reason: event.reason,
@@ -1686,6 +1990,7 @@ function connectToStreamingServer() {
 function handleServerMessage(data) {
     console.log('🔔 主播端收到服務器消息:', data.type, data);
     // addMessage('系統', `📨 收到消息: ${data.type}`);
+    const chatSystemReady = !!(window.chatSystem && window.chatSystem.isReady && window.chatSystem.isConnected);
     
     switch (data.type) {
         case 'broadcaster_joined':
@@ -1716,7 +2021,9 @@ function handleServerMessage(data) {
             break;
             
         case 'chat_message':
-            handleChatMessage(data);
+            if (!chatSystemReady) {
+                handleChatMessage(data);
+            }
             break;
             
         // 多主播相關事件處理
@@ -1729,25 +2036,17 @@ function handleServerMessage(data) {
             }
             break;
         case 'chat': // 新的聊天協議處理
-            console.log('[SCRIPT] 收到 chat 消息:', data);
-            
-            // 檢查 ChatSystem 是否存在且已準備好
-            if (window.chatSystem && window.chatSystem.isReady) {
-                console.log('[SCRIPT] ChatSystem存在且已準備好，委託給ChatSystem處理');
-                // 直接調用ChatSystem的消息處理
-                window.chatSystem.handleMessage(data);
-            } else {
-                console.log('[SCRIPT] ChatSystem不存在或未準備好，使用後備處理');
-                // 後備處理：轉換為舊格式並使用handleChatMessage
-                handleChatMessage({
-                    type: 'chat_message',
+            if (!chatSystemReady) {
+                const legacyPayload = {
                     username: data.role === 'system' ? '系統' : data.username,
                     message: data.text || data.message,
                     text: data.text || data.message,
                     isStreamer: data.role === 'broadcaster',
                     isSystemMessage: data.role === 'system',
+                    viewerId: data.viewerId,
                     timestamp: data.timestamp || Date.now()
-                });
+                };
+                handleChatMessage(legacyPayload);
             }
             break;
             
@@ -3005,12 +3304,24 @@ console.log('============================');
 function updateStreamTitle() {
     const titleInput = document.getElementById('streamTitleInput');
     const streamTitle = document.getElementById('streamTitle');
-    
-    if (titleInput && streamTitle) {
-        const currentTitle = titleInput.value.trim() || '精彩直播中';
+
+    // 優先從輸入框取得標題，否則使用全局暫存或預設
+    const currentTitle = (titleInput && titleInput.value && titleInput.value.trim()) ? titleInput.value.trim() : (window.currentStreamTitle || '精彩直播中');
+
+    if (streamTitle) {
         streamTitle.textContent = currentTitle;
-        console.log('✅ 直播標題已更新:', currentTitle);
+        console.log('✅ 直播標題已更新（DOM）:', currentTitle);
     } else {
-        console.warn('⚠️ 找不到標題相關元素');
+        console.log('ℹ️ 找不到 streamTitle DOM 元素，但仍會廣播標題更新');
+    }
+
+    // 保存到全局變數以便其他模組使用
+    window.currentStreamTitle = currentTitle;
+
+    // 如果有全域的 sendTitleUpdate，使用它來廣播標題更新（容錯於 titleSocket 未連線時）
+    if (typeof window.sendTitleUpdate === 'function') {
+        window.sendTitleUpdate(currentTitle);
+    } else {
+        console.log('ℹ️ sendTitleUpdate 未定義，跳過廣播');
     }
 }

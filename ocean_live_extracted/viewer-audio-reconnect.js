@@ -290,8 +290,31 @@ document.addEventListener('DOMContentLoaded', function() {
     setTimeout(initializeAudioReconnect, 2000);
 });
 
-// 錯誤處理
+// 錯誤處理 - 避免無限遞迴
+let lastErrorTime = 0;
+let errorCount = 0;
+const ERROR_THRESHOLD = 10;
+const ERROR_RESET_TIME = 5000; // 5秒
+
 window.addEventListener('error', function(e) {
+    const now = Date.now();
+    
+    // 重置錯誤計數器
+    if (now - lastErrorTime > ERROR_RESET_TIME) {
+        errorCount = 0;
+    }
+    
+    errorCount++;
+    lastErrorTime = now;
+    
+    // 如果錯誤過多，停止記錄以防止無限循環
+    if (errorCount > ERROR_THRESHOLD) {
+        if (errorCount === ERROR_THRESHOLD + 1) {
+            console.error('⚠️ 觀眾音訊重連錯誤過多，停止記錄');
+        }
+        return;
+    }
+    
     console.error('觀眾音訊重連修復錯誤:', e.message);
 });
 

@@ -247,14 +247,17 @@ body {
     aspect-ratio: 16/9;
     background: #000;
     border-radius: 15px;
-    overflow: hidden;
+    overflow: visible !important; /* 重要：允許邊框特效顯示在容器外 */
     margin-bottom: 2rem;
 }
 
 .stream-video video {
+    position: relative; /* 確保視頻可以使用 z-index */
     width: 100%;
     height: 100%;
     object-fit: cover;
+    border-radius: 15px; /* 確保視頻邊角圓滑 */
+    display: block; /* 避免底部空隙 */
 }
 
 #videoPlaceholder {

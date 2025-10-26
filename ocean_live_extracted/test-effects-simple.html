@@ -100,22 +100,38 @@
         }
 
         /* 彩虹邊框 */
-        @keyframes rainbow-border {
-            0% { filter: hue-rotate(0deg); }
-            100% { filter: hue-rotate(360deg); }
+        @keyframes steam {
+            0% { background-position: 0 0; }
+            50% { background-position: 400% 0; }
+            100% { background-position: 0 0; }
         }
 
-        .video-container.effect-rainbow-border::before {
+        .video-container.effect-rainbow-border {
+            isolation: isolate;
+        }
+
+        .video-container.effect-rainbow-border::before,
+        .video-container.effect-rainbow-border::after {
             content: '';
             position: absolute;
-            inset: -4px;
-            background: linear-gradient(45deg, 
-                #ff0000, #ff7f00, #ffff00, #00ff00, 
-                #0000ff, #4b0082, #9400d3, #ff0000);
-            background-size: 400%;
-            border-radius: 19px;
+            top: -4px;
+            left: -4px;
+            width: calc(100% + 8px);
+            height: calc(100% + 8px);
+            background: linear-gradient(45deg,
+                #fb0094, #0000ff, #00ff00, #ffff00, #ff0000, #fb0094,
+                #0000ff, #00ff00, #ffff00, #ff0000);
+            background-size: 400% 400%;
+            border-radius: 20px;
+            animation: steam 20s linear infinite;
+            pointer-events: none;
             z-index: 0;
-            animation: rainbow-border 3s linear infinite;
+        }
+
+        .video-container.effect-rainbow-border::after {
+            filter: blur(35px);
+            opacity: 0.85;
+            z-index: -1;
         }
 
         /* 霓虹邊框 */

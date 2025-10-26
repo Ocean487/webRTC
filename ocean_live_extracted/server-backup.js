@@ -352,7 +352,8 @@ function handleBroadcasterJoin(ws, message) {
         ws: ws,
         userInfo: userInfo,
         startTime: new Date(),
-        viewerCount: 0
+        viewerCount: 0,
+        currentEffect: 'clear'
     });
     
     // 添加到活躍連接列表
@@ -490,6 +491,19 @@ function handleViewerJoin(ws, message) {
     
     // 更新所有觀眾的觀眾數量
     updateViewerCount();
+
+    // 初次同步主播當前特效，確保觀眾刷新後狀態一致
+    const broadcasterData = activeBroadcasters.get(streamerId);
+    if (broadcasterData && typeof broadcasterData.currentEffect !== 'undefined' && broadcasterData.currentEffect !== null) {
+        ws.send(JSON.stringify({
+            type: 'effect_update',
+            effect: broadcasterData.currentEffect,
+            broadcasterId: streamerId,
+            timestamp: Date.now(),
+            initialSync: true
+        }));
+        console.log(`🎨 [備份] 已回傳主播 ${streamerId} 的初始特效:`, broadcasterData.currentEffect);
+    }
 }
 
 // 處理直播開始
@@ -555,12 +569,20 @@ function handleTitleUpdate(message) {
 // 處理特效更新
 function handleEffectUpdate(message) {
     console.log('🎨 [特效] 收到主播特效更新:', message.effect);
+
+    const broadcasterId = message.broadcasterId;
+    if (broadcasterId && activeBroadcasters.has(broadcasterId)) {
+        const broadcasterData = activeBroadcasters.get(broadcasterId);
+        broadcasterData.currentEffect = message.effect || 'clear';
+        activeBroadcasters.set(broadcasterId, broadcasterData);
+    }
     
     // 廣播特效更新給所有觀眾
     broadcastToViewers({
         type: 'effect_update',
         effect: message.effect,
-        timestamp: message.timestamp || Date.now()
+        timestamp: message.timestamp || Date.now(),
+        broadcasterId
     });
     
     console.log(`🎨 [特效] 已廣播特效 "${message.effect}" 給 ${viewerCount} 個觀眾`);

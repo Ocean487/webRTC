@@ -698,6 +698,31 @@
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
     }
+
+    /* Allow intentional visual effects to continue animating */
+    video.effect-rainbow-filter,
+    #remoteVideo.effect-rainbow-filter,
+    .stream-video video.effect-rainbow-filter,
+    #streamVideo video.effect-rainbow-filter {
+        animation: rainbow-filter 3s linear infinite !important;
+        -webkit-animation: rainbow-filter 3s linear infinite !important;
+    }
+
+    .stream-video.effect-rainbow-border::before,
+    .stream-video.effect-rainbow-border::after {
+        animation: steam 20s linear infinite !important;
+        -webkit-animation: steam 20s linear infinite !important;
+    }
+
+    .stream-video.effect-neon-border::before {
+        animation: neonGradient 8s linear infinite !important;
+        -webkit-animation: neonGradient 8s linear infinite !important;
+    }
+
+    .stream-video.effect-neon-border::after {
+        animation: neonGradient 12s linear infinite !important;
+        -webkit-animation: neonGradient 12s linear infinite !important;
+    }
 }
 
 /* 打印樣式 */

@@ -22,6 +22,10 @@ let myBroadcasterId = null;
 // 直播標題相關功能
 let currentStreamTitle = '';
 let titleSocket = null; // 專門用於標題更新的WebSocket連接
+window.titleSocket = null; // 讓其他模組可以透過 window 訪問
+let titleSocketReconnectAttempts = 0; // 重連嘗試次數
+let titleSocketReconnectTimer = null; // 重連計時器
+const MAX_RECONNECT_ATTEMPTS = 5; // 最多重連5次
 
 // 診斷函數 - 檢查直播系統狀態
 function diagnoseLiveStreamIssue() {
@@ -180,18 +184,28 @@ function handleMultiBroadcasterMessage(data) {
 
 // 初始化標題WebSocket連接
 function initTitleWebSocket() {
+    // 檢查是否已經連接或正在連接
     if (titleSocket && (titleSocket.readyState === WebSocket.OPEN || titleSocket.readyState === WebSocket.CONNECTING)) {
-        return; // 已經連接或正在連接
+        console.log('⚠️ titleSocket 已存在，跳過重複初始化');
+        return; 
+    }
+
+    // 檢查是否超過最大重連次數
+    if (titleSocketReconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+        console.error('❌ titleSocket 重連次數已達上限，停止重連');
+        return;
     }
 
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}`;
     
-    console.log('初始化標題WebSocket連接:', wsUrl);
+    console.log('🔌 初始化標題WebSocket連接:', wsUrl, `(第 ${titleSocketReconnectAttempts + 1} 次嘗試)`);
     titleSocket = new WebSocket(wsUrl);
+    window.titleSocket = titleSocket;
     
     titleSocket.onopen = function() {
         console.log('✅ 標題WebSocket已連接');
+        titleSocketReconnectAttempts = 0; // 重置重連計數
         
         // 初始化主播ID
         if (!myBroadcasterId) {
@@ -213,13 +227,64 @@ function initTitleWebSocket() {
         }
     };
     
-    titleSocket.onclose = function() {
-        console.log('標題WebSocket連接已關閉，嘗試重連...');
-        setTimeout(initTitleWebSocket, 3000); // 3秒後重連
+    // 處理來自 titleSocket 的消息，轉發給全域的處理器（例如 viewer.js 的 handleWebSocketMessage）
+    titleSocket.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            console.log('[titleSocket] 收到消息:', data.type, data);
+
+            // 優先使用全域的 handleWebSocketMessage（viewer.js 提供）
+            if (typeof window.handleWebSocketMessage === 'function') {
+                window.handleWebSocketMessage(data);
+                return;
+            }
+
+            // 若沒有 handleWebSocketMessage，嘗試使用更專門的 handler
+            if (data.type === 'broadcaster_info' || data.type === 'title_update' || data.type === 'effect_update') {
+                if (typeof window.handleTitleUpdate === 'function' && data.type === 'title_update') {
+                    window.handleTitleUpdate(data);
+                    return;
+                }
+
+                if (typeof window.updateBroadcasterInfo === 'function' && data.type === 'broadcaster_info') {
+                    window.updateBroadcasterInfo(data.broadcasterInfo || { displayName: data.displayName || data.broadcaster });
+                    return;
+                }
+            }
+
+            console.log('[titleSocket] 無可用全域路由，消息類型:', data.type);
+        } catch (err) {
+            console.error('[titleSocket] 解析或處理消息失敗:', err);
+        }
+    };
+    
+    titleSocket.onclose = function(event) {
+        console.log('⚠️ 標題WebSocket連接已關閉', event.code, event.reason);
+        titleSocket = null; // 清除引用
+        window.titleSocket = null;
+        
+        // 清除舊的重連計時器
+        if (titleSocketReconnectTimer) {
+            clearTimeout(titleSocketReconnectTimer);
+            titleSocketReconnectTimer = null;
+        }
+        
+        // 只在未超過最大重連次數時才重連
+        if (titleSocketReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+            titleSocketReconnectAttempts++;
+            const delay = Math.min(3000 * titleSocketReconnectAttempts, 15000); // 漸進式延遲，最多15秒
+            console.log(`🔄 將在 ${delay/1000} 秒後重連 titleSocket (第 ${titleSocketReconnectAttempts} 次)`);
+            
+            titleSocketReconnectTimer = setTimeout(() => {
+                initTitleWebSocket();
+            }, delay);
+        } else {
+            console.error('❌ titleSocket 重連次數已達上限，停止重連');
+        }
     };
     
     titleSocket.onerror = function(error) {
-        console.error('標題WebSocket連接錯誤:', error);
+        console.error('❌ 標題WebSocket連接錯誤:', error);
     };
 }
 
@@ -235,31 +300,39 @@ function updateStreamTitle() {
             if (currentStreamTitle) {
                 currentTitleDisplay.textContent = `目前標題: ${currentStreamTitle}`;
                 console.log('直播標題已更新:', currentStreamTitle);
+
+                const broadcasterId = myBroadcasterId || getBroadcasterIdFromUrl();
+
+                if (!broadcasterId) {
+                    console.warn('⚠️ 無法識別主播ID，標題更新未廣播');
+                    return;
+                }
+
+                myBroadcasterId = broadcasterId;
                 
                 // 使用專門的標題WebSocket發送更新
                 if (titleSocket && titleSocket.readyState === WebSocket.OPEN) {
                     titleSocket.send(JSON.stringify({
                         type: 'title_update',
-                        broadcasterId: myBroadcasterId,
+                        broadcasterId,
                         title: currentStreamTitle,
                         timestamp: Date.now()
                     }));
-                    console.log('已通過titleSocket發送標題更新到觀眾端');
+                    console.log('✅ 已通過titleSocket發送標題更新');
                 } else {
-                    console.warn('titleSocket未連接，無法發送標題更新');
-                    // 嘗試重新連接
-                    initTitleWebSocket();
+                    console.warn('⚠️ titleSocket未連接，將僅通過streamingSocket發送');
+                    // 不在這裡重連，避免無限循環
                 }
                 
                 // 如果正在直播，也通過主要的streamingSocket發送
                 if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
                     window.streamingSocket.send(JSON.stringify({
                         type: 'title_update',
-                        broadcasterId: myBroadcasterId,
+                        broadcasterId,
                         title: currentStreamTitle,
                         timestamp: Date.now()
                     }));
-                    console.log('已通過streamingSocket發送標題更新到觀眾端');
+                    console.log('✅ 已通過streamingSocket發送標題更新');
                 }
             } else {
                 currentTitleDisplay.textContent = '目前標題: 未設定';
@@ -270,9 +343,33 @@ function updateStreamTitle() {
 
 // 實時標題更新（當輸入時）
 function onTitleInput() {
-    // 防抖處理，避免過頻繁的更新
+    // 防抖處理，避免過頻繁的更新，但縮短延遲以提供更即時的體驗
     clearTimeout(window.titleUpdateTimeout);
-    window.titleUpdateTimeout = setTimeout(updateStreamTitle, 500);
+    window.titleUpdateTimeout = setTimeout(() => {
+        updateStreamTitle();
+        // 立即廣播到觀眾端
+        const titleInput = document.getElementById('streamTitleInput');
+        if (titleInput && titleInput.value.trim()) {
+            const broadcasterId = myBroadcasterId || getBroadcasterIdFromUrl();
+            const payload = {
+                type: 'title_update',
+                broadcasterId,
+                title: titleInput.value.trim(),
+                timestamp: Date.now()
+            };
+            
+            // 通過兩個通道發送，確保到達
+            if (titleSocket && titleSocket.readyState === WebSocket.OPEN) {
+                titleSocket.send(JSON.stringify(payload));
+                console.log('⚡ 實時標題更新已發送 (titleSocket):', payload.title);
+            }
+            
+            if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
+                window.streamingSocket.send(JSON.stringify(payload));
+                console.log('⚡ 實時標題更新已發送 (streamingSocket):', payload.title);
+            }
+        }
+    }, 300); // 300ms 防抖，更即時
 }
 
 // 處理標題輸入框的按鍵事件
@@ -285,27 +382,76 @@ function handleTitleKeyPress(event) {
         clearTimeout(window.titleUpdateTimeout);
         updateStreamTitle();
         
-        // 確保主播名稱也通過titleSocket發送
+        // 確保主播名稱也通過titleSocket發送（包含 broadcasterId 與一致格式）
         if (titleSocket && titleSocket.readyState === WebSocket.OPEN && currentUser) {
+            const broadcasterId = myBroadcasterId || getBroadcasterIdFromUrl();
             titleSocket.send(JSON.stringify({
                 type: 'broadcaster_info',
-                broadcaster: currentUser.username || currentUser.email || 'Anonymous',
+                broadcasterId,
+                // 向後相容：保留舊欄位 broadcaster（字串）
+                broadcaster: currentUser.username || currentUser.email || currentUser.displayName || 'Anonymous',
+                // 新格式：提供物件，便於觀眾端顯示
+                displayName: currentUser.displayName || currentUser.username || 'Anonymous',
+                broadcasterInfo: {
+                    displayName: currentUser.displayName || currentUser.username || 'Anonymous',
+                    avatarUrl: currentUser.avatarUrl || null
+                },
                 timestamp: Date.now()
             }));
-            console.log('已通過titleSocket發送主播資訊到觀眾端:', currentUser.username || currentUser.email);
+            console.log('已通過titleSocket發送主播資訊到觀眾端:', currentUser.username || currentUser.email || currentUser.displayName);
         }
         
         // 也通過主要的streamingSocket發送（如果存在）
         if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN && currentUser) {
+            const broadcasterId = myBroadcasterId || getBroadcasterIdFromUrl();
             window.streamingSocket.send(JSON.stringify({
                 type: 'broadcaster_info',
-                broadcaster: currentUser.username || currentUser.email || 'Anonymous',
+                broadcasterId,
+                broadcaster: currentUser.username || currentUser.email || currentUser.displayName || 'Anonymous',
+                displayName: currentUser.displayName || currentUser.username || 'Anonymous',
+                broadcasterInfo: {
+                    displayName: currentUser.displayName || currentUser.username || 'Anonymous',
+                    avatarUrl: currentUser.avatarUrl || null
+                },
                 timestamp: Date.now()
             }));
-            console.log('已通過streamingSocket發送主播資訊到觀眾端:', currentUser.username || currentUser.email);
+            console.log('已通過streamingSocket發送主播資訊到觀眾端:', currentUser.username || currentUser.email || currentUser.displayName);
         }
     }
 }
+
+// 全域 API：從其他模組呼叫以廣播標題更新（接受可選的 broadcasterId）
+window.sendTitleUpdate = function(title, broadcasterId = null) {
+    try {
+        const id = broadcasterId || myBroadcasterId || getBroadcasterIdFromUrl();
+        const payload = {
+            type: 'title_update',
+            broadcasterId: id,
+            title: title || currentStreamTitle || '精彩直播中',
+            timestamp: Date.now()
+        };
+
+        let sent = false;
+        
+        if (titleSocket && titleSocket.readyState === WebSocket.OPEN) {
+            titleSocket.send(JSON.stringify(payload));
+            console.log('[sendTitleUpdate] ✅ 已通過 titleSocket 發送:', payload.title);
+            sent = true;
+        }
+
+        if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
+            window.streamingSocket.send(JSON.stringify(payload));
+            console.log('[sendTitleUpdate] ✅ 已通過 streamingSocket 發送:', payload.title);
+            sent = true;
+        }
+        
+        if (!sent) {
+            console.warn('[sendTitleUpdate] ⚠️ 無可用 WebSocket 連接');
+        }
+    } catch (err) {
+        console.error('[sendTitleUpdate] ❌ 發送失敗:', err);
+    }
+};
 
 // 頁面載入時初始化標題和檢查登入狀態
 // 標題和連接初始化已移至 script.js 的 initializeBroadcaster() 統一處理
@@ -325,10 +471,8 @@ async function checkLoginStatus() {
             updateUserDisplay(currentUser);
             enableBroadcastFeatures();
             
-            // 用戶登入後，如果還沒有標題WebSocket連接，則建立連接
-            if (!titleSocket || titleSocket.readyState !== WebSocket.OPEN) {
-                initTitleWebSocket();
-            }
+            // 不在這裡初始化 titleSocket，由 script.js 統一管理
+            console.log('✅ 用戶登入成功，等待 script.js 初始化連接');
         } else {
             currentUser = null;
             isTestMode = false;
@@ -724,8 +868,8 @@ function enableBroadcastFeatures() {
     if (streamBtn) {
         streamBtn.disabled = false;
         streamBtn.innerHTML = '<i class="fas fa-play-circle"></i> 開始直播';
-        // 使用增強版的toggleStream函數
-        streamBtn.onclick = secureToggleStream;
+        // 交由集中註冊的事件監聽器處理，避免重複觸發
+        streamBtn.onclick = null;
     }
 }
 
@@ -1169,6 +1313,20 @@ function setupModalEvents() {
 // 頁面卸載時清理
 window.addEventListener('beforeunload', function() {
     stopLoginStatusMonitoring();
+    
+    // 清除 titleSocket 重連計時器
+    if (titleSocketReconnectTimer) {
+        clearTimeout(titleSocketReconnectTimer);
+        titleSocketReconnectTimer = null;
+    }
+    
+    // 關閉 titleSocket 連接
+    if (titleSocket) {
+        titleSocket.close();
+        titleSocket = null;
+    }
+    
+    console.log('🧹 頁面卸載，已清理所有連接');
 });
 
 // 确保 toggleUserMenu 函数在全局作用域中可用
@@ -1384,9 +1542,7 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             console.log('✅ 模糊特效已套用, filter:', videoElement.style.filter);
             break;
         case 'rainbow':
-            // 濾鏡效果的彩虹 - 使用hue-rotate動畫
-            videoElement.style.filter = 'hue-rotate(0deg) saturate(2)';
-            videoElement.style.animation = 'rainbow-filter 3s linear infinite';
+            videoElement.classList.add('effect-rainbow-filter');
             console.log('✅ 彩虹特效已套用');
             break;
         case 'bw':
@@ -1413,7 +1569,7 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             break;
         case 'warm':
             // 紅紅的暖色調效果
-            videoElement.style.filter = 'sepia(0.8) saturate(1.5) hue-rotate(-20deg) brightness(1.1) contrast(1.1)';
+            videoElement.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
             console.log('✅ 暖色調特效已套用, filter:', videoElement.style.filter);
             // 驗證是否成功套用
             setTimeout(() => {
@@ -1451,8 +1607,9 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             break;
         case 'glow':
             if (videoContainer) {
+                ensureLightningBorderOverlay(videoContainer);
                 videoContainer.classList.add('effect-glow-border');
-                console.log('✅ 發光邊框已套用');
+                console.log('✅ 閃電邊框已套用');
             }
             break;
         case 'particles':
@@ -1495,6 +1652,7 @@ function resetVideoEffectStyles(videoElement) {
     videoElement.style.filter = '';
     videoElement.style.webkitFilter = '';
     videoElement.style.animation = '';
+    videoElement.classList.remove('effect-rainbow-filter');
     videoElement.style.border = '';
     videoElement.style.boxShadow = '';
     videoElement.style.borderImage = '';
@@ -1507,6 +1665,7 @@ function resetVideoEffectStyles(videoElement) {
         container.style.borderImage = '';
         container.style.borderRadius = '15px';
         container.classList.remove('effect-neon-border', 'effect-glow-border', 'effect-rainbow-border');
+        removeLightningBorderOverlay(container);
     }
 
     hideGlassesOverlay(videoElement);
@@ -1568,12 +1727,47 @@ function hideGlassesOverlay(videoElement) {
     }
 }
 
+function ensureLightningBorderOverlay(container) {
+    if (!container) return;
+    if (container.querySelector('.lightning-border-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.className = 'lightning-border-overlay';
+    overlay.innerHTML = `
+        <div class="lightning-layer border-outer"></div>
+        <div class="lightning-layer main-card"></div>
+        <div class="lightning-layer glow-layer-1"></div>
+        <div class="lightning-layer glow-layer-2"></div>
+        <div class="lightning-layer overlay-1"></div>
+        <div class="lightning-layer overlay-2"></div>
+        <div class="lightning-layer background-glow"></div>
+    `;
+    container.appendChild(overlay);
+}
+
+function removeLightningBorderOverlay(container) {
+    const overlay = container?.querySelector('.lightning-border-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
 // 向觀眾端廣播特效狀態
 function broadcastEffectToViewers(effectType) {
+    const broadcasterId = myBroadcasterId || getBroadcasterIdFromUrl();
+
+    if (!broadcasterId) {
+        console.warn('⚠️ 無法識別主播ID，特效更新未廣播');
+        return;
+    }
+
+    myBroadcasterId = broadcasterId;
+
     if (window.streamingSocket && window.streamingSocket.readyState === WebSocket.OPEN) {
         window.streamingSocket.send(JSON.stringify({
             type: 'effect_update',
             effect: effectType,
+            broadcasterId,
             timestamp: Date.now()
         }));
         console.log(`✅ 已向觀眾廣播特效: ${effectType}`);
@@ -1598,8 +1792,8 @@ function getEffectName(effectType) {
         'warm': '暖色調',
         'invert': '反相',
         'rainbowBorder': '彩虹邊框',
-        'neon': '霓虹',
-        'glow': '光暈',
+    'neon': '霓虹',
+    'glow': '閃電',
         'particles': '粒子',
         'hearts': '愛心',
         'confetti': '彩帶',

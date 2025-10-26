@@ -84,6 +84,38 @@
 </head>
 
 <body>
+    <svg class="lightning-filter-defs" aria-hidden="true" focusable="false"
+        style="position: absolute; width: 0; height: 0;">
+        <defs>
+            <filter id="turbulent-displace" color-interpolation-filters="sRGB" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise1" seed="1" />
+                <feOffset in="noise1" dx="0" dy="0" result="offsetNoise1">
+                    <animate attributeName="dy" values="700;0" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise2" seed="1" />
+                <feOffset in="noise2" dx="0" dy="0" result="offsetNoise2">
+                    <animate attributeName="dy" values="0;-700" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise3" seed="2" />
+                <feOffset in="noise3" dx="0" dy="0" result="offsetNoise3">
+                    <animate attributeName="dx" values="490;0" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise4" seed="2" />
+                <feOffset in="noise4" dx="0" dy="0" result="offsetNoise4">
+                    <animate attributeName="dx" values="0;-490" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feComposite in="offsetNoise1" in2="offsetNoise2" result="part1" />
+                <feComposite in="offsetNoise3" in2="offsetNoise4" result="part2" />
+                <feBlend in="part1" in2="part2" mode="color-dodge" result="combinedNoise" />
+
+                <feDisplacementMap in="SourceGraphic" in2="combinedNoise" scale="30" xChannelSelector="R" yChannelSelector="B" />
+            </filter>
+        </defs>
+    </svg>
     <!-- 頂部導航欄 -->
     <nav class="navbar">
         <div class="nav-container">
@@ -181,7 +213,7 @@
                         <i class="fas fa-highlighter"></i><br>霓虹
                     </button>
                     <button class="effect-btn" data-effect="glow">
-                        <i class="fas fa-lightbulb"></i><br>發光
+                        <i class="fas fa-bolt"></i><br>閃電
                     </button>
                     <button class="effect-btn" data-effect="rainbowBorder">
                         <i class="fas fa-border-style"></i><br>彩虹
@@ -516,12 +548,14 @@
                                 return;
                             }
 
-                            // 尝试调用直播函数
-                            if (typeof toggleStream === 'function') {
-                                console.log('✅ 调用 toggleStream 函数');
+                            if (typeof secureToggleStream === 'function') {
+                                console.log('✅ 调用 secureToggleStream 函数');
+                                secureToggleStream();
+                            } else if (typeof toggleStream === 'function') {
+                                console.log('✅ 调用 toggleStream 函数 (备用)');
                                 toggleStream();
                             } else {
-                                console.error('❌ toggleStream 函数未找到');
+                                console.error('❌ 找不到直播切換函數');
                                 alert('直播功能暂时无法使用，请刷新页面重试');
                             }
                         } catch (error) {

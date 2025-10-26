@@ -8,6 +8,12 @@ class ChatSystem {
         this.isStreamer = options.isStreamer || false;
         this.username = options.username || (this.isStreamer ? '主播' : '觀眾');
         this.socket = options.socket || null; // 允許傳入現有的 WebSocket
+        this.ownsSocket = !this.socket; // 標記是否由聊天系統自行管理連線
+        if (this.socket && (this.socket.readyState === WebSocket.CLOSING || this.socket.readyState === WebSocket.CLOSED)) {
+            // 傳入的連線已不可用，改為由系統自行建立
+            this.socket = null;
+            this.ownsSocket = true;
+        }
         this.chatContainer = null;
         this.messageInput = null;
         this.sendButton = null;
@@ -28,16 +34,16 @@ class ChatSystem {
     init() {
         this.initDOM();
         
-        // 如果有現成的 WebSocket，使用它；否則創建新的
-        if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            console.log('使用現有的 WebSocket 連接');
-            this.isConnected = true;
+        // 如果有現成的 WebSocket，掛接監聽；否則創建新的
+        if (this.socket) {
+            console.log('[ChatSystem] 使用傳入的 WebSocket 連接 (狀態:', this.socket.readyState, ')');
             this.setupWebSocketHandlers();
         } else {
             this.connectWebSocket();
         }
         
         this.bindEvents();
+        this.isReady = true;
     }
     
     initDOM() {
@@ -74,11 +80,16 @@ class ChatSystem {
     
     connectWebSocket() {
         try {
-            // 如果構造函數中已經傳入了 socket，使用傳入的 socket
-            if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-                console.log('[ChatSystem] 使用構造函數傳入的 WebSocket 連接');
-                this.isConnected = true;
+            // 檢查是否已有外部傳入的連線
+            if (this.socket && !this.ownsSocket) {
+                console.log('[ChatSystem] 已存在外部 WebSocket 連線，改為掛接事件');
                 this.setupWebSocketHandlers();
+                return;
+            }
+            
+            // 如果已有自管連線且仍在連接中，避免重複建立
+            if (this.socket && this.socket.readyState === WebSocket.CONNECTING) {
+                console.log('[ChatSystem] 現有自管 WebSocket 正在連線，等待完成');
                 return;
             }
             
@@ -91,6 +102,7 @@ class ChatSystem {
             const wsUrl = `${protocol}//${window.location.host}`;
             console.log('[ChatSystem] 創建新的 WebSocket 連接:', wsUrl);
             this.socket = new WebSocket(wsUrl);
+            this.ownsSocket = true;
             
             this.socket.onopen = () => {
                 console.log('聊天室 WebSocket 已連接');
@@ -118,10 +130,13 @@ class ChatSystem {
             this.socket.onclose = () => {
                 console.log('聊天室 WebSocket 已斷線');
                 this.isConnected = false;
+                this.socket = null;
                 // 不顯示斷線訊息，避免干擾
                 
                 // 3秒後重新連接
-                setTimeout(() => this.connectWebSocket(), 3000);
+                if (this.ownsSocket) {
+                    setTimeout(() => this.connectWebSocket(), 3000);
+                }
             };
             
             this.socket.onerror = (error) => {
@@ -329,25 +344,30 @@ class ChatSystem {
             }
         }
         
-        // 獲取broadcasterId
+        // 獲取broadcasterId - 修復為確保雙方都能正確取得
         let broadcasterId = null;
         if (this.isStreamer) {
             // 主播端：從URL或全局變量獲取broadcasterId
-            if (window.getBroadcasterIdFromUrl && typeof window.getBroadcasterIdFromUrl === 'function') {
-                broadcasterId = window.getBroadcasterIdFromUrl();
-            } else if (window.myBroadcasterId) {
+            if (window.myBroadcasterId) {
                 broadcasterId = window.myBroadcasterId;
+            } else if (window.getBroadcasterIdFromUrl && typeof window.getBroadcasterIdFromUrl === 'function') {
+                broadcasterId = window.getBroadcasterIdFromUrl();
+                window.myBroadcasterId = broadcasterId; // 儲存到全局
             } else if (window.currentUser && window.currentUser.id) {
                 broadcasterId = window.currentUser.id.toString();
+                window.myBroadcasterId = broadcasterId; // 儲存到全局
             }
         } else {
             // 觀眾端：從URL或全局變量獲取streamerId
-            if (window.getStreamerIdFromUrl && typeof window.getStreamerIdFromUrl === 'function') {
-                broadcasterId = window.getStreamerIdFromUrl();
-            } else if (window.targetStreamerId) {
+            if (window.targetStreamerId) {
                 broadcasterId = window.targetStreamerId;
+            } else if (window.getStreamerIdFromUrl && typeof window.getStreamerIdFromUrl === 'function') {
+                broadcasterId = window.getStreamerIdFromUrl();
+                window.targetStreamerId = broadcasterId; // 儲存到全局
             }
         }
+        
+        console.log('[ChatSystem] 聊天訊息使用的broadcasterId:', broadcasterId, '角色:', this.isStreamer ? 'broadcaster' : 'viewer');
         
         const message = {
             type: 'chat',
@@ -358,7 +378,13 @@ class ChatSystem {
             broadcasterId: broadcasterId
         };
         
+        // 關鍵修復：將broadcasterId存儲到WebSocket連接以便server識別
+        if (this.socket && broadcasterId) {
+            this.socket.broadcasterId = broadcasterId;
+        }
+        
         console.log('[ChatSystem] 發送訊息包含broadcasterId:', broadcasterId);
+        console.log('[ChatSystem] WebSocket.broadcasterId已設置:', this.socket?.broadcasterId);
         
         console.log('[ChatSystem] 準備發送消息:', message);
         
@@ -397,14 +423,16 @@ class ChatSystem {
         
         switch (data.type) {
             case 'chat':
-                console.log('[ChatSystem] 處理聊天訊息:', data);
-                console.log('[ChatSystem] 訊息發送者:', data.username, '當前用戶:', this.username);
-                console.log('[ChatSystem] 訊息角色:', data.role, '當前角色:', this.isStreamer ? 'broadcaster' : 'viewer');
-                
-                // 顯示所有消息（包括主播自己的訊息）
-                console.log('[ChatSystem] 顯示消息');
-                this.addMessage(data);
+            case 'chat_message': {
+                const normalized = this.normalizeChatPayload(data);
+                if (!normalized) {
+                    console.log('[ChatSystem] 聊天訊息內容為空，忽略');
+                    return;
+                }
+                console.log('[ChatSystem] 顯示聊天訊息:', normalized);
+                this.addMessage(normalized);
                 break;
+            }
                 
             case 'chat_join_ack':
                 // 靜默處理加入確認，不顯示系統訊息
@@ -449,7 +477,7 @@ class ChatSystem {
             }
         }
         
-        const messageDiv = document.createElement('div');
+    const messageDiv = document.createElement('div');
         messageDiv.className = 'message';
         
         // 設定訊息樣式
@@ -487,6 +515,15 @@ class ChatSystem {
         this.scrollToBottom();
         
         console.log('已顯示訊息:', data.username, ':', data.message);
+
+        if (data.role !== 'system') {
+            const nextCount = (typeof window.messageCount === 'number' ? window.messageCount : 0) + 1;
+            window.messageCount = nextCount;
+            const messageCountElement = document.getElementById('messageCount');
+            if (messageCountElement) {
+                messageCountElement.textContent = nextCount;
+            }
+        }
     }
     
     addSystemMessage(text) {
@@ -523,6 +560,51 @@ class ChatSystem {
             this.chatContainer.scrollTop = this.chatContainer.scrollHeight;
         }
     }
+
+    normalizeChatPayload(data) {
+        const rawText = typeof data.text === 'string' ? data.text : (typeof data.message === 'string' ? data.message : '');
+        const message = rawText.trim();
+        if (!message) {
+            return null;
+        }
+
+        let role = data.role;
+        if (!role) {
+            if (data.isSystemMessage) {
+                role = 'system';
+            } else if (data.isStreamer) {
+                role = 'broadcaster';
+            } else {
+                role = 'viewer';
+            }
+        }
+
+        if (role !== 'system' && role !== 'broadcaster' && role !== 'viewer') {
+            role = 'viewer';
+        }
+
+        let username = data.username;
+        if (!username || typeof username !== 'string') {
+            if (role === 'system') {
+                username = '系統';
+            } else if (role === 'broadcaster') {
+                username = '主播';
+            } else {
+                username = '觀眾';
+            }
+        }
+
+        const timestamp = data.timestamp || data.createdAt || new Date().toISOString();
+
+        return {
+            type: 'chat',
+            role,
+            username,
+            message,
+            timestamp,
+            broadcasterId: data.broadcasterId || null
+        };
+    }
     
     processMessageQueue() {
         if (!this.isConnected || !this.socket) return;
@@ -555,14 +637,19 @@ class ChatSystem {
             this.socket.removeEventListener('message', this.messageHandler);
         }
         
-        // 如果是獨立的聊天WebSocket，則關閉它
-        if (this.socket && !this.isStreamer) {
-            this.socket.close();
+        // 如果是聊天系統自行建立的 WebSocket，則關閉
+        if (this.socket && this.ownsSocket) {
+            try {
+                this.socket.close();
+            } catch (err) {
+                console.warn('[ChatSystem] 關閉自管 WebSocket 失敗:', err);
+            }
         }
         
         this.socket = null;
         this.messageHandler = null;
         this.isConnected = false;
+        this.ownsSocket = false;
     }
     
     // 更新用戶名
@@ -573,8 +660,35 @@ class ChatSystem {
     
     // 設置WebSocket連接
     setSocket(newSocket) {
+        if (!newSocket) {
+            console.warn('[ChatSystem] setSocket 收到空的 WebSocket');
+            return;
+        }
+        
+        if (this.socket === newSocket) {
+            console.log('[ChatSystem] setSocket 收到相同連線，忽略');
+            return;
+        }
+        
         console.log('[ChatSystem] 設置新的WebSocket連接');
+        
+        // 清理舊連線事件
+        if (this.socket && this.messageHandler) {
+            this.socket.removeEventListener('message', this.messageHandler);
+        }
+        
+        // 若舊連線由聊天系統建立，則關閉
+        if (this.socket && this.ownsSocket) {
+            try {
+                this.socket.close();
+            } catch (err) {
+                console.warn('[ChatSystem] 關閉舊的自管 WebSocket 失敗:', err);
+            }
+        }
+        
         this.socket = newSocket;
+        this.ownsSocket = false;
+        this.isConnected = this.socket.readyState === WebSocket.OPEN;
         this.setupWebSocketHandlers();
         
         // 如果連接已經開啟，發送身份識別
