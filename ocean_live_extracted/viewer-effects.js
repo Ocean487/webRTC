@@ -9,14 +9,55 @@ const overlayEffects = new Set(['particles', 'hearts', 'confetti', 'snow']);
 function restartRainbowFilterAnimation(videoElement) {
     if (!videoElement) return;
 
-    videoElement.classList.add('effect-rainbow-filter');
-    videoElement.style.animation = 'none';
-    videoElement.style.webkitAnimation = 'none';
-    void videoElement.offsetHeight; // 觸發重排以重啟動畫
-    videoElement.style.setProperty('filter', 'saturate(2) hue-rotate(0deg)', 'important');
-    videoElement.style.setProperty('-webkit-filter', 'saturate(2) hue-rotate(0deg)', 'important');
-    videoElement.style.setProperty('animation', 'rainbow-filter 3s linear infinite', 'important');
-    videoElement.style.setProperty('-webkit-animation', 'rainbow-filter 3s linear infinite', 'important');
+    const videoContainer = videoElement.closest('.stream-video') || document.getElementById('streamVideo');
+    
+    if (videoContainer) {
+        ensureRainbowOverlayLayers(videoContainer);
+        // 移除並重新添加類別以重啟漸層動畫
+        videoContainer.classList.remove('effect-rainbow-filter');
+        void videoContainer.offsetHeight; // 觸發重排
+        videoContainer.classList.add('effect-rainbow-filter');
+        console.log('✅ 漸變彩虹覆蓋層已套用到容器');
+    } else {
+        console.warn('⚠️ 找不到視頻容器，改為在父層創建覆蓋層');
+        const fallbackContainer = videoElement.parentElement;
+        if (fallbackContainer) {
+            ensureRainbowOverlayLayers(fallbackContainer);
+            fallbackContainer.classList.remove('effect-rainbow-filter');
+            void fallbackContainer.offsetHeight;
+            fallbackContainer.classList.add('effect-rainbow-filter');
+        }
+    }
+}
+
+function ensureRainbowOverlayLayers(container) {
+    if (!container) return;
+
+    let gradientLayer = container.querySelector('.rainbow-gradient-layer');
+    if (!gradientLayer) {
+        gradientLayer = document.createElement('div');
+        gradientLayer.className = 'rainbow-gradient-layer';
+        container.appendChild(gradientLayer);
+    }
+
+    let glowLayer = container.querySelector('.rainbow-glow-layer');
+    if (!glowLayer) {
+        glowLayer = document.createElement('div');
+        glowLayer.className = 'rainbow-glow-layer';
+        container.appendChild(glowLayer);
+    }
+}
+
+function removeRainbowOverlayLayers(container) {
+    if (!container) return;
+    const gradientLayer = container.querySelector('.rainbow-gradient-layer');
+    if (gradientLayer) {
+        gradientLayer.remove();
+    }
+    const glowLayer = container.querySelector('.rainbow-glow-layer');
+    if (glowLayer) {
+        glowLayer.remove();
+    }
 }
 
 // 嘗試確保影片在套用特效後保持播放
@@ -76,8 +117,7 @@ function applyViewerEffect(effectType) {
     const remoteVideo = document.getElementById('remoteVideo');
     if (!remoteVideo) {
         console.error('❌ 找不到遠程視頻元素 #remoteVideo');
-    ensureRemoteVideoPlaying(remoteVideo);
-    return;
+        return;
     }
 
     // 使用正確的容器選擇器
@@ -145,10 +185,9 @@ function applyViewerEffect(effectType) {
             break;
         case 'rainbow':
             restartRainbowFilterAnimation(remoteVideo);
-            console.log('✅ 彩虹濾鏡已應用到視頻元素並重新啟動動畫');
+            console.log('✅ 漸變彩虹覆蓋層已應用');
             console.log('   - 視頻類別:', remoteVideo.className);
-            console.log('   - 計算樣式 filter:', window.getComputedStyle(remoteVideo).filter);
-            console.log('   - 計算樣式 animation:', window.getComputedStyle(remoteVideo).animation);
+            console.log('   - 容器類別:', videoContainer ? videoContainer.className : 'N/A');
             break;
         case 'bw':
             remoteVideo.style.filter = 'grayscale(100%)';
@@ -223,15 +262,16 @@ function resetViewerEffectStyles(videoElement, videoContainer) {
     videoElement.classList.remove('effect-rainbow-filter');
     currentViewerEffect = 'clear';
     delete videoElement.dataset.viewerEffect;
-    
+
     console.log('🧹 已清除視頻元素的所有特效');
 
     // 使用傳入的容器或查找容器
     const container = videoContainer || document.getElementById('streamVideo') || videoElement.parentElement;
     if (container) {
-        container.classList.remove('effect-neon-border', 'effect-glow-border', 'effect-rainbow-border');
+        container.classList.remove('effect-neon-border', 'effect-glow-border', 'effect-rainbow-border', 'effect-rainbow-filter');
         removeLightningBorderOverlay(container);
-        console.log('🧹 已清除容器的所有邊框特效');
+        removeRainbowOverlayLayers(container);
+        console.log('🧹 已清除容器的所有邊框特效和彩色分離');
     }
 
     // 移除眼鏡覆蓋層

@@ -624,9 +624,8 @@ body {
 }
 
 .video-container #localVideo.effect-rainbow-filter {
-    filter: saturate(1.35);
-    animation: rainbow-filter 3s linear infinite;
-    -webkit-animation: rainbow-filter 3s linear infinite;
+    filter: saturate(1.15) contrast(1.05);
+    -webkit-filter: saturate(1.15) contrast(1.05);
 }
 
 .film-frame-overlay {
@@ -778,22 +777,131 @@ body {
     }
 }
 
-@-webkit-keyframes rainbow-filter {
+/* 彩虹濾鏡 - 漸變彩虹覆蓋層動畫 */
+@-webkit-keyframes rainbow-gradient-shift {
     0% {
-        filter: hue-rotate(0deg) saturate(2);
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
     }
     100% {
-        filter: hue-rotate(360deg) saturate(2);
+        background-position: 0% 50%;
     }
 }
 
-@keyframes rainbow-filter {
+@keyframes rainbow-gradient-shift {
     0% {
-        filter: hue-rotate(0deg) saturate(2);
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
     }
     100% {
-        filter: hue-rotate(360deg) saturate(2);
+        background-position: 0% 50%;
     }
+}
+
+@-webkit-keyframes rainbow-overlay-pulse {
+    0%, 100% {
+        opacity: 0.24;
+    }
+    50% {
+        opacity: 0.46;
+    }
+}
+
+@keyframes rainbow-overlay-pulse {
+    0%, 100% {
+        opacity: 0.24;
+    }
+    50% {
+        opacity: 0.46;
+    }
+}
+
+@-webkit-keyframes rainbow-glow-drift {
+    0% {
+        transform: translate(-10%, -6%) scale(1.04);
+        opacity: 0.16;
+    }
+    50% {
+        transform: translate(8%, 10%) scale(1.17);
+        opacity: 0.32;
+    }
+    100% {
+        transform: translate(-10%, -6%) scale(1.04);
+        opacity: 0.16;
+    }
+}
+
+@keyframes rainbow-glow-drift {
+    0% {
+        transform: translate(-10%, -6%) scale(1.04);
+        opacity: 0.16;
+    }
+    50% {
+        transform: translate(8%, 10%) scale(1.17);
+        opacity: 0.32;
+    }
+    100% {
+        transform: translate(-10%, -6%) scale(1.04);
+        opacity: 0.16;
+    }
+}
+
+.video-container.effect-rainbow-filter {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.video-container.effect-rainbow-filter .rainbow-gradient-layer,
+.video-container.effect-rainbow-filter .rainbow-glow-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    border-radius: var(--stream-border-radius, 15px);
+}
+
+.video-container.effect-rainbow-filter .rainbow-gradient-layer {
+    z-index: 2;
+    background: linear-gradient(120deg,
+        rgba(255, 20, 147, 0.55),
+        rgba(255, 140, 0, 0.48),
+        rgba(255, 255, 0, 0.45),
+        rgba(0, 255, 128, 0.45),
+        rgba(0, 191, 255, 0.5),
+        rgba(138, 43, 226, 0.55),
+        rgba(255, 20, 147, 0.55)
+    );
+    background-size: 350% 350%;
+    mix-blend-mode: screen;
+    animation: rainbow-gradient-shift 7.5s ease-in-out infinite;
+}
+
+.video-container.effect-rainbow-filter .rainbow-glow-layer {
+    z-index: 3;
+    background: radial-gradient(circle at 28% 30%, rgba(255, 255, 255, 0.2), transparent 55%),
+                radial-gradient(circle at 74% 72%, rgba(255, 255, 255, 0.17), transparent 60%);
+    mix-blend-mode: screen;
+    animation: rainbow-overlay-pulse 5.5s ease-in-out infinite alternate,
+               rainbow-glow-drift 9s ease-in-out infinite;
+}
+
+.video-container.effect-rainbow-filter #localVideo {
+    position: relative;
+    z-index: 1;
+}
+
+/* 舊版樣式保持向後兼容 */
+.video-container #localVideo.effect-rainbow-filter {
+    position: relative;
+    z-index: 1;
 }
 
 .video-container.effect-rainbow-border {

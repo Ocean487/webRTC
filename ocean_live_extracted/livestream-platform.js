@@ -1542,8 +1542,21 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             console.log('✅ 模糊特效已套用, filter:', videoElement.style.filter);
             break;
         case 'rainbow':
-            videoElement.classList.add('effect-rainbow-filter');
-            console.log('✅ 彩虹特效已套用');
+            // 將漸變彩虹覆蓋層套用到容器
+            if (videoContainer) {
+                ensureRainbowOverlayLayers(videoContainer);
+                videoContainer.classList.remove('effect-rainbow-filter');
+                void videoContainer.offsetHeight; // 觸發重排
+                videoContainer.classList.add('effect-rainbow-filter');
+                console.log('✅ 漸變彩虹覆蓋層已套用到容器');
+            } else {
+                videoElement.classList.add('effect-rainbow-filter');
+                const fallbackContainer = videoElement.parentElement;
+                if (fallbackContainer) {
+                    ensureRainbowOverlayLayers(fallbackContainer);
+                }
+                console.log('✅ 彩虹特效已套用到視頻元素（降級模式）');
+            }
             break;
         case 'bw':
             videoElement.style.filter = 'grayscale(100%)';
@@ -1660,12 +1673,14 @@ function resetVideoEffectStyles(videoElement) {
 
     const container = videoElement.parentElement;
     if (container) {
+        container.classList.remove('effect-rainbow-filter', 'effect-rainbow-border', 'effect-neon-border', 'effect-glow-border');
         container.style.border = '';
         container.style.boxShadow = '';
         container.style.borderImage = '';
         container.style.borderRadius = '15px';
         container.classList.remove('effect-neon-border', 'effect-glow-border', 'effect-rainbow-border');
         removeLightningBorderOverlay(container);
+        removeRainbowOverlayLayers(container);
     }
 
     hideGlassesOverlay(videoElement);
@@ -1749,6 +1764,36 @@ function removeLightningBorderOverlay(container) {
     const overlay = container?.querySelector('.lightning-border-overlay');
     if (overlay) {
         overlay.remove();
+    }
+}
+
+function ensureRainbowOverlayLayers(container) {
+    if (!container) return;
+
+    let gradientLayer = container.querySelector('.rainbow-gradient-layer');
+    if (!gradientLayer) {
+        gradientLayer = document.createElement('div');
+        gradientLayer.className = 'rainbow-gradient-layer';
+        container.appendChild(gradientLayer);
+    }
+
+    let glowLayer = container.querySelector('.rainbow-glow-layer');
+    if (!glowLayer) {
+        glowLayer = document.createElement('div');
+        glowLayer.className = 'rainbow-glow-layer';
+        container.appendChild(glowLayer);
+    }
+}
+
+function removeRainbowOverlayLayers(container) {
+    if (!container) return;
+    const gradientLayer = container.querySelector('.rainbow-gradient-layer');
+    if (gradientLayer) {
+        gradientLayer.remove();
+    }
+    const glowLayer = container.querySelector('.rainbow-glow-layer');
+    if (glowLayer) {
+        glowLayer.remove();
     }
 }
 

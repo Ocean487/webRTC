@@ -5,22 +5,76 @@
     --stream-border-radius: 15px;
 }
 
-/* 彩虹濾鏡動畫 */
-@-webkit-keyframes rainbow-filter {
+/* 彩虹濾鏡動畫 - 漸變彩虹覆蓋層 */
+@-webkit-keyframes rainbow-gradient-shift {
     0% {
-        filter: hue-rotate(0deg) saturate(2);
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
     }
     100% {
-        filter: hue-rotate(360deg) saturate(2);
+        background-position: 0% 50%;
     }
 }
 
-@keyframes rainbow-filter {
+@keyframes rainbow-gradient-shift {
     0% {
-        filter: hue-rotate(0deg) saturate(2);
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
     }
     100% {
-        filter: hue-rotate(360deg) saturate(2);
+        background-position: 0% 50%;
+    }
+}
+
+@-webkit-keyframes rainbow-overlay-pulse {
+    0%, 100% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 0.48;
+    }
+}
+
+@keyframes rainbow-overlay-pulse {
+    0%, 100% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 0.48;
+    }
+}
+
+@-webkit-keyframes rainbow-glow-drift {
+    0% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+    50% {
+        transform: translate(10%, 8%) scale(1.18);
+        opacity: 0.35;
+    }
+    100% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+}
+
+@keyframes rainbow-glow-drift {
+    0% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+    50% {
+        transform: translate(10%, 8%) scale(1.18);
+        opacity: 0.35;
+    }
+    100% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
     }
 }
 
@@ -150,15 +204,63 @@
     z-index: 0; /* 確保視頻在邊框效果下方 */
 }
 
-/* 彩虹濾鏡 - 直接應用到 video 元素 */
+/* 彩虹濾鏡 - 漸變彩虹覆蓋層 */
+.stream-video.effect-rainbow-filter {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.stream-video.effect-rainbow-filter .rainbow-gradient-layer,
+.stream-video.effect-rainbow-filter .rainbow-glow-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    border-radius: var(--stream-border-radius, 15px);
+}
+
+.stream-video.effect-rainbow-filter .rainbow-gradient-layer {
+    z-index: 2;
+    background: linear-gradient(120deg,
+        rgba(255, 20, 147, 0.55),
+        rgba(255, 140, 0, 0.48),
+        rgba(255, 255, 0, 0.45),
+        rgba(0, 255, 128, 0.45),
+        rgba(0, 191, 255, 0.5),
+        rgba(138, 43, 226, 0.55),
+        rgba(255, 20, 147, 0.55)
+    );
+    background-size: 350% 350%;
+    mix-blend-mode: screen;
+    animation: rainbow-gradient-shift 7.5s ease-in-out infinite;
+}
+
+.stream-video.effect-rainbow-filter .rainbow-glow-layer {
+    z-index: 3;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.22), transparent 55%),
+                radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.18), transparent 60%);
+    mix-blend-mode: screen;
+    animation: rainbow-overlay-pulse 5.5s ease-in-out infinite alternate,
+               rainbow-glow-drift 9s ease-in-out infinite;
+}
+
+/* 確保影片在最底層 */
 video.effect-rainbow-filter,
-#remoteVideo.effect-rainbow-filter,
-.stream-video video.effect-rainbow-filter,
+#remoteVideo.effect-rainbow-filter {
+    position: relative;
+    z-index: 0;
+    filter: saturate(1.12) contrast(1.05);
+    -webkit-filter: saturate(1.12) contrast(1.05);
+}
+
+/* 舊版直接套用到 video 元素的樣式（保持向後兼容） */
 #streamVideo video.effect-rainbow-filter {
-    filter: saturate(2) hue-rotate(0deg) !important;
-    animation: rainbow-filter 3s linear infinite !important;
-    -webkit-animation: rainbow-filter 3s linear infinite !important;
-    will-change: filter; /* 優化動畫性能 */
+    position: relative;
+    z-index: 0;
 }
 
 /* 彩虹邊框效果 - 確保正確顯示 */
