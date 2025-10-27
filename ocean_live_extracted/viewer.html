@@ -178,6 +178,15 @@
             <script src="immediate-fix.js"></script>
             <script src="webrtc-blackscreen-fix.js"></script>
             <script src="chat-system.js"></script>
+            <script>
+                window.FACE_API_MODEL_BASE = 'webrtc-filters-tutorial-master/public/weights';
+                window.FACE_API_MODEL_PATH_FORMAT = 'manifest';
+                window.FACE_API_MODEL_SOURCES = [
+                    { base: 'webrtc-filters-tutorial-master/public/weights', type: 'manifest', label: 'local tutorial weights' }
+                ];
+            </script>
+            <script src="webrtc-filters-tutorial-master/public/lib/face-api.min.js"></script>
+            <script src="glasses-tracker.js"></script>
             <script src="viewer-effects.js"></script>
             <script src="viewer.js"></script>
             <script src="webrtc-diagnostics.js"></script>

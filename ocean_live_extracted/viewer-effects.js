@@ -5,6 +5,67 @@ console.log('🎨 載入觀眾端特效處理模組...');
 let currentViewerEffect = 'clear';
 const overlayEffects = new Set(['particles', 'hearts', 'confetti', 'snow']);
 
+const GLASSES_IMAGE_PATH = 'images/glass.png';
+const FACE_API_LOCAL_MODEL_PATH = window.FACE_API_MODEL_BASE || '/weights';
+const FACE_API_CDN_MODEL_PATH = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+const FACE_API_MODEL_PATH_FORMAT = (typeof window !== 'undefined' && typeof window.FACE_API_MODEL_PATH_FORMAT === 'string')
+    ? window.FACE_API_MODEL_PATH_FORMAT
+    : 'manifest';
+const FACE_API_ADDITIONAL_SOURCES = (typeof window !== 'undefined' && Array.isArray(window.FACE_API_MODEL_SOURCES))
+    ? window.FACE_API_MODEL_SOURCES
+    : undefined;
+
+let viewerGlassesTracker = null;
+
+function ensureViewerGlassesTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用眼鏡特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立眼鏡追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerGlassesTracker) {
+        viewerGlassesTracker.setTargets(videoElement, container);
+        return viewerGlassesTracker;
+    }
+
+    viewerGlassesTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: GLASSES_IMAGE_PATH,
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES
+    });
+
+    return viewerGlassesTracker;
+}
+
+async function startViewerGlassesTracking(videoElement, container) {
+    const tracker = ensureViewerGlassesTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端眼鏡追蹤', error);
+    }
+}
+
+function stopViewerGlassesTracking() {
+    if (viewerGlassesTracker) {
+        viewerGlassesTracker.stop();
+        viewerGlassesTracker = null;
+    }
+}
+
 // 重新啟動彩虹濾鏡動畫
 function restartRainbowFilterAnimation(videoElement) {
     if (!videoElement) return;
@@ -163,6 +224,11 @@ function applyViewerEffect(effectType) {
             console.log('🔁 重新啟動彩虹濾鏡動畫');
             restartRainbowFilterAnimation(remoteVideo);
             ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'glasses') {
+            console.log('🔁 重新啟動眼鏡追蹤');
+            stopViewerGlassesTracking();
+            showViewerGlassesOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
         } else if (overlayEffects.has(effectType)) {
             console.log('🔁 重新啟動動畫覆蓋層效果');
             createViewerAnimationOverlay(effectType);
@@ -230,7 +296,7 @@ function applyViewerEffect(effectType) {
             }
             break;
         case 'glasses':
-            showViewerGlassesOverlay(remoteVideo);
+            showViewerGlassesOverlay(remoteVideo, videoContainer);
             break;
         case 'particles':
             createViewerAnimationOverlay('particles');
@@ -253,6 +319,8 @@ function applyViewerEffect(effectType) {
 
 function resetViewerEffectStyles(videoElement, videoContainer) {
     if (!videoElement) return;
+
+    stopViewerGlassesTracking();
 
     // 清除所有濾鏡和動畫
     videoElement.style.removeProperty('filter');
@@ -312,18 +380,12 @@ function removeLightningBorderOverlay(container) {
     }
 }
 
-function showViewerGlassesOverlay(videoElement) {
-    const container = videoElement?.parentElement;
-    if (!container) return;
-    if (container.querySelector('.glasses-overlay')) return;
-
-    const overlay = document.createElement('div');
-    overlay.className = 'glasses-overlay';
-    overlay.innerHTML = `
-        <div class="glasses-lens left"><span class="glasses-glint"></span></div>
-        <div class="glasses-bridge"></div>
-        <div class="glasses-lens right"><span class="glasses-glint"></span></div>`;
-    container.appendChild(overlay);
+function showViewerGlassesOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerGlassesTracking(videoElement, targetContainer);
 }
 
 function createViewerAnimationOverlay(type) {

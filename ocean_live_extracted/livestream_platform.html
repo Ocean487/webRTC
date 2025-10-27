@@ -444,7 +444,16 @@
         </div>
     </div>
 
-    <!-- JavaScript 文件 - 按依赖顺序加载 -->
+    <!-- JavaScript 文件 - 按依賴順序加載 -->
+    <script>
+        window.FACE_API_MODEL_BASE = 'webrtc-filters-tutorial-master/public/weights';
+        window.FACE_API_MODEL_PATH_FORMAT = 'manifest';
+        window.FACE_API_MODEL_SOURCES = [
+            { base: 'webrtc-filters-tutorial-master/public/weights', type: 'manifest', label: 'local tutorial weights' }
+        ];
+    </script>
+    <script src="webrtc-filters-tutorial-master/public/lib/face-api.min.js"></script>
+    <script src="glasses-tracker.js"></script>
     <script src="livestream-platform.js"></script>
     <script src="script.js"></script>
     <script src="video-effects.js"></script>

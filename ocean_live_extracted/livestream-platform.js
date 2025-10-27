@@ -27,6 +27,18 @@ let titleSocketReconnectAttempts = 0; // 重連嘗試次數
 let titleSocketReconnectTimer = null; // 重連計時器
 const MAX_RECONNECT_ATTEMPTS = 5; // 最多重連5次
 
+const FACE_API_LOCAL_MODEL_PATH = window.FACE_API_MODEL_BASE || '/weights';
+const FACE_API_CDN_MODEL_PATH = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+const GLASSES_IMAGE_PATH = 'images/glass.png';
+const FACE_API_MODEL_PATH_FORMAT = (typeof window !== 'undefined' && typeof window.FACE_API_MODEL_PATH_FORMAT === 'string')
+    ? window.FACE_API_MODEL_PATH_FORMAT
+    : 'manifest';
+const FACE_API_ADDITIONAL_SOURCES = (typeof window !== 'undefined' && Array.isArray(window.FACE_API_MODEL_SOURCES))
+    ? window.FACE_API_MODEL_SOURCES
+    : undefined;
+
+let broadcasterGlassesTracker = null;
+
 // 診斷函數 - 檢查直播系統狀態
 function diagnoseLiveStreamIssue() {
     console.log('=== 直播系統診斷 ===');
@@ -1719,21 +1731,69 @@ function hideFilmFrameOverlay(videoElement) {
     }
 }
 
+function ensureBroadcasterGlassesTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用眼鏡追蹤');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立眼鏡追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (broadcasterGlassesTracker) {
+        broadcasterGlassesTracker.setTargets(videoElement, container);
+        return broadcasterGlassesTracker;
+    }
+
+    broadcasterGlassesTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: GLASSES_IMAGE_PATH,
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 130,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES
+    });
+
+    return broadcasterGlassesTracker;
+}
+
+async function startBroadcasterGlassesTracking(videoElement, container) {
+    const tracker = ensureBroadcasterGlassesTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動主播端眼鏡追蹤', error);
+    }
+}
+
+function stopBroadcasterGlassesTracking() {
+    if (broadcasterGlassesTracker) {
+        broadcasterGlassesTracker.stop();
+        broadcasterGlassesTracker = null;
+    }
+}
+
 function showGlassesOverlay(videoElement) {
     const container = videoElement?.parentElement;
-    if (!container) return;
-    if (container.querySelector('.glasses-overlay')) return;
+    if (!videoElement || !container) {
+        console.warn('⚠️ 眼鏡特效缺少必要的 DOM 元素');
+        return;
+    }
 
-    const overlay = document.createElement('div');
-    overlay.className = 'glasses-overlay';
-    overlay.innerHTML = `
-        <div class="glasses-lens left"><span class="glasses-glint"></span></div>
-        <div class="glasses-bridge"></div>
-        <div class="glasses-lens right"><span class="glasses-glint"></span></div>`;
-    container.appendChild(overlay);
+    startBroadcasterGlassesTracking(videoElement, container);
 }
 
 function hideGlassesOverlay(videoElement) {
+    stopBroadcasterGlassesTracking();
     const container = videoElement?.parentElement;
     if (!container) return;
     const overlay = container.querySelector('.glasses-overlay');

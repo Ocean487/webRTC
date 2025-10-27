@@ -1703,74 +1703,6 @@ body {
     background: rgba(255, 255, 255, 0.9);
     color: #4CAF50;
     border-radius: 50%;
-@keyframes glassesGlint {
-    0%, 100% {
-        opacity: 0.12;
-        transform: translate(-15%, -10%) rotate(18deg);
-    }
-    50% {
-        opacity: 0.3;
-        transform: translate(25%, 20%) rotate(18deg);
-    }
-}
-
-.glasses-overlay {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: 60%;
-    aspect-ratio: 3 / 1;
-    transform: translate(-50%, -50%);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    pointer-events: none;
-    z-index: 9;
-    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45));
-}
-
-.glasses-lens {
-    flex: 0 0 36%;
-    aspect-ratio: 1 / 1;
-    border: 5px solid rgba(24, 24, 24, 0.85);
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.2) 0%, rgba(0, 0, 0, 0.55) 70%, rgba(10, 10, 10, 0.85) 100%);
-    position: relative;
-    overflow: hidden;
-    box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.65);
-}
-
-.glasses-lens.left::after,
-.glasses-lens.right::after {
-    content: '';
-    position: absolute;
-    inset: 12% 20%;
-    border: 4px solid rgba(255, 255, 255, 0.08);
-    border-radius: 50%;
-}
-
-.glasses-glint {
-    position: absolute;
-    top: 18%;
-    left: 18%;
-    width: 46%;
-    height: 30%;
-    background: linear-gradient(135deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0));
-    border-radius: 45% 55% 45% 55%;
-    opacity: 0.2;
-    animation: glassesGlint 3.5s ease-in-out infinite;
-}
-
-.glasses-bridge {
-    flex: 0 0 14%;
-    height: 28%;
-    border-top: 5px solid rgba(24, 24, 24, 0.85);
-    border-radius: 50% 50% 0 0;
-    margin-top: 10%;
-    background: linear-gradient(180deg, rgba(60, 60, 60, 0.8), rgba(18, 18, 18, 0.95));
-    box-shadow: inset 0 3px 6px rgba(0, 0, 0, 0.4);
-}
-
     width: 16px;
     height: 16px;
     font-size: 10px;
@@ -1779,6 +1711,27 @@ body {
     justify-content: center;
     font-weight: bold;
     z-index: 1;
+}
+
+.glasses-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    width: 220px;
+    pointer-events: none;
+    z-index: 12;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45));
+}
+
+.glasses-overlay img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
 }
 
 /* 聊天室狀態列樣式 */
