@@ -30,6 +30,7 @@ const MAX_RECONNECT_ATTEMPTS = 5; // 最多重連5次
 const FACE_API_LOCAL_MODEL_PATH = window.FACE_API_MODEL_BASE || '/weights';
 const FACE_API_CDN_MODEL_PATH = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
 const GLASSES_IMAGE_PATH = 'images/glass.png';
+const DOG_IMAGE_PATH = 'images/dog.png';
 const FACE_API_MODEL_PATH_FORMAT = (typeof window !== 'undefined' && typeof window.FACE_API_MODEL_PATH_FORMAT === 'string')
     ? window.FACE_API_MODEL_PATH_FORMAT
     : 'manifest';
@@ -38,6 +39,7 @@ const FACE_API_ADDITIONAL_SOURCES = (typeof window !== 'undefined' && Array.isAr
     : undefined;
 
 let broadcasterGlassesTracker = null;
+let broadcasterDogTracker = null;
 
 // 診斷函數 - 檢查直播系統狀態
 function diagnoseLiveStreamIssue() {
@@ -1588,6 +1590,10 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             showGlassesOverlay(videoElement);
             console.log('✅ 眼鏡特效已套用');
             break;
+        case 'dog':
+            showDogOverlay(videoElement);
+            console.log('✅ 狗狗特效已套用');
+            break;
         case 'bright':
             videoElement.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
             console.log('✅ 美白特效已套用');
@@ -1696,6 +1702,7 @@ function resetVideoEffectStyles(videoElement) {
     }
 
     hideGlassesOverlay(videoElement);
+    hideDogOverlay(videoElement);
 
     const activeOverlay = document.querySelector('.animation-overlay');
     if (activeOverlay) {
@@ -1802,6 +1809,85 @@ function hideGlassesOverlay(videoElement) {
     }
 }
 
+function ensureBroadcasterDogTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用狗狗追蹤');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立狗狗追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (broadcasterDogTracker) {
+        broadcasterDogTracker.setTargets(videoElement, container);
+        return broadcasterDogTracker;
+    }
+
+    broadcasterDogTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: DOG_IMAGE_PATH,
+        overlayClassName: 'dog-overlay',
+        overlayImageAlt: '可愛狗狗特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 130,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 3.4,
+        verticalOffsetRatio: 0.02,
+        overlayZIndex: 13,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: [18,19,20,21,22,23,24,25,26],
+        widthLandmarkPair: [20,24]
+    });
+
+    return broadcasterDogTracker;
+}
+
+async function startBroadcasterDogTracking(videoElement, container) {
+    const tracker = ensureBroadcasterDogTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動主播端狗狗追蹤', error);
+    }
+}
+
+function stopBroadcasterDogTracking() {
+    if (broadcasterDogTracker) {
+        broadcasterDogTracker.stop();
+        broadcasterDogTracker = null;
+    }
+}
+
+function showDogOverlay(videoElement) {
+    const container = videoElement?.parentElement;
+    if (!videoElement || !container) {
+        console.warn('⚠️ 狗狗特效缺少必要的 DOM 元素');
+        return;
+    }
+
+    startBroadcasterDogTracking(videoElement, container);
+}
+
+function hideDogOverlay(videoElement) {
+    stopBroadcasterDogTracking();
+    const container = videoElement?.parentElement;
+    if (!container) return;
+    const overlay = container.querySelector('.dog-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
 function ensureLightningBorderOverlay(container) {
     if (!container) return;
     if (container.querySelector('.lightning-border-overlay')) return;
@@ -1893,12 +1979,13 @@ function getEffectName(effectType) {
         'bw': '黑白',
         'sepia': '懷舊',
         'glasses': '戴眼鏡',
+        'dog': '狗狗面具',
         'bright': '美白',
         'warm': '暖色調',
         'invert': '反相',
         'rainbowBorder': '彩虹邊框',
-    'neon': '霓虹',
-    'glow': '閃電',
+        'neon': '霓虹',
+        'glow': '閃電',
         'particles': '粒子',
         'hearts': '愛心',
         'confetti': '彩帶',

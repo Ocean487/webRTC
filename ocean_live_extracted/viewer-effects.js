@@ -6,6 +6,7 @@ let currentViewerEffect = 'clear';
 const overlayEffects = new Set(['particles', 'hearts', 'confetti', 'snow']);
 
 const GLASSES_IMAGE_PATH = 'images/glass.png';
+const DOG_IMAGE_PATH = 'images/dog.png';
 const FACE_API_LOCAL_MODEL_PATH = window.FACE_API_MODEL_BASE || '/weights';
 const FACE_API_CDN_MODEL_PATH = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
 const FACE_API_MODEL_PATH_FORMAT = (typeof window !== 'undefined' && typeof window.FACE_API_MODEL_PATH_FORMAT === 'string')
@@ -16,6 +17,7 @@ const FACE_API_ADDITIONAL_SOURCES = (typeof window !== 'undefined' && Array.isAr
     : undefined;
 
 let viewerGlassesTracker = null;
+let viewerDogTracker = null;
 
 function ensureViewerGlassesTracker(videoElement, container) {
     if (typeof createGlassesTracker !== 'function') {
@@ -63,6 +65,65 @@ function stopViewerGlassesTracking() {
     if (viewerGlassesTracker) {
         viewerGlassesTracker.stop();
         viewerGlassesTracker = null;
+    }
+}
+
+function ensureViewerDogTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用狗狗特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立狗狗追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerDogTracker) {
+        viewerDogTracker.setTargets(videoElement, container);
+        return viewerDogTracker;
+    }
+
+    viewerDogTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: DOG_IMAGE_PATH,
+        overlayClassName: 'dog-overlay',
+        overlayImageAlt: '可愛狗狗特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 3.4,
+        verticalOffsetRatio: 0.02,
+        overlayZIndex: 13,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: [18,19,20,21,22,23,24,25,26],
+        widthLandmarkPair: [20,24]
+    });
+
+    return viewerDogTracker;
+}
+
+async function startViewerDogTracking(videoElement, container) {
+    const tracker = ensureViewerDogTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端狗狗追蹤', error);
+    }
+}
+
+function stopViewerDogTracking() {
+    if (viewerDogTracker) {
+        viewerDogTracker.stop();
+        viewerDogTracker = null;
     }
 }
 
@@ -229,6 +290,11 @@ function applyViewerEffect(effectType) {
             stopViewerGlassesTracking();
             showViewerGlassesOverlay(remoteVideo, videoContainer);
             ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'dog') {
+            console.log('🔁 重新啟動狗狗追蹤');
+            stopViewerDogTracking();
+            showViewerDogOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
         } else if (overlayEffects.has(effectType)) {
             console.log('🔁 重新啟動動畫覆蓋層效果');
             createViewerAnimationOverlay(effectType);
@@ -298,6 +364,9 @@ function applyViewerEffect(effectType) {
         case 'glasses':
             showViewerGlassesOverlay(remoteVideo, videoContainer);
             break;
+        case 'dog':
+            showViewerDogOverlay(remoteVideo, videoContainer);
+            break;
         case 'particles':
             createViewerAnimationOverlay('particles');
             break;
@@ -321,6 +390,7 @@ function resetViewerEffectStyles(videoElement, videoContainer) {
     if (!videoElement) return;
 
     stopViewerGlassesTracking();
+    stopViewerDogTracking();
 
     // 清除所有濾鏡和動畫
     videoElement.style.removeProperty('filter');
@@ -343,9 +413,9 @@ function resetViewerEffectStyles(videoElement, videoContainer) {
     }
 
     // 移除眼鏡覆蓋層
-    const glassesOverlay = container?.querySelector('.glasses-overlay');
-    if (glassesOverlay) {
-        glassesOverlay.remove();
+    const overlays = container ? container.querySelectorAll('.glasses-overlay, .dog-overlay') : null;
+    if (overlays) {
+        overlays.forEach((overlay) => overlay.remove());
     }
 
     // 移除動畫覆蓋層
@@ -386,6 +456,14 @@ function showViewerGlassesOverlay(videoElement, container) {
         return;
     }
     startViewerGlassesTracking(videoElement, targetContainer);
+}
+
+function showViewerDogOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerDogTracking(videoElement, targetContainer);
 }
 
 function createViewerAnimationOverlay(type) {

@@ -3,6 +3,8 @@
     const DEFAULT_IMAGE_PATH = 'images/glass.png';
     const DEFAULT_MODEL_BASE = '/weights';
     const CDN_MODEL_BASE = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+    const DEFAULT_OVERLAY_CLASS = 'glasses-overlay';
+    const DEFAULT_OVERLAY_ALT = '虛擬眼鏡特效';
     const ALTERNATE_MODEL_SOURCES = [
         { base: CDN_MODEL_BASE, type: 'manifest', label: 'jsDelivr face-api.js@0.22.2' },
         { base: 'https://unpkg.com/face-api.js@0.22.2/weights', type: 'manifest', label: 'unpkg face-api.js@0.22.2' },
@@ -200,6 +202,200 @@
         };
     }
 
+    function adjustPoints(points, videoWidth, flipHorizontal) {
+        if (!Array.isArray(points) || !points.length) {
+            return [];
+        }
+        if (!flipHorizontal) {
+            return points.map((point) => ({ x: point.x, y: point.y }));
+        }
+        return points.map((point) => ({ x: videoWidth - point.x, y: point.y }));
+    }
+
+    function ensureLandmarkPositions(landmarks) {
+        if (!landmarks) {
+            return null;
+        }
+        if (typeof landmarks.positions === 'function') {
+            const computed = landmarks.positions();
+            if (Array.isArray(computed)) {
+                return computed;
+            }
+        }
+        if (Array.isArray(landmarks.positions)) {
+            return landmarks.positions;
+        }
+        if (Array.isArray(landmarks._positions)) {
+            return landmarks._positions;
+        }
+        return null;
+    }
+
+    function computeEyeAnchor(landmarks, videoWidth, flipHorizontal) {
+        const leftEyePoints = landmarks.getLeftEye?.();
+        const rightEyePoints = landmarks.getRightEye?.();
+        if (!leftEyePoints || !rightEyePoints) {
+            return null;
+        }
+
+        const adjustedLeftEye = adjustPoints(leftEyePoints, videoWidth, flipHorizontal);
+        const adjustedRightEye = adjustPoints(rightEyePoints, videoWidth, flipHorizontal);
+        const leftEyeCenter = averagePoint(adjustedLeftEye);
+        const rightEyeCenter = averagePoint(adjustedRightEye);
+        if (!leftEyeCenter || !rightEyeCenter) {
+            return null;
+        }
+
+        let leftPoint = leftEyeCenter;
+        let rightPoint = rightEyeCenter;
+        if (leftPoint.x > rightPoint.x) {
+            const temp = leftPoint;
+            leftPoint = rightPoint;
+            rightPoint = temp;
+        }
+
+        const centerX = (leftPoint.x + rightPoint.x) / 2;
+        const centerY = (leftPoint.y + rightPoint.y) / 2;
+        const baseWidth = Math.hypot(rightPoint.x - leftPoint.x, rightPoint.y - leftPoint.y);
+        const tilt = Math.atan2(rightPoint.y - leftPoint.y, rightPoint.x - leftPoint.x);
+
+        return { centerX, centerY, baseWidth, tilt };
+    }
+
+    function computeMouthAnchor(landmarks, videoWidth, flipHorizontal) {
+        const mouthPoints = landmarks.getMouth?.();
+        if (!mouthPoints || !mouthPoints.length) {
+            return null;
+        }
+
+        const adjustedMouth = adjustPoints(mouthPoints, videoWidth, flipHorizontal);
+        const anchorCenter = averagePoint(adjustedMouth);
+        if (!anchorCenter) {
+            return null;
+        }
+
+        let leftCorner = adjustedMouth[0];
+        let rightCorner = adjustedMouth[0];
+        adjustedMouth.forEach((point) => {
+            if (point.x < leftCorner.x) {
+                leftCorner = point;
+            }
+            if (point.x > rightCorner.x) {
+                rightCorner = point;
+            }
+        });
+
+        if (!leftCorner || !rightCorner || leftCorner === rightCorner) {
+            return null;
+        }
+
+        if (leftCorner.x > rightCorner.x) {
+            const temp = leftCorner;
+            leftCorner = rightCorner;
+            rightCorner = temp;
+        }
+
+        const baseWidth = Math.hypot(rightCorner.x - leftCorner.x, rightCorner.y - leftCorner.y);
+        const tilt = Math.atan2(rightCorner.y - leftCorner.y, rightCorner.x - leftCorner.x);
+
+        return {
+            centerX: anchorCenter.x,
+            centerY: anchorCenter.y,
+            baseWidth,
+            tilt
+        };
+    }
+
+    function computeCustomAnchor(options) {
+        const {
+            landmarks,
+            indices,
+            widthPair,
+            videoWidth,
+            flipHorizontal
+        } = options || {};
+
+        if (!landmarks || !Array.isArray(indices) || !indices.length) {
+            return null;
+        }
+
+        const basePositions = ensureLandmarkPositions(landmarks);
+        if (!basePositions) {
+            return null;
+        }
+
+        const selectedPoints = indices
+            .map((index) => {
+                if (!Number.isInteger(index) || index < 0 || index >= basePositions.length) {
+                    return null;
+                }
+                const pt = basePositions[index];
+                if (!pt) {
+                    return null;
+                }
+                return { x: pt.x, y: pt.y };
+            })
+            .filter(Boolean);
+
+        if (!selectedPoints.length) {
+            return null;
+        }
+
+        const adjustedPointsList = adjustPoints(selectedPoints, videoWidth, flipHorizontal);
+        const anchorCenter = averagePoint(adjustedPointsList);
+        if (!anchorCenter) {
+            return null;
+        }
+
+        let widthStart = null;
+        let widthEnd = null;
+
+        if (Array.isArray(widthPair) && widthPair.length === 2) {
+            const pairPoints = widthPair.map((index) => {
+                if (!Number.isInteger(index) || index < 0 || index >= basePositions.length) {
+                    return null;
+                }
+                const pt = basePositions[index];
+                return pt ? { x: pt.x, y: pt.y } : null;
+            });
+            if (pairPoints[0] && pairPoints[1]) {
+                const adjustedPair = adjustPoints(pairPoints, videoWidth, flipHorizontal);
+                [widthStart, widthEnd] = adjustedPair;
+            }
+        }
+
+        if (!widthStart || !widthEnd) {
+            adjustedPointsList.forEach((point) => {
+                if (!widthStart || point.x < widthStart.x) {
+                    widthStart = point;
+                }
+                if (!widthEnd || point.x > widthEnd.x) {
+                    widthEnd = point;
+                }
+            });
+        }
+
+        if (!widthStart || !widthEnd || widthStart === widthEnd) {
+            return null;
+        }
+
+        if (widthStart.x > widthEnd.x) {
+            const temp = widthStart;
+            widthStart = widthEnd;
+            widthEnd = temp;
+        }
+
+        const baseWidth = Math.hypot(widthEnd.x - widthStart.x, widthEnd.y - widthStart.y);
+        const tilt = Math.atan2(widthEnd.y - widthStart.y, widthEnd.x - widthStart.x);
+
+        return {
+            centerX: anchorCenter.x,
+            centerY: anchorCenter.y,
+            baseWidth,
+            tilt
+        };
+    }
+
     class GlassesTracker {
         constructor(options = {}) {
             this.video = options.videoElement || null;
@@ -226,6 +422,23 @@
             this.minConfidence = typeof options.minConfidence === 'number' ? options.minConfidence : 0.5;
             this.flipHorizontal = !!options.flipHorizontal;
             this.detectorInputSize = typeof options.detectorInputSize === 'number' ? options.detectorInputSize : 320;
+            this.overlayClassName = options.overlayClassName || DEFAULT_OVERLAY_CLASS;
+            this.overlayImageAlt = options.overlayImageAlt || DEFAULT_OVERLAY_ALT;
+            this.scaleFactor = typeof options.scaleFactor === 'number' ? options.scaleFactor : SCALE_FACTOR;
+            this.verticalOffsetRatio = typeof options.verticalOffsetRatio === 'number' ? options.verticalOffsetRatio : VERTICAL_OFFSET_RATIO;
+            this.overlayZIndex = Number.isFinite(options.overlayZIndex) ? options.overlayZIndex : null;
+            this.preloadedImage = null;
+            this.landmarkStrategy = options.landmarkStrategy || 'eyes';
+            this.anchorLandmarkIndices = Array.isArray(options.anchorLandmarkIndices)
+                ? options.anchorLandmarkIndices.filter((value) => Number.isInteger(value))
+                : null;
+            if (Array.isArray(options.widthLandmarkPair) && options.widthLandmarkPair.length === 2
+                && options.widthLandmarkPair.every((value) => Number.isInteger(value))) {
+                this.widthLandmarkPair = options.widthLandmarkPair.slice(0, 2);
+            } else {
+                this.widthLandmarkPair = null;
+            }
+            this.anchorCalculator = typeof options.anchorCalculator === 'function' ? options.anchorCalculator : null;
         }
 
         setTargets(videoElement, container) {
@@ -261,18 +474,16 @@
                 });
             }
 
-            this.overlayImage = await ensureImage(this.imagePath);
-            if (!this.overlayImage) {
-                console.warn('⚠️ GlassesTracker: 無法載入眼鏡圖片，停止追蹤');
+            this.preloadedImage = await ensureImage(this.imagePath);
+            if (!this.preloadedImage) {
+                console.warn('⚠️ GlassesTracker: 無法載入特效圖片，停止追蹤');
                 return false;
             }
-
             const modelsAvailable = await loadModels(this);
             if (!modelsAvailable) {
                 console.warn('⚠️ GlassesTracker: 模型載入失敗，停止追蹤');
                 return false;
             }
-
             this.detectorOptions = new faceapi.TinyFaceDetectorOptions({
                 inputSize: this.detectorInputSize,
                 scoreThreshold: this.minConfidence
@@ -293,6 +504,7 @@
             }
             this.overlay = null;
             this.overlayImage = null;
+            this.preloadedImage = null;
         }
 
         ensureOverlay() {
@@ -304,15 +516,31 @@
             }
             if (!this.overlay) {
                 const div = document.createElement('div');
-                div.className = 'glasses-overlay';
+                div.className = this.overlayClassName || DEFAULT_OVERLAY_CLASS;
                 const img = document.createElement('img');
-                img.alt = '虛擬眼鏡特效';
+                img.alt = this.overlayImageAlt || DEFAULT_OVERLAY_ALT;
                 img.src = this.imagePath;
                 div.appendChild(img);
                 this.overlay = div;
+                this.overlayImage = img;
             }
             if (!this.overlayImage) {
                 this.overlayImage = this.overlay.querySelector('img');
+            }
+            this.overlay.className = this.overlayClassName || DEFAULT_OVERLAY_CLASS;
+            if (this.overlayImage) {
+                if (this.overlayImage.src !== this.imagePath) {
+                    this.overlayImage.src = this.imagePath;
+                }
+                this.overlayImage.alt = this.overlayImageAlt || DEFAULT_OVERLAY_ALT;
+            }
+            if (this.overlay.parentElement && this.overlay.parentElement !== this.container) {
+                this.overlay.parentElement.removeChild(this.overlay);
+            }
+            if (this.overlayZIndex !== null) {
+                this.overlay.style.zIndex = String(this.overlayZIndex);
+            } else {
+                this.overlay.style.removeProperty('z-index');
             }
             this.overlay.style.opacity = '0';
             this.container.appendChild(this.overlay);
@@ -364,6 +592,60 @@
             }
         }
 
+        resolveAnchor(landmarks, videoWidth) {
+            if (!landmarks) {
+                return null;
+            }
+
+            const attempts = [];
+
+            if (this.anchorCalculator) {
+                attempts.push(() => this.anchorCalculator({
+                    landmarks,
+                    videoWidth,
+                    flipHorizontal: this.flipHorizontal
+                }));
+            }
+
+            if (this.landmarkStrategy === 'custom' && this.anchorLandmarkIndices && this.anchorLandmarkIndices.length) {
+                attempts.push(() => computeCustomAnchor({
+                    landmarks,
+                    indices: this.anchorLandmarkIndices,
+                    widthPair: this.widthLandmarkPair,
+                    videoWidth,
+                    flipHorizontal: this.flipHorizontal
+                }));
+            } else if (this.landmarkStrategy === 'mouth') {
+                attempts.push(() => computeMouthAnchor(landmarks, videoWidth, this.flipHorizontal));
+            } else if (this.landmarkStrategy === 'eyes') {
+                attempts.push(() => computeEyeAnchor(landmarks, videoWidth, this.flipHorizontal));
+            }
+
+            // Always使用眼睛當作最後的備援策略
+            attempts.push(() => computeEyeAnchor(landmarks, videoWidth, this.flipHorizontal));
+
+            for (const attempt of attempts) {
+                if (typeof attempt !== 'function') {
+                    continue;
+                }
+
+                try {
+                    const result = attempt();
+                    if (result && Number.isFinite(result.centerX) && Number.isFinite(result.centerY)
+                        && Number.isFinite(result.baseWidth) && result.baseWidth > 0) {
+                        if (!Number.isFinite(result.tilt)) {
+                            result.tilt = 0;
+                        }
+                        return result;
+                    }
+                } catch (error) {
+                    console.debug('GlassesTracker: anchor 計算失敗，嘗試下一個策略', error);
+                }
+            }
+
+            return null;
+        }
+
         updateOverlay(detection) {
             const overlay = this.ensureOverlay();
             if (!overlay || !this.overlayImage) {
@@ -383,42 +665,27 @@
             const scaleY = containerHeight / videoHeight;
 
             const landmarks = detection.landmarks;
-            const leftEye = averagePoint(landmarks.getLeftEye());
-            const rightEye = averagePoint(landmarks.getRightEye());
-            if (!leftEye || !rightEye) {
+            const anchor = this.resolveAnchor(landmarks, videoWidth);
+            if (!anchor || !Number.isFinite(anchor.centerX) || !Number.isFinite(anchor.centerY) || !Number.isFinite(anchor.baseWidth) || anchor.baseWidth <= 0) {
                 this.hideOverlay();
                 return;
             }
 
-            let adjustedLeftEye = leftEye;
-            let adjustedRightEye = rightEye;
-
-            if (this.flipHorizontal) {
-                adjustedLeftEye = { x: videoWidth - rightEye.x, y: rightEye.y };
-                adjustedRightEye = { x: videoWidth - leftEye.x, y: leftEye.y };
-            }
-
-            const centerX = (adjustedLeftEye.x + adjustedRightEye.x) / 2;
-            const centerY = (adjustedLeftEye.y + adjustedRightEye.y) / 2;
-            const eyeDistance = Math.hypot(
-                adjustedRightEye.x - adjustedLeftEye.x,
-                adjustedRightEye.y - adjustedLeftEye.y
-            );
-
-            const overlayWidth = eyeDistance * ((scaleX + scaleY) / 2) * SCALE_FACTOR;
-            const naturalRatio = this.overlayImage.naturalHeight && this.overlayImage.naturalWidth
-                ? this.overlayImage.naturalHeight / this.overlayImage.naturalWidth
+            const centerX = anchor.centerX;
+            const centerY = anchor.centerY;
+            const baseWidth = anchor.baseWidth;
+            const overlayWidth = baseWidth * ((scaleX + scaleY) / 2) * this.scaleFactor;
+            const ratioSource = (this.preloadedImage && this.preloadedImage.naturalWidth) ? this.preloadedImage : this.overlayImage;
+            const naturalRatio = ratioSource && ratioSource.naturalHeight && ratioSource.naturalWidth
+                ? ratioSource.naturalHeight / ratioSource.naturalWidth
                 : 0.4;
             const overlayHeight = overlayWidth * naturalRatio;
-            const tilt = Math.atan2(
-                adjustedRightEye.y - adjustedLeftEye.y,
-                adjustedRightEye.x - adjustedLeftEye.x
-            );
+            const tilt = Number.isFinite(anchor.tilt) ? anchor.tilt : 0;
 
             overlay.style.width = `${overlayWidth}px`;
             overlay.style.height = `${overlayHeight}px`;
             overlay.style.left = `${centerX * scaleX}px`;
-            overlay.style.top = `${centerY * scaleY + overlayHeight * VERTICAL_OFFSET_RATIO}px`;
+            overlay.style.top = `${centerY * scaleY + overlayHeight * this.verticalOffsetRatio}px`;
             overlay.style.transform = `translate(-50%, -50%) rotate(${tilt}rad)`;
             overlay.style.opacity = '1';
         }

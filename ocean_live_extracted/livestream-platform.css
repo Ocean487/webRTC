@@ -1713,7 +1713,8 @@ body {
     z-index: 1;
 }
 
-.glasses-overlay {
+.glasses-overlay,
+.dog-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1727,7 +1728,8 @@ body {
     filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.45));
 }
 
-.glasses-overlay img {
+.glasses-overlay img,
+.dog-overlay img {
     display: block;
     width: 100%;
     height: auto;

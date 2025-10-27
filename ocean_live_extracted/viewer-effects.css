@@ -482,8 +482,9 @@ video.effect-rainbow-filter,
     animation: glowPulseIntensity 7s ease-in-out infinite alternate;
 }
 
-/* 眼鏡覆蓋層 */
-.glasses-overlay {
+/* 臉部追蹤覆蓋層（眼鏡、狗狗等） */
+.glasses-overlay,
+.dog-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -494,9 +495,11 @@ video.effect-rainbow-filter,
     z-index: 12;
     opacity: 0;
     transition: opacity 0.2s ease;
+    filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
 }
 
-.glasses-overlay img {
+.glasses-overlay img,
+.dog-overlay img {
     display: block;
     width: 100%;
     height: auto;
