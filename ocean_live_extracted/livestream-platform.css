@@ -205,24 +205,10 @@ body {
     margin-top: 80px;
     padding: 1rem;
     display: grid;
-    grid-template-columns: 250px 300px 1fr 250px 350px;
+    grid-template-columns: 250px 1fr 250px 350px;
     gap: 1rem;
     height: calc(100vh - 80px);
     overflow: hidden;
-}
-
-/* 音樂面板 */
-.music-panel {
-    background: rgba(255, 255, 255, 0.95);
-    backdrop-filter: blur(10px);
-    border-radius: 20px;
-    border: 2px solid rgba(255, 255, 255, 0.5);
-    padding: 1.5rem;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1), 
-                inset 0 1px 0 rgba(255, 255, 255, 0.8),
-                inset 0 -1px 0 rgba(255, 255, 255, 0.6);
-    height: 100%;
-    overflow-y: auto;
 }
 
 /* 特效面板 */
@@ -286,87 +272,6 @@ body {
 
 .effect-btn.active {
     background: linear-gradient(135deg, #ff6b6b, #feca57);
-}
-
-.music-panel h3 {
-    color: #667eea;
-    margin-bottom: 1rem;
-    font-size: 1.2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-/* 音樂提示樣式 */
-.music-tip {
-    background: rgba(255, 235, 59, 0.2);
-    border: 1px solid rgba(255, 235, 59, 0.5);
-    border-radius: 8px;
-    padding: 0.75rem;
-    margin-bottom: 1rem;
-    font-size: 0.9rem;
-    color: #f57c00;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.music-tip i {
-    color: #ff9800;
-}
-
-.url-input {
-    width: 100%;
-    padding: 0.75rem;
-    border: 2px solid #e5e7eb;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    margin-bottom: 0.75rem;
-    transition: border-color 0.3s ease;
-}
-
-.url-input:focus {
-    outline: none;
-    border-color: #667eea;
-}
-
-.btn-load {
-    width: 100%;
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    color: white;
-    border: none;
-    padding: 0.75rem;
-    border-radius: 10px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-bottom: 1rem;
-}
-
-.btn-load:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-}
-
-.audio-tip {
-    background: rgba(59, 130, 246, 0.1);
-    border: 1px solid rgba(59, 130, 246, 0.2);
-    padding: 0.75rem;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    color: #1e40af;
-    margin-bottom: 1rem;
-}
-
-.volume-section {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
-.volume-slider {
-    flex: 1;
 }
 
 /* 控制面板 */
@@ -1476,7 +1381,7 @@ body {
         overflow-y: auto;
     }
 
-    .effects-panel, .music-panel, .control-panel, .stream-area, .chat-panel {
+    .effects-panel, .control-panel, .stream-area, .chat-panel {
         height: auto;
     }
 }
@@ -1714,7 +1619,16 @@ body {
 }
 
 .glasses-overlay,
-.dog-overlay {
+.dog-overlay,
+.pingo-overlay,
+.sech-overlay,
+.laixiong-overlay,
+.mao-overlay,
+.laogao-overlay,
+.guodong-overlay,
+.huoguo-overlay,
+.hsinchu-overlay,
+.car-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1729,11 +1643,137 @@ body {
 }
 
 .glasses-overlay img,
-.dog-overlay img {
+.dog-overlay img,
+.pingo-overlay img,
+.sech-overlay img,
+.laixiong-overlay img,
+.mao-overlay img,
+.laogao-overlay img,
+.guodong-overlay img,
+.huoguo-overlay img,
+.hsinchu-overlay img,
+.car-overlay img {
     display: block;
     width: 100%;
     height: auto;
     pointer-events: none;
+}
+
+.pingo-overlay img {
+    animation: pingoSway 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes pingoSway {
+    0% {
+        transform: translateX(-4%);
+    }
+    100% {
+        transform: translateX(4%);
+    }
+}
+
+.sech-overlay img {
+    animation: sechFloat 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes sechFloat {
+    0% {
+        transform: translate(-2%, -2%);
+    }
+    100% {
+        transform: translate(2%, 2%);
+    }
+}
+
+.laixiong-overlay img {
+    animation: laixiongFloat 3s ease-in-out infinite alternate;
+}
+
+@keyframes laixiongFloat {
+    0% {
+        transform: translate(-1.5%, -2.5%);
+    }
+    100% {
+        transform: translate(1.5%, 2.5%);
+    }
+}
+
+.mao-overlay img {
+    animation: maoFloat 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes maoFloat {
+    0% {
+        transform: translate(-2%, -2%);
+    }
+    100% {
+        transform: translate(2%, 2%);
+    }
+}
+
+.laogao-overlay img {
+    animation: laogaoFloat 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes laogaoFloat {
+    0% {
+        transform: translate(-2.5%, -3%) scale(1.01);
+    }
+    100% {
+        transform: translate(2.5%, 3%) scale(0.99);
+    }
+}
+
+.guodong-overlay img {
+    animation: guodongFloat 3.8s ease-in-out infinite alternate;
+}
+
+@keyframes guodongFloat {
+    0% {
+        transform: translate(-3%, -2.5%) scale(1.02);
+    }
+    100% {
+        transform: translate(3%, 2.5%) scale(0.98);
+    }
+}
+
+.huoguo-overlay img {
+    animation: huoguoFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes huoguoFloat {
+    0% {
+        transform: translate(-2.2%, -3.2%) scale(1.015);
+    }
+    100% {
+        transform: translate(2.2%, 3.2%) scale(0.985);
+    }
+}
+
+.hsinchu-overlay img {
+    animation: hsinchuFloat 3.7s ease-in-out infinite alternate;
+}
+
+@keyframes hsinchuFloat {
+    0% {
+        transform: translate(-2.8%, -2.8%) scale(1.01);
+    }
+    100% {
+        transform: translate(2.8%, 2.8%) scale(0.99);
+    }
+}
+
+.car-overlay img {
+    animation: carBounce 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes carBounce {
+    0% {
+        transform: translate(-2%, -2%) scale(1.01);
+    }
+    100% {
+        transform: translate(2%, 2%) scale(0.99);
+    }
 }
 
 /* 聊天室狀態列樣式 */

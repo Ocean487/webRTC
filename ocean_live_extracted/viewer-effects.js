@@ -7,6 +7,25 @@ const overlayEffects = new Set(['particles', 'hearts', 'confetti', 'snow']);
 
 const GLASSES_IMAGE_PATH = 'images/glass.png';
 const DOG_IMAGE_PATH = 'images/dog.png';
+const PINGO_IMAGE_PATH = 'images/pingo.png';
+const PINGO_AUDIO_PATH = 'images/pingo.mp3';
+const SECH_IMAGE_PATH = 'images/sech.png';
+const SECH_AUDIO_PATH = 'images/sech.mp3';
+const LAIXIONG_IMAGE_PATH = 'images/chder.png';
+const LAIXIONG_AUDIO_PATH = 'images/chder.mp3';
+const MAO_ZED_IMAGE_PATH = 'images/Mao_Zed.png';
+const MAO_ZED_AUDIO_PATH = 'images/Mao_Zed.mp3';
+const LAOGAO_IMAGE_PATH = 'images/high.png';
+const LAOGAO_AUDIO_PATH = 'images/high.mp3';
+const GUODONG_IMAGE_PATH = 'images/don.png';
+const GUODONG_AUDIO_PATH = 'images/don.mp3';
+const HUOGUO_IMAGE_PATH = 'images/god.png';
+const HUOGUO_AUDIO_PATH = 'images/god.mp3';
+const HSINCHU_IMAGE_PATH = 'images/god2.png';
+const HSINCHU_AUDIO_PATH = 'images/god2.mp3';
+const CAR_IMAGE_PATH = 'images/Car.png';
+const CAR_AUDIO_PATH = 'images/Car.mp3';
+const FULL_FACE_LANDMARK_INDICES = Array.from({ length: 68 }, (_, index) => index);
 const FACE_API_LOCAL_MODEL_PATH = window.FACE_API_MODEL_BASE || '/weights';
 const FACE_API_CDN_MODEL_PATH = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
 const FACE_API_MODEL_PATH_FORMAT = (typeof window !== 'undefined' && typeof window.FACE_API_MODEL_PATH_FORMAT === 'string')
@@ -18,6 +37,24 @@ const FACE_API_ADDITIONAL_SOURCES = (typeof window !== 'undefined' && Array.isAr
 
 let viewerGlassesTracker = null;
 let viewerDogTracker = null;
+let viewerPingoTracker = null;
+let viewerPingoAudio = null;
+let viewerSechTracker = null;
+let viewerSechAudio = null;
+let viewerLaixiongTracker = null;
+let viewerLaixiongAudio = null;
+let viewerMaoZedTracker = null;
+let viewerMaoZedAudio = null;
+let viewerLaogaoTracker = null;
+let viewerLaogaoAudio = null;
+let viewerGuodongTracker = null;
+let viewerGuodongAudio = null;
+let viewerHuoguoTracker = null;
+let viewerHuoguoAudio = null;
+let viewerHsinchuTracker = null;
+let viewerHsinchuAudio = null;
+let viewerCarTracker = null;
+let viewerCarAudio = null;
 
 function ensureViewerGlassesTracker(videoElement, container) {
     if (typeof createGlassesTracker !== 'function') {
@@ -125,6 +162,843 @@ function stopViewerDogTracking() {
         viewerDogTracker.stop();
         viewerDogTracker = null;
     }
+}
+
+function ensureViewerPingoAudio() {
+    if (viewerPingoAudio) {
+        return viewerPingoAudio;
+    }
+    const audio = new Audio(PINGO_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerPingoAudio = audio;
+    return audio;
+}
+
+function stopViewerPingoAudio() {
+    if (viewerPingoAudio) {
+        viewerPingoAudio.pause();
+        viewerPingoAudio.currentTime = 0;
+    }
+}
+
+function playViewerPingoAudio() {
+    const audio = ensureViewerPingoAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 皮鼓音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerSechAudio() {
+    if (viewerSechAudio) {
+        return viewerSechAudio;
+    }
+    const audio = new Audio(SECH_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerSechAudio = audio;
+    return audio;
+}
+
+function stopViewerSechAudio() {
+    if (viewerSechAudio) {
+        viewerSechAudio.pause();
+        viewerSechAudio.currentTime = 0;
+    }
+}
+
+function playViewerSechAudio() {
+    const audio = ensureViewerSechAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 世間音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerLaixiongAudio() {
+    if (viewerLaixiongAudio) {
+        return viewerLaixiongAudio;
+    }
+    const audio = new Audio(LAIXIONG_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerLaixiongAudio = audio;
+    return audio;
+}
+
+function stopViewerLaixiongAudio() {
+    if (viewerLaixiongAudio) {
+        viewerLaixiongAudio.pause();
+        viewerLaixiongAudio.currentTime = 0;
+    }
+}
+
+function playViewerLaixiongAudio() {
+    const audio = ensureViewerLaixiongAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 賴兄音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerMaoZedAudio() {
+    if (viewerMaoZedAudio) {
+        return viewerMaoZedAudio;
+    }
+    const audio = new Audio(MAO_ZED_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerMaoZedAudio = audio;
+    return audio;
+}
+
+function stopViewerMaoZedAudio() {
+    if (viewerMaoZedAudio) {
+        viewerMaoZedAudio.pause();
+        viewerMaoZedAudio.currentTime = 0;
+    }
+}
+
+function playViewerMaoZedAudio() {
+    const audio = ensureViewerMaoZedAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 毛主席音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerLaogaoAudio() {
+    if (viewerLaogaoAudio) {
+        return viewerLaogaoAudio;
+    }
+    const audio = new Audio(LAOGAO_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerLaogaoAudio = audio;
+    return audio;
+}
+
+function stopViewerLaogaoAudio() {
+    if (viewerLaogaoAudio) {
+        viewerLaogaoAudio.pause();
+        viewerLaogaoAudio.currentTime = 0;
+    }
+}
+
+function playViewerLaogaoAudio() {
+    const audio = ensureViewerLaogaoAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 老高音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerGuodongAudio() {
+    if (viewerGuodongAudio) {
+        return viewerGuodongAudio;
+    }
+    const audio = new Audio(GUODONG_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerGuodongAudio = audio;
+    return audio;
+}
+
+function stopViewerGuodongAudio() {
+    if (viewerGuodongAudio) {
+        viewerGuodongAudio.pause();
+        viewerGuodongAudio.currentTime = 0;
+    }
+}
+
+function playViewerGuodongAudio() {
+    const audio = ensureViewerGuodongAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 國棟音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerHuoguoAudio() {
+    if (viewerHuoguoAudio) {
+        return viewerHuoguoAudio;
+    }
+    const audio = new Audio(HUOGUO_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerHuoguoAudio = audio;
+    return audio;
+}
+
+function stopViewerHuoguoAudio() {
+    if (viewerHuoguoAudio) {
+        viewerHuoguoAudio.pause();
+        viewerHuoguoAudio.currentTime = 0;
+    }
+}
+
+function playViewerHuoguoAudio() {
+    const audio = ensureViewerHuoguoAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 火鍋音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerHsinchuAudio() {
+    if (viewerHsinchuAudio) {
+        return viewerHsinchuAudio;
+    }
+    const audio = new Audio(HSINCHU_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerHsinchuAudio = audio;
+    return audio;
+}
+
+function stopViewerHsinchuAudio() {
+    if (viewerHsinchuAudio) {
+        viewerHsinchuAudio.pause();
+        viewerHsinchuAudio.currentTime = 0;
+    }
+}
+
+function playViewerHsinchuAudio() {
+    const audio = ensureViewerHsinchuAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 新竹音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerCarAudio() {
+    if (viewerCarAudio) {
+        return viewerCarAudio;
+    }
+    const audio = new Audio(CAR_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    viewerCarAudio = audio;
+    return audio;
+}
+
+function stopViewerCarAudio() {
+    if (viewerCarAudio) {
+        viewerCarAudio.pause();
+        viewerCarAudio.currentTime = 0;
+    }
+}
+
+function playViewerCarAudio() {
+    const audio = ensureViewerCarAudio();
+    if (!audio) {
+        return;
+    }
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 車音效播放失敗，瀏覽器可能阻擋了自動播放', error);
+        });
+    }
+}
+
+function ensureViewerPingoTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用皮鼓特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立皮鼓追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerPingoTracker) {
+        viewerPingoTracker.setTargets(videoElement, container);
+        return viewerPingoTracker;
+    }
+
+    viewerPingoTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: PINGO_IMAGE_PATH,
+        overlayClassName: 'pingo-overlay',
+        overlayImageAlt: '皮鼓特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 1.9,
+        verticalOffsetRatio: 0,
+        overlayZIndex: 14,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerPingoTracker;
+}
+
+async function startViewerPingoTracking(videoElement, container) {
+    const tracker = ensureViewerPingoTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端皮鼓追蹤', error);
+    }
+}
+
+function stopViewerPingoTracking() {
+    if (viewerPingoTracker) {
+        viewerPingoTracker.stop();
+        viewerPingoTracker = null;
+    }
+    stopViewerPingoAudio();
+}
+
+function ensureViewerSechTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用世間特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立世間追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerSechTracker) {
+        viewerSechTracker.setTargets(videoElement, container);
+        return viewerSechTracker;
+    }
+
+    viewerSechTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: SECH_IMAGE_PATH,
+        overlayClassName: 'sech-overlay',
+        overlayImageAlt: '世間特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.15,
+        verticalOffsetRatio: -0.05,
+        overlayZIndex: 15,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerSechTracker;
+}
+
+async function startViewerSechTracking(videoElement, container) {
+    const tracker = ensureViewerSechTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端世間追蹤', error);
+    }
+}
+
+function stopViewerSechTracking() {
+    if (viewerSechTracker) {
+        viewerSechTracker.stop();
+        viewerSechTracker = null;
+    }
+    stopViewerSechAudio();
+}
+
+function ensureViewerLaixiongTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用賴兄特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立賴兄追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerLaixiongTracker) {
+        viewerLaixiongTracker.setTargets(videoElement, container);
+        return viewerLaixiongTracker;
+    }
+
+    viewerLaixiongTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: LAIXIONG_IMAGE_PATH,
+        overlayClassName: 'laixiong-overlay',
+        overlayImageAlt: '賴兄特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.25,
+        verticalOffsetRatio: -0.08,
+        overlayZIndex: 16,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerLaixiongTracker;
+}
+
+async function startViewerLaixiongTracking(videoElement, container) {
+    const tracker = ensureViewerLaixiongTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端賴兄追蹤', error);
+    }
+}
+
+function stopViewerLaixiongTracking() {
+    if (viewerLaixiongTracker) {
+        viewerLaixiongTracker.stop();
+        viewerLaixiongTracker = null;
+    }
+    stopViewerLaixiongAudio();
+}
+
+function ensureViewerMaoZedTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用毛主席特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立毛主席追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerMaoZedTracker) {
+        viewerMaoZedTracker.setTargets(videoElement, container);
+        return viewerMaoZedTracker;
+    }
+
+    viewerMaoZedTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: MAO_ZED_IMAGE_PATH,
+        overlayClassName: 'mao-overlay',
+        overlayImageAlt: '毛主席特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.35,
+        verticalOffsetRatio: -0.06,
+        overlayZIndex: 17,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerMaoZedTracker;
+}
+
+async function startViewerMaoZedTracking(videoElement, container) {
+    const tracker = ensureViewerMaoZedTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端毛主席追蹤', error);
+    }
+}
+
+function stopViewerMaoZedTracking() {
+    if (viewerMaoZedTracker) {
+        viewerMaoZedTracker.stop();
+        viewerMaoZedTracker = null;
+    }
+    stopViewerMaoZedAudio();
+}
+
+function ensureViewerLaogaoTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用老高特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立老高追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerLaogaoTracker) {
+        viewerLaogaoTracker.setTargets(videoElement, container);
+        return viewerLaogaoTracker;
+    }
+
+    viewerLaogaoTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: LAOGAO_IMAGE_PATH,
+        overlayClassName: 'laogao-overlay',
+        overlayImageAlt: '老高特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.2,
+        verticalOffsetRatio: -0.04,
+        overlayZIndex: 18,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerLaogaoTracker;
+}
+
+async function startViewerLaogaoTracking(videoElement, container) {
+    const tracker = ensureViewerLaogaoTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端老高追蹤', error);
+    }
+}
+
+function stopViewerLaogaoTracking() {
+    if (viewerLaogaoTracker) {
+        viewerLaogaoTracker.stop();
+        viewerLaogaoTracker = null;
+    }
+    stopViewerLaogaoAudio();
+}
+
+function ensureViewerGuodongTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用國棟特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立國棟追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerGuodongTracker) {
+        viewerGuodongTracker.setTargets(videoElement, container);
+        return viewerGuodongTracker;
+    }
+
+    viewerGuodongTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: GUODONG_IMAGE_PATH,
+        overlayClassName: 'guodong-overlay',
+        overlayImageAlt: '國棟特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.3,
+        verticalOffsetRatio: -0.05,
+        overlayZIndex: 19,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerGuodongTracker;
+}
+
+async function startViewerGuodongTracking(videoElement, container) {
+    const tracker = ensureViewerGuodongTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端國棟追蹤', error);
+    }
+}
+
+function stopViewerGuodongTracking() {
+    if (viewerGuodongTracker) {
+        viewerGuodongTracker.stop();
+        viewerGuodongTracker = null;
+    }
+    stopViewerGuodongAudio();
+}
+
+function ensureViewerHuoguoTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用火鍋特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立火鍋追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerHuoguoTracker) {
+        viewerHuoguoTracker.setTargets(videoElement, container);
+        return viewerHuoguoTracker;
+    }
+
+    viewerHuoguoTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: HUOGUO_IMAGE_PATH,
+        overlayClassName: 'huoguo-overlay',
+        overlayImageAlt: '火鍋特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.35,
+        verticalOffsetRatio: -0.06,
+        overlayZIndex: 20,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerHuoguoTracker;
+}
+
+async function startViewerHuoguoTracking(videoElement, container) {
+    const tracker = ensureViewerHuoguoTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端火鍋追蹤', error);
+    }
+}
+
+function stopViewerHuoguoTracking() {
+    if (viewerHuoguoTracker) {
+        viewerHuoguoTracker.stop();
+        viewerHuoguoTracker = null;
+    }
+    stopViewerHuoguoAudio();
+}
+
+function ensureViewerHsinchuTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用新竹特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立新竹追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerHsinchuTracker) {
+        viewerHsinchuTracker.setTargets(videoElement, container);
+        return viewerHsinchuTracker;
+    }
+
+    viewerHsinchuTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: HSINCHU_IMAGE_PATH,
+        overlayClassName: 'hsinchu-overlay',
+        overlayImageAlt: '新竹特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.32,
+        verticalOffsetRatio: -0.05,
+        overlayZIndex: 21,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerHsinchuTracker;
+}
+
+async function startViewerHsinchuTracking(videoElement, container) {
+    const tracker = ensureViewerHsinchuTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端新竹追蹤', error);
+    }
+}
+
+function stopViewerHsinchuTracking() {
+    if (viewerHsinchuTracker) {
+        viewerHsinchuTracker.stop();
+        viewerHsinchuTracker = null;
+    }
+    stopViewerHsinchuAudio();
+}
+
+function ensureViewerCarTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用車特效');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立車追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (viewerCarTracker) {
+        viewerCarTracker.setTargets(videoElement, container);
+        return viewerCarTracker;
+    }
+
+    viewerCarTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: CAR_IMAGE_PATH,
+        overlayClassName: 'car-overlay',
+        overlayImageAlt: '車特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 140,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.28,
+        verticalOffsetRatio: -0.04,
+        overlayZIndex: 22,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return viewerCarTracker;
+}
+
+async function startViewerCarTracking(videoElement, container) {
+    const tracker = ensureViewerCarTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動觀眾端車追蹤', error);
+    }
+}
+
+function stopViewerCarTracking() {
+    if (viewerCarTracker) {
+        viewerCarTracker.stop();
+        viewerCarTracker = null;
+    }
+    stopViewerCarAudio();
 }
 
 // 重新啟動彩虹濾鏡動畫
@@ -295,6 +1169,51 @@ function applyViewerEffect(effectType) {
             stopViewerDogTracking();
             showViewerDogOverlay(remoteVideo, videoContainer);
             ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'pingo') {
+            console.log('🔁 重新啟動皮鼓追蹤');
+            stopViewerPingoTracking();
+            showViewerPingoOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'sech') {
+            console.log('🔁 重新啟動世間追蹤');
+            stopViewerSechTracking();
+            showViewerSechOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'laixiong') {
+            console.log('🔁 重新啟動賴兄追蹤');
+            stopViewerLaixiongTracking();
+            showViewerLaixiongOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'maoZed') {
+            console.log('🔁 重新啟動毛主席追蹤');
+            stopViewerMaoZedTracking();
+            showViewerMaoZedOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'laogao') {
+            console.log('🔁 重新啟動老高追蹤');
+            stopViewerLaogaoTracking();
+            showViewerLaogaoOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'guodong') {
+            console.log('🔁 重新啟動國棟追蹤');
+            stopViewerGuodongTracking();
+            showViewerGuodongOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'huoguo') {
+            console.log('🔁 重新啟動火鍋追蹤');
+            stopViewerHuoguoTracking();
+            showViewerHuoguoOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'hsinchu') {
+            console.log('🔁 重新啟動新竹追蹤');
+            stopViewerHsinchuTracking();
+            showViewerHsinchuOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
+        } else if (effectType === 'car') {
+            console.log('🔁 重新啟動車追蹤');
+            stopViewerCarTracking();
+            showViewerCarOverlay(remoteVideo, videoContainer);
+            ensureRemoteVideoPlaying(remoteVideo);
         } else if (overlayEffects.has(effectType)) {
             console.log('🔁 重新啟動動畫覆蓋層效果');
             createViewerAnimationOverlay(effectType);
@@ -367,6 +1286,33 @@ function applyViewerEffect(effectType) {
         case 'dog':
             showViewerDogOverlay(remoteVideo, videoContainer);
             break;
+        case 'pingo':
+            showViewerPingoOverlay(remoteVideo, videoContainer);
+            break;
+        case 'sech':
+            showViewerSechOverlay(remoteVideo, videoContainer);
+            break;
+        case 'laixiong':
+            showViewerLaixiongOverlay(remoteVideo, videoContainer);
+            break;
+        case 'maoZed':
+            showViewerMaoZedOverlay(remoteVideo, videoContainer);
+            break;
+        case 'laogao':
+            showViewerLaogaoOverlay(remoteVideo, videoContainer);
+            break;
+        case 'guodong':
+            showViewerGuodongOverlay(remoteVideo, videoContainer);
+            break;
+        case 'huoguo':
+            showViewerHuoguoOverlay(remoteVideo, videoContainer);
+            break;
+        case 'hsinchu':
+            showViewerHsinchuOverlay(remoteVideo, videoContainer);
+            break;
+        case 'car':
+            showViewerCarOverlay(remoteVideo, videoContainer);
+            break;
         case 'particles':
             createViewerAnimationOverlay('particles');
             break;
@@ -391,6 +1337,15 @@ function resetViewerEffectStyles(videoElement, videoContainer) {
 
     stopViewerGlassesTracking();
     stopViewerDogTracking();
+    stopViewerPingoTracking();
+    stopViewerSechTracking();
+    stopViewerLaixiongTracking();
+    stopViewerMaoZedTracking();
+    stopViewerLaogaoTracking();
+    stopViewerGuodongTracking();
+    stopViewerHuoguoTracking();
+    stopViewerHsinchuTracking();
+    stopViewerCarTracking();
 
     // 清除所有濾鏡和動畫
     videoElement.style.removeProperty('filter');
@@ -413,7 +1368,7 @@ function resetViewerEffectStyles(videoElement, videoContainer) {
     }
 
     // 移除眼鏡覆蓋層
-    const overlays = container ? container.querySelectorAll('.glasses-overlay, .dog-overlay') : null;
+    const overlays = container ? container.querySelectorAll('.glasses-overlay, .dog-overlay, .pingo-overlay, .sech-overlay, .laixiong-overlay, .mao-overlay, .laogao-overlay, .guodong-overlay, .huoguo-overlay, .hsinchu-overlay, .car-overlay') : null;
     if (overlays) {
         overlays.forEach((overlay) => overlay.remove());
     }
@@ -464,6 +1419,87 @@ function showViewerDogOverlay(videoElement, container) {
         return;
     }
     startViewerDogTracking(videoElement, targetContainer);
+}
+
+function showViewerPingoOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerPingoTracking(videoElement, targetContainer);
+    playViewerPingoAudio();
+}
+
+function showViewerSechOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerSechTracking(videoElement, targetContainer);
+    playViewerSechAudio();
+}
+
+function showViewerLaixiongOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerLaixiongTracking(videoElement, targetContainer);
+    playViewerLaixiongAudio();
+}
+
+function showViewerMaoZedOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerMaoZedTracking(videoElement, targetContainer);
+    playViewerMaoZedAudio();
+}
+
+function showViewerLaogaoOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerLaogaoTracking(videoElement, targetContainer);
+    playViewerLaogaoAudio();
+}
+
+function showViewerGuodongOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerGuodongTracking(videoElement, targetContainer);
+    playViewerGuodongAudio();
+}
+
+function showViewerHuoguoOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerHuoguoTracking(videoElement, targetContainer);
+    playViewerHuoguoAudio();
+}
+
+function showViewerHsinchuOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerHsinchuTracking(videoElement, targetContainer);
+    playViewerHsinchuAudio();
+}
+
+function showViewerCarOverlay(videoElement, container) {
+    const targetContainer = container || videoElement?.parentElement;
+    if (!videoElement || !targetContainer) {
+        return;
+    }
+    startViewerCarTracking(videoElement, targetContainer);
+    playViewerCarAudio();
 }
 
 function createViewerAnimationOverlay(type) {

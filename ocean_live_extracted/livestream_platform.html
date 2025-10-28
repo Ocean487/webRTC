@@ -185,6 +185,33 @@
                     <button class="effect-btn" data-effect="dog">
                         <i class="fas fa-dog"></i><br>狗狗
                     </button>
+                    <button class="effect-btn" data-effect="pingo">
+                        <i class="fas fa-drum"></i><br>皮鼓
+                    </button>
+                    <button class="effect-btn" data-effect="sech">
+                        <i class="fas fa-theater-masks"></i><br>世間
+                    </button>
+                    <button class="effect-btn" data-effect="laixiong">
+                        <i class="fas fa-user-ninja"></i><br>賴兄
+                    </button>
+                    <button class="effect-btn" data-effect="maoZed">
+                        <i class="fas fa-user-tie"></i><br>毛主席
+                    </button>
+                    <button class="effect-btn" data-effect="laogao">
+                        <i class="fas fa-user-astronaut"></i><br>老高
+                    </button>
+                    <button class="effect-btn" data-effect="guodong">
+                        <i class="fas fa-user-graduate"></i><br>國棟
+                    </button>
+                    <button class="effect-btn" data-effect="huoguo">
+                        <i class="fas fa-hot-tub"></i><br>火鍋
+                    </button>
+                    <button class="effect-btn" data-effect="hsinchu">
+                        <i class="fas fa-city"></i><br>新竹
+                    </button>
+                    <button class="effect-btn" data-effect="car">
+                        <i class="fas fa-car"></i><br>車
+                    </button>
                     <button class="effect-btn" data-effect="bright">
                         <i class="fas fa-sun"></i><br>美白
                     </button>
@@ -225,41 +252,6 @@
                         <i class="fas fa-times"></i><br>清除
                     </button>
                 </div>
-            </div>
-        </div>
-
-        <!-- 背景音樂面板 -->
-        <div class="music-panel">
-            <h3><i class="fas fa-music"></i> 背景音樂</h3>
-
-            <div class="music-tip">
-                <i class="fas fa-info-circle"></i>
-                <span>要讓觀眾聽到背景音樂，請在直播時選擇「分享螢幕」並勾選「分享音訊」選項</span>
-            </div>
-
-            <input type="text" id="youtube-url" class="url-input" placeholder="輸入 YouTube 影片網址...">
-
-            <button class="btn-load" id="loadVideoBtn">
-                <i class="fas fa-play"></i> 載入並播放
-            </button>
-
-            <div class="audio-tip">
-                <strong><i class="fas fa-info-circle"></i> 重要音訊設置：</strong><br>
-                1. 在此載入YouTube音樂並播放<br>
-                2. 點擊「開始直播」時選擇「分享螢幕」<br>
-                3. <strong>必須勾選「分享音訊」選項</strong><br>
-                4. 選擇包含YouTube視窗的螢幕<br>
-                ※ 只有這樣觀眾才能聽到背景音樂
-            </div>
-
-            <div id="youtube-embed"></div>
-
-            <div class="volume-section">
-                <button id="muteButton">
-                    <i class="fas fa-volume-up"></i>
-                </button>
-                <input type="range" id="volumeSlider" class="volume-slider" min="0" max="100" value="100">
-                <span>音量</span>
             </div>
         </div>
 
@@ -463,9 +455,8 @@
     <script src="network-monitor.js"></script>
     <script src="webrtc-sync-fix.js"></script>
     <script src="chat-system.js"></script>
-    <script src="music-player.js"></script>
-            <script src="webrtc-diagnostics.js"></script>
-            <script src="connection-test.js"></script>
+    <script src="webrtc-diagnostics.js"></script>
+    <script src="connection-test.js"></script>
 
     <!-- 调试脚本 -->
     <script>
@@ -643,30 +634,7 @@
                     });
                 });
 
-                // 设置音乐相关按钮事件
-                const loadVideoBtn = document.getElementById('loadVideoBtn');
-                if (loadVideoBtn) {
-                    loadVideoBtn.addEventListener('click', function () {
-                        if (typeof loadYouTubeVideo === 'function') {
-                            loadYouTubeVideo();
-                        } else {
-                            console.log('loadYouTubeVideo 函数未加载');
-                        }
-                    });
-                }
-
-                const muteButton = document.getElementById('muteButton');
-                if (muteButton) {
-                    muteButton.addEventListener('click', function () {
-                        if (typeof toggleMute === 'function') {
-                            toggleMute();
-                        } else {
-                            console.log('toggleMute 函数未加载');
-                        }
-                    });
-                }
-
-                console.log('✅ 所有特效和音乐按钮事件监听器已设置');
+                console.log('✅ 所有特效按鈕事件監聽器已設定');
                 
                 // 執行網路環境檢測
                 setTimeout(() => {

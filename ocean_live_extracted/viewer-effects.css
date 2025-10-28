@@ -484,7 +484,16 @@ video.effect-rainbow-filter,
 
 /* 臉部追蹤覆蓋層（眼鏡、狗狗等） */
 .glasses-overlay,
-.dog-overlay {
+.dog-overlay,
+.pingo-overlay,
+.sech-overlay,
+.laixiong-overlay,
+.mao-overlay,
+.laogao-overlay,
+.guodong-overlay,
+.huoguo-overlay,
+.hsinchu-overlay,
+.car-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -499,11 +508,137 @@ video.effect-rainbow-filter,
 }
 
 .glasses-overlay img,
-.dog-overlay img {
+.dog-overlay img,
+.pingo-overlay img,
+.sech-overlay img,
+.laixiong-overlay img,
+.mao-overlay img,
+.laogao-overlay img,
+.guodong-overlay img,
+.huoguo-overlay img,
+.hsinchu-overlay img,
+.car-overlay img {
     display: block;
     width: 100%;
     height: auto;
     pointer-events: none;
+}
+
+.pingo-overlay img {
+    animation: pingoSway 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes pingoSway {
+    0% {
+        transform: translateX(-4%);
+    }
+    100% {
+        transform: translateX(4%);
+    }
+}
+
+.sech-overlay img {
+    animation: sechFloat 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes sechFloat {
+    0% {
+        transform: translate(-2%, -1.5%);
+    }
+    100% {
+        transform: translate(2%, 1.5%);
+    }
+}
+
+.laixiong-overlay img {
+    animation: laixiongFloat 3s ease-in-out infinite alternate;
+}
+
+@keyframes laixiongFloat {
+    0% {
+        transform: translate(-1.5%, -2.5%);
+    }
+    100% {
+        transform: translate(1.5%, 2.5%);
+    }
+}
+
+.mao-overlay img {
+    animation: maoFloat 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes maoFloat {
+    0% {
+        transform: translate(-2%, -2%);
+    }
+    100% {
+        transform: translate(2%, 2%);
+    }
+}
+
+.laogao-overlay img {
+    animation: laogaoFloat 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes laogaoFloat {
+    0% {
+        transform: translate(-2.5%, -3%) scale(1.01);
+    }
+    100% {
+        transform: translate(2.5%, 3%) scale(0.99);
+    }
+}
+
+.guodong-overlay img {
+    animation: guodongFloat 3.8s ease-in-out infinite alternate;
+}
+
+@keyframes guodongFloat {
+    0% {
+        transform: translate(-3%, -2.5%) scale(1.02);
+    }
+    100% {
+        transform: translate(3%, 2.5%) scale(0.98);
+    }
+}
+
+.huoguo-overlay img {
+    animation: huoguoFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes huoguoFloat {
+    0% {
+        transform: translate(-2.2%, -3.2%) scale(1.015);
+    }
+    100% {
+        transform: translate(2.2%, 3.2%) scale(0.985);
+    }
+}
+
+.hsinchu-overlay img {
+    animation: hsinchuFloat 3.7s ease-in-out infinite alternate;
+}
+
+@keyframes hsinchuFloat {
+    0% {
+        transform: translate(-2.8%, -2.8%) scale(1.01);
+    }
+    100% {
+        transform: translate(2.8%, 2.8%) scale(0.99);
+    }
+}
+
+.car-overlay img {
+    animation: carBounce 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes carBounce {
+    0% {
+        transform: translate(-2%, -2%) scale(1.01);
+    }
+    100% {
+        transform: translate(2%, 2%) scale(0.99);
+    }
 }
 
 /* 動畫覆蓋層 */
