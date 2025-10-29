@@ -14,7 +14,11 @@
 	Otherwise, create the project structure manually using available file creation tools.
 	-->
 
-- [ ] Customize the Project
+- [x] Customize the Project
+	- Added 上車 effect with Car2 overlay and audio for viewer and broadcaster.
+	- Added 回答我 effect with look overlay and looping audio synced across viewer/broadcaster.
+	- Added 秀燕 effect with lumumu overlay and synchronized audio loop.
+	- Added 吉伊卡哇 effect with Chiikawa overlay and looping music for both sides.
 	<!--
 	Verify that all previous steps have been completed successfully and you have marked the step as completed.
 	Develop a plan to modify codebase according to user requirements.

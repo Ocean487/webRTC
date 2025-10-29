@@ -493,7 +493,11 @@ video.effect-rainbow-filter,
 .guodong-overlay,
 .huoguo-overlay,
 .hsinchu-overlay,
-.car-overlay {
+.car-overlay,
+.car2-overlay,
+.look-overlay,
+.lumumu-overlay,
+.chiikawa-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -517,7 +521,11 @@ video.effect-rainbow-filter,
 .guodong-overlay img,
 .huoguo-overlay img,
 .hsinchu-overlay img,
-.car-overlay img {
+.car-overlay img,
+.car2-overlay img,
+.look-overlay img,
+.lumumu-overlay img,
+.chiikawa-overlay img {
     display: block;
     width: 100%;
     height: auto;
@@ -630,6 +638,74 @@ video.effect-rainbow-filter,
 
 .car-overlay img {
     animation: carBounce 3.5s ease-in-out infinite alternate;
+}
+
+.car2-overlay {
+    width: 240px;
+}
+
+.car2-overlay img {
+    animation: car2Cruise 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes car2Cruise {
+    0% {
+        transform: translate(-2%, -1%) scale(1.02);
+    }
+    100% {
+        transform: translate(2%, 1%) scale(0.98);
+    }
+}
+
+.look-overlay {
+    width: 250px;
+}
+
+.look-overlay img {
+    animation: lookDrift 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes lookDrift {
+    0% {
+        transform: translate(-1.5%, -1.5%) scale(1.01);
+    }
+    100% {
+        transform: translate(1.5%, 1.5%) scale(0.99);
+    }
+}
+
+.lumumu-overlay {
+    width: 255px;
+}
+
+.lumumu-overlay img {
+    animation: lumumuSway 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes lumumuSway {
+    0% {
+        transform: translate(-2%, -1.8%) scale(1.015);
+    }
+    100% {
+        transform: translate(2%, 1.8%) scale(0.985);
+    }
+}
+
+.chiikawa-overlay {
+    width: 248px;
+}
+
+.chiikawa-overlay img {
+    animation: chiikawaFloat 3.3s ease-in-out infinite alternate;
+}
+
+@keyframes chiikawaFloat {
+    0% {
+        transform: translate(-1.8%, -1.6%) scale(1.012);
+    }
+    100% {
+        transform: translate(1.8%, 1.6%) scale(0.988);
+    }
 }
 
 @keyframes carBounce {

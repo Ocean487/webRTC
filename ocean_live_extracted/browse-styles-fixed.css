@@ -615,7 +615,9 @@ body {
     border-radius: 24px;
     width: 90%;
     max-width: 600px;
-    max-height: 85vh;
+    max-height: calc(100vh - 3rem);
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.15),
@@ -641,6 +643,7 @@ body {
     justify-content: space-between;
     background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1));
     border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+    flex-shrink: 0;
 }
 
 .modal-header h3 {
@@ -683,6 +686,8 @@ body {
 
 .modal-body {
     padding: 2rem;
+    flex: 1 1 auto;
+    overflow-y: auto;
 }
 
 /* 主播詳情樣式 */
@@ -809,6 +814,7 @@ body {
     gap: 1rem;
     justify-content: flex-end;
     background: rgba(102, 126, 234, 0.02);
+    flex-shrink: 0;
 }
 
 .modal-footer .btn {
@@ -930,5 +936,44 @@ body {
     .modal-content {
         width: 95%;
         margin: 1rem;
+        max-height: calc(100vh - 2rem);
+    }
+}
+
+@media (max-width: 480px) {
+    .modal {
+        align-items: flex-start;
+        padding: 1rem 0;
+    }
+
+    .modal-content {
+        width: 92%;
+        margin: 0 auto;
+    }
+
+    .modal-header {
+        padding: 1.25rem 1.5rem 0.75rem;
+    }
+
+    .modal-body {
+        padding: 1.25rem 1.5rem;
+    }
+
+    .modal-footer {
+        padding: 1rem 1.5rem 1.5rem;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .modal-footer .btn {
+        width: 100%;
+    }
+
+    .modal-footer .btn-secondary {
+        order: 2;
+    }
+
+    .modal-footer .btn-primary {
+        order: 1;
     }
 }
