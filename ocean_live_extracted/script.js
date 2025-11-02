@@ -12,6 +12,9 @@ let viewerCount = 0;
 let currentQuality = '720';
 let dataTransferInterval = null;
 let currentAudioOutput = 'default'; // 當前音訊輸出端
+let isScreenSharing = false;
+let screenShareStream = null;
+let isRestoringCamera = false;
 
 const DEVICE_STORAGE_KEYS = {
     camera: 'broadcaster_camera_device_id',
@@ -737,6 +740,20 @@ function stopStream() {
         localStream = null;
     }
 
+    if (screenShareStream) {
+        screenShareStream.getTracks().forEach(track => {
+            if (track.readyState === 'live') {
+                track.stop();
+            }
+        });
+    }
+
+    isScreenSharing = false;
+    screenShareStream = null;
+    isRestoringCamera = false;
+    window.isScreenSharing = false;
+    window.screenShareStream = null;
+
     // 清除可能尚未執行的延遲發送計時器，避免誤觸重新開始
     if (streamStartTimer) {
         clearTimeout(streamStartTimer);
@@ -930,6 +947,16 @@ async function switchCamera() {
 // 分享螢幕
 async function shareScreen() {
     try {
+        if (isRestoringCamera) {
+            addMessage('系統', '⚠️ 正在恢復攝影機，請稍候再試');
+            return;
+        }
+
+        if (isScreenSharing) {
+            addMessage('系統', '⚠️ 已在進行螢幕分享');
+            return;
+        }
+
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
             video: { 
                 cursor: 'always',
@@ -938,8 +965,15 @@ async function shareScreen() {
             audio: true
         });
 
+        screenShareStream = screenStream;
+        isScreenSharing = true;
+        window.screenShareStream = screenShareStream;
+        window.isScreenSharing = isScreenSharing;
+
         // 保存當前的音訊軌道（如果有的話）
-        const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
+        const currentAudioTracks = localStream
+            ? localStream.getAudioTracks().filter(track => track.readyState === 'live')
+            : [];
         
         // 只停止視訊軌道，保持音訊軌道
         if (localStream) {
@@ -956,9 +990,11 @@ async function shareScreen() {
         });
         
         // 保持原有的音訊軌道（如果存在且有效）
-        if (currentAudioTrack && currentAudioTrack.readyState === 'live') {
-            newStream.addTrack(currentAudioTrack);
-            console.log('保持原有音訊軌道，軌道ID:', currentAudioTrack.id);
+        if (currentAudioTracks.length > 0) {
+            currentAudioTracks.forEach(track => {
+                newStream.addTrack(track);
+                console.log('保持原有音訊軌道，軌道ID:', track.id);
+            });
         } else {
             // 如果沒有原有音訊軌道，添加螢幕分享的音訊軌道
             screenStream.getAudioTracks().forEach(track => {
@@ -970,6 +1006,8 @@ async function shareScreen() {
         localStream = newStream;
         const localVideo = document.getElementById('localVideo');
         localVideo.srcObject = localStream;
+        window.localStream = localStream;
+        baseVideoStream = null;
         
         // 確保音訊軌道啟用
         const newAudioTracks = localStream.getAudioTracks();
@@ -994,10 +1032,13 @@ async function shareScreen() {
         addMessage('系統', '🖥️ 螢幕分享已開始，音訊保持不變');
 
         // 監聽螢幕分享結束
-        screenStream.getVideoTracks()[0].onended = () => {
-            addMessage('系統', '🖥️ 螢幕分享已結束');
-            // 可以選擇切回攝影機或結束直播
-        };
+        screenStream.getVideoTracks().forEach(track => {
+            track.addEventListener('ended', () => {
+                console.log('🖥️ 螢幕分享視訊軌道已結束');
+                addMessage('系統', '🖥️ 螢幕分享已結束');
+                restoreCameraAfterScreenShare();
+            }, { once: true });
+        });
 
         // 更新所有觀眾的軌道
         if (isStreaming) {
@@ -1007,6 +1048,113 @@ async function shareScreen() {
     } catch (error) {
         console.error('螢幕分享失敗:', error);
         addMessage('系統', '❌ 螢幕分享失敗');
+        if (screenShareStream) {
+            screenShareStream.getTracks().forEach(track => {
+                if (track.readyState === 'live') {
+                    track.stop();
+                }
+            });
+        }
+        isScreenSharing = false;
+        screenShareStream = null;
+        window.isScreenSharing = isScreenSharing;
+        window.screenShareStream = null;
+    }
+}
+
+async function restoreCameraAfterScreenShare() {
+    if (!isScreenSharing || isRestoringCamera) {
+        return;
+    }
+
+    isRestoringCamera = true;
+
+    try {
+        const constraints = getConstraints();
+        let cameraStream;
+        try {
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: constraints.video,
+                audio: false
+            });
+        } catch (error) {
+            console.error('恢復攝影機失敗:', error);
+            addMessage('系統', '❌ 螢幕分享結束後無法恢復攝影機');
+            return;
+        }
+
+        const newStream = new MediaStream();
+        cameraStream.getVideoTracks().forEach(track => newStream.addTrack(track));
+
+        let liveAudioTracks = [];
+        if (localStream) {
+            liveAudioTracks = localStream.getAudioTracks().filter(track => track.readyState === 'live');
+        }
+
+        if (liveAudioTracks.length === 0) {
+            try {
+                const audioStream = await navigator.mediaDevices.getUserMedia({
+                    audio: constraints.audio,
+                    video: false
+                });
+                liveAudioTracks = audioStream.getAudioTracks();
+            } catch (audioError) {
+                console.warn('恢復音訊軌道失敗:', audioError);
+            }
+        }
+
+        liveAudioTracks.forEach(track => newStream.addTrack(track));
+
+        if (screenShareStream) {
+            screenShareStream.getTracks().forEach(track => {
+                if (track.readyState === 'live') {
+                    track.stop();
+                }
+            });
+        }
+
+        localStream = newStream;
+        window.localStream = newStream;
+
+        const localVideo = document.getElementById('localVideo');
+        if (localVideo) {
+            localVideo.srcObject = newStream;
+            localVideo.style.display = 'block';
+            try {
+                await localVideo.play();
+            } catch (playError) {
+                console.warn('恢復攝影機時自動播放失敗:', playError);
+            }
+
+            if (currentAudioOutput && currentAudioOutput !== 'default' && localVideo.setSinkId) {
+                try {
+                    await localVideo.setSinkId(currentAudioOutput);
+                } catch (sinkError) {
+                    console.warn('恢復攝影機時設置音訊輸出端失敗:', sinkError);
+                }
+            }
+        }
+
+        ensureAudioTracksEnabled(newStream);
+        baseVideoStream = null;
+        isVideoEnabled = true;
+
+        const videoBtn = document.getElementById('videoBtn');
+        if (videoBtn) {
+            videoBtn.textContent = '📹 關閉視訊';
+        }
+
+        addMessage('系統', '📷 已切回攝影機畫面');
+
+        if (isStreaming) {
+            await updateAllPeerConnections();
+        }
+    } finally {
+        isScreenSharing = false;
+        screenShareStream = null;
+        isRestoringCamera = false;
+        window.isScreenSharing = isScreenSharing;
+        window.screenShareStream = null;
     }
 }
 

@@ -1632,7 +1632,9 @@ body {
 .car2-overlay,
 .look-overlay,
 .lumumu-overlay,
-.chiikawa-overlay {
+.chiikawa-overlay,
+.cat-overlay,
+.polar-overlay {
     position: absolute;
     top: 50%;
     left: 50%;
@@ -1660,7 +1662,9 @@ body {
 .car2-overlay img,
 .look-overlay img,
 .lumumu-overlay img,
-.chiikawa-overlay img {
+.chiikawa-overlay img,
+.cat-overlay img,
+.polar-overlay img {
     display: block;
     width: 100%;
     height: auto;
@@ -1840,6 +1844,43 @@ body {
     }
     100% {
         transform: translate(1.8%, 1.6%) scale(0.988);
+    }
+}
+
+.cat-overlay {
+    width: 250px;
+}
+
+.cat-overlay img {
+    animation: catPurr 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes catPurr {
+    0% {
+        transform: translate(-2%, -1.4%) scale(1.01);
+    }
+    100% {
+        transform: translate(2%, 1.4%) scale(0.99);
+    }
+}
+
+.polar-overlay {
+    width: 235px;
+}
+
+.polar-overlay img {
+    animation: polarBounce 4.4s ease-in-out infinite;
+}
+
+@keyframes polarBounce {
+    0% {
+        transform: translateY(-1%) scale(1);
+    }
+    50% {
+        transform: translateY(-4%) scale(1.04);
+    }
+    100% {
+        transform: translateY(-1%) scale(1);
     }
 }
 

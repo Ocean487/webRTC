@@ -19,6 +19,7 @@
 	- Added 回答我 effect with look overlay and looping audio synced across viewer/broadcaster.
 	- Added 秀燕 effect with lumumu overlay and synchronized audio loop.
 	- Added 吉伊卡哇 effect with Chiikawa overlay and looping music for both sides.
+	- Added 哈基米 effect with cat overlay and synchronized audio loop.
 	<!--
 	Verify that all previous steps have been completed successfully and you have marked the step as completed.
 	Develop a plan to modify codebase according to user requirements.

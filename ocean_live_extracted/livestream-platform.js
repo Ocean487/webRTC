@@ -57,6 +57,10 @@ const LUMUMU_IMAGE_PATH = 'images/lumumu.png';
 const LUMUMU_AUDIO_PATH = 'images/lumumu.mp3';
 const CHIIKAWA_IMAGE_PATH = 'images/Chiikawa.png';
 const CHIIKAWA_AUDIO_PATH = 'images/Chiikawa.mp3';
+const CAT_IMAGE_PATH = 'images/cat.png';
+const CAT_AUDIO_PATH = 'images/cat.mp3';
+const POLAR_IMAGE_PATH = 'images/chsihu.png';
+const POLAR_AUDIO_PATH = 'images/chsihu.mp3';
 const FULL_FACE_LANDMARK_INDICES = Array.from({ length: 68 }, (_, index) => index);
 const FACE_API_MODEL_PATH_FORMAT = (typeof window !== 'undefined' && typeof window.FACE_API_MODEL_PATH_FORMAT === 'string')
     ? window.FACE_API_MODEL_PATH_FORMAT
@@ -93,6 +97,10 @@ let broadcasterLumumuTracker = null;
 let broadcasterLumumuAudio = null;
 let broadcasterChiikawaTracker = null;
 let broadcasterChiikawaAudio = null;
+let broadcasterCatTracker = null;
+let broadcasterCatAudio = null;
+let broadcasterPolarTracker = null;
+let broadcasterPolarAudio = null;
 
 // 診斷函數 - 檢查直播系統狀態
 function diagnoseLiveStreamIssue() {
@@ -1699,6 +1707,14 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             showChiikawaOverlay(videoElement);
             console.log('✅ 吉伊卡哇特效已套用');
             break;
+        case 'cat':
+            showCatOverlay(videoElement);
+            console.log('✅ 哈基米特效已套用');
+            break;
+        case 'polar':
+            showPolarOverlay(videoElement);
+            console.log('✅ 北極熊特效已套用');
+            break;
         case 'bright':
             videoElement.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
             console.log('✅ 美白特效已套用');
@@ -1821,6 +1837,8 @@ function resetVideoEffectStyles(videoElement) {
     hideLookOverlay(videoElement);
     hideLumumuOverlay(videoElement);
     hideChiikawaOverlay(videoElement);
+    hideCatOverlay(videoElement);
+    hidePolarOverlay(videoElement);
 
     const activeOverlay = document.querySelector('.animation-overlay');
     if (activeOverlay) {
@@ -3044,6 +3062,66 @@ function stopBroadcasterChiikawaAudio() {
     }
 }
 
+function ensureBroadcasterCatAudio() {
+    if (broadcasterCatAudio) {
+        return broadcasterCatAudio;
+    }
+    const audio = new Audio(CAT_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    broadcasterCatAudio = audio;
+    return audio;
+}
+
+function playBroadcasterCatAudio() {
+    const audio = ensureBroadcasterCatAudio();
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 主播端哈基米音效播放被阻擋', error);
+        });
+    }
+}
+
+function stopBroadcasterCatAudio() {
+    if (broadcasterCatAudio) {
+        broadcasterCatAudio.pause();
+        broadcasterCatAudio.currentTime = 0;
+    }
+}
+
+function ensureBroadcasterPolarAudio() {
+    if (broadcasterPolarAudio) {
+        return broadcasterPolarAudio;
+    }
+    const audio = new Audio(POLAR_AUDIO_PATH);
+    audio.loop = true;
+    audio.preload = 'auto';
+    audio.volume = 0.7;
+    broadcasterPolarAudio = audio;
+    return audio;
+}
+
+function playBroadcasterPolarAudio() {
+    const audio = ensureBroadcasterPolarAudio();
+    audio.currentTime = 0;
+    const playPromise = audio.play();
+    if (playPromise && typeof playPromise.catch === 'function') {
+        playPromise.catch((error) => {
+            console.warn('⚠️ 主播端北極熊音效播放被阻擋', error);
+        });
+    }
+}
+
+function stopBroadcasterPolarAudio() {
+    if (broadcasterPolarAudio) {
+        broadcasterPolarAudio.pause();
+        broadcasterPolarAudio.currentTime = 0;
+    }
+}
+
 function ensureBroadcasterCarTracker(videoElement, container) {
     if (typeof createGlassesTracker !== 'function') {
         console.error('❌ 缺少 glasses-tracker 模組，無法啟用車追蹤');
@@ -3449,6 +3527,168 @@ function hideChiikawaOverlay(videoElement) {
     }
 }
 
+function ensureBroadcasterCatTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用哈基米追蹤');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立哈基米追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (broadcasterCatTracker) {
+        broadcasterCatTracker.setTargets(videoElement, container);
+        return broadcasterCatTracker;
+    }
+
+    broadcasterCatTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: CAT_IMAGE_PATH,
+        overlayClassName: 'cat-overlay',
+        overlayImageAlt: '哈基米特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 130,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.48,
+        verticalOffsetRatio: -0.05,
+        overlayZIndex: 24,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return broadcasterCatTracker;
+}
+
+async function startBroadcasterCatTracking(videoElement, container) {
+    const tracker = ensureBroadcasterCatTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動主播端哈基米追蹤', error);
+    }
+}
+
+function stopBroadcasterCatTracking() {
+    if (broadcasterCatTracker) {
+        broadcasterCatTracker.stop();
+        broadcasterCatTracker = null;
+    }
+    stopBroadcasterCatAudio();
+}
+
+function showCatOverlay(videoElement) {
+    const container = videoElement?.parentElement;
+    if (!videoElement || !container) {
+        console.warn('⚠️ 哈基米特效缺少必要的 DOM 元素');
+        return;
+    }
+
+    startBroadcasterCatTracking(videoElement, container);
+    playBroadcasterCatAudio();
+}
+
+function hideCatOverlay(videoElement) {
+    stopBroadcasterCatTracking();
+    const container = videoElement?.parentElement;
+    if (!container) return;
+    const overlay = container.querySelector('.cat-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+function ensureBroadcasterPolarTracker(videoElement, container) {
+    if (typeof createGlassesTracker !== 'function') {
+        console.error('❌ 缺少 glasses-tracker 模組，無法啟用北極熊追蹤');
+        return null;
+    }
+    if (!videoElement || !container) {
+        console.warn('⚠️ 無法建立北極熊追蹤器: 缺少 video 或容器元素');
+        return null;
+    }
+
+    if (broadcasterPolarTracker) {
+        broadcasterPolarTracker.setTargets(videoElement, container);
+        return broadcasterPolarTracker;
+    }
+
+    broadcasterPolarTracker = createGlassesTracker({
+        videoElement,
+        container,
+        imagePath: POLAR_IMAGE_PATH,
+        overlayClassName: 'polar-overlay',
+        overlayImageAlt: '北極熊特效',
+        modelBasePath: FACE_API_LOCAL_MODEL_PATH,
+        fallbackModelBasePath: FACE_API_CDN_MODEL_PATH,
+        detectionIntervalMs: 130,
+        minConfidence: 0.5,
+        flipHorizontal: false,
+        modelPathFormat: FACE_API_MODEL_PATH_FORMAT,
+        additionalModelSources: FACE_API_ADDITIONAL_SOURCES,
+        scaleFactor: 2.3,
+        verticalOffsetRatio: -0.12,
+        overlayZIndex: 24,
+        landmarkStrategy: 'custom',
+        anchorLandmarkIndices: FULL_FACE_LANDMARK_INDICES,
+        widthLandmarkPair: [0, 16]
+    });
+
+    return broadcasterPolarTracker;
+}
+
+async function startBroadcasterPolarTracking(videoElement, container) {
+    const tracker = ensureBroadcasterPolarTracker(videoElement, container);
+    if (!tracker) {
+        return;
+    }
+
+    try {
+        await tracker.start();
+    } catch (error) {
+        console.error('❌ 無法啟動主播端北極熊追蹤', error);
+    }
+}
+
+function stopBroadcasterPolarTracking() {
+    if (broadcasterPolarTracker) {
+        broadcasterPolarTracker.stop();
+        broadcasterPolarTracker = null;
+    }
+    stopBroadcasterPolarAudio();
+}
+
+function showPolarOverlay(videoElement) {
+    const container = videoElement?.parentElement;
+    if (!videoElement || !container) {
+        console.warn('⚠️ 北極熊特效缺少必要的 DOM 元素');
+        return;
+    }
+
+    startBroadcasterPolarTracking(videoElement, container);
+    playBroadcasterPolarAudio();
+}
+
+function hidePolarOverlay(videoElement) {
+    stopBroadcasterPolarTracking();
+    const container = videoElement?.parentElement;
+    if (!container) return;
+    const overlay = container.querySelector('.polar-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
 function ensureLightningBorderOverlay(container) {
     if (!container) return;
     if (container.querySelector('.lightning-border-overlay')) return;
@@ -3554,6 +3794,8 @@ function getEffectName(effectType) {
     'look': '回答我',
     'lumumu': '秀燕',
     'chiikawa': '吉伊卡哇',
+    'cat': '哈基米',
+    'polar': '北極熊',
         'bright': '美白',
         'warm': '暖色調',
         'invert': '反相',
@@ -3719,6 +3961,8 @@ function clearEffect() {
     stopBroadcasterLookAudio();
     stopBroadcasterLumumuAudio();
     stopBroadcasterChiikawaAudio();
+    stopBroadcasterCatAudio();
+    stopBroadcasterPolarAudio();
 
     addMessage('系統', '🧹 已清除所有特效');
 }
