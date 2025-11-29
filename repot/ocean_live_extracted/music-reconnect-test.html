@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>音樂重連測試 - VibeLo</title>
+    <style>
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #fff;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .section {
+            margin-bottom: 25px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .section h3 {
+            margin-top: 0;
+            color: #ffd700;
+            border-bottom: 2px solid #ffd700;
+            padding-bottom: 10px;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        
+        .feature-list li:before {
+            content: "✅";
+            position: absolute;
+            left: 0;
+            color: #4CAF50;
+        }
+        
+        .test-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin: 15px 0;
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .note {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid rgba(255, 193, 7, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .status {
+            background: rgba(76, 175, 80, 0.2);
+            border: 1px solid rgba(76, 175, 80, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .log-area {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 音樂重連功能測試</h1>
+        
+        <div class="note" style="margin-bottom: 20px; text-align: center;">
+            <strong>📝 使用說明：</strong><br>
+            這個測試頁面會載入 music-stream-fix.js 並模擬 WebSocket 環境<br>
+            您可以測試音樂重連、分頁音訊狀態同步等功能<br>
+            所有測試都在瀏覽器本地執行，無需真實的直播環境
+        </div>
+        
+        <div class="section">
+            <h3>🔧 修復內容</h3>
+            <ul class="feature-list">
+                <li>音樂流狀態同步 - 觀眾重整後能自動檢測音樂狀態</li>
+                <li>分頁音訊狀態同步 - 背景音樂分享狀態的完整追蹤</li>
+                <li>自動重連機制 - WebRTC 音訊軌道自動重新建立</li>
+                <li>狀態儲存恢復 - 使用 localStorage 暫存音訊狀態</li>
+                <li>即時狀態廣播 - 音樂/分頁音訊狀態即時通知觀眾</li>
+                <li>定期檢查機制 - 每30秒檢查所有音訊狀態</li>
+            </ul>
+        </div>
+        
+        <div class="section">
+            <h3>🧪 測試步驟</h3>
+            <div class="note">
+                <strong>📋 測試流程：</strong><br>
+                1. 主播開啟音樂並開始直播<br>
+                2. 觀眾觀看直播並聽到音樂<br>
+                3. 觀眾重新整理頁面（F5 或 Ctrl+R）<br>
+                4. 確認音樂自動重新連接並播放<br>
+                5. 檢查控制台日誌確認重連過程
+            </div>
+            
+            <button class="test-button" onclick="testMusicDetection()">
+                🔍 測試音樂檢測功能
+            </button>
+            
+            <button class="test-button" onclick="testPageReload()">
+                🔄 模擬頁面重整測試
+            </button>
+            
+            <button class="test-button" onclick="testTabAudioStatus()">
+                🎵 測試分頁音訊狀態
+            </button>
+            
+            <button class="test-button" onclick="simulatePageRefresh()">
+                🔄 完整模擬頁面重整
+            </button>
+            
+            <button class="test-button" onclick="showDebugInfo()">
+                🐛 顯示調試資訊
+            </button>
+        </div>
+        
+        <div class="section">
+            <h3>📊 當前狀態</h3>
+            <div id="currentStatus" class="status">
+                等待檢測音樂狀態...
+            </div>
+            
+            <div class="log-area" id="logArea">
+                音樂重連測試控制台準備就緒...
+            </div>
+        </div>
+        
+        <div class="section">
+            <h3>📝 技術說明</h3>
+            <div class="note">
+                <strong>🎵 音樂重連機制：</strong><br>
+                • 使用 WebSocket 即時同步音樂播放狀態<br>
+                • 觀眾端透過 music-stream-fix.js 實現自動重連<br>
+                • 主播端透過 music-player.js 發送狀態更新<br>
+                • 服務器端廣播音樂狀態給所有觀眾<br>
+                • 支援音量、靜音狀態的完整同步
+            </div>
+        </div>
+    </div>
+
+    <!-- 載入音樂重連修復腳本 -->
+    <script src="music-stream-fix.js"></script>
+
+    <script>
+        // 音樂重連測試腳本
+        let logArea = document.getElementById('logArea');
+        let statusDiv = document.getElementById('currentStatus');
+        
+        function log(message) {
+            const time = new Date().toLocaleTimeString();
+            const logEntry = `[${time}] ${message}\n`;
+            logArea.textContent += logEntry;
+            logArea.scrollTop = logArea.scrollHeight;
+            console.log(`[音樂重連測試] ${message}`);
+        }
+        
+        function updateStatus(message, isSuccess = true) {
+            statusDiv.innerHTML = message;
+            statusDiv.style.borderColor = isSuccess ? 'rgba(76, 175, 80, 0.5)' : 'rgba(244, 67, 54, 0.5)';
+            statusDiv.style.backgroundColor = isSuccess ? 'rgba(76, 175, 80, 0.2)' : 'rgba(244, 67, 54, 0.2)';
+            statusDiv.style.color = isSuccess ? '#4CAF50' : '#F44336';
+        }
+        
+        function testMusicDetection() {
+            log('🔍 開始測試音樂檢測功能...');
+            updateStatus('🔍 正在檢測音樂重連功能...');
+            
+            if (typeof window.musicStreamReconnectManager !== 'undefined') {
+                log('✅ 音樂重連管理器已載入');
+                updateStatus('✅ 音樂重連功能已啟用，檢測到音樂會自動重連', true);
+                
+                // 檢查 WebSocket 連接
+                if (window.socket && window.socket.readyState === WebSocket.OPEN) {
+                    log('✅ WebSocket 連接正常');
+                    
+                    // 請求音樂狀態
+                    window.musicStreamReconnectManager.requestMusicStreamState();
+                    log('📡 已發送音樂狀態查詢請求');
+                } else {
+                    log('⚠️ WebSocket 未連接');
+                    updateStatus('⚠️ 需要先連接到直播服務器', false);
+                }
+            } else {
+                log('❌ 音樂重連管理器未載入');
+                updateStatus('❌ 音樂重連功能未啟用', false);
+            }
+        }
+        
+        function testPageReload() {
+            log('🔄 模擬頁面重整測試...');
+            updateStatus('🔄 準備重新整理頁面...', false);
+            
+            // 模擬保存音樂狀態
+            if (typeof window.musicStreamReconnectManager !== 'undefined') {
+                const mockMusicState = {
+                    isPlaying: true,
+                    currentVideoId: 'dQw4w9WgXcQ',
+                    volume: 80,
+                    isMuted: false
+                };
+                
+                localStorage.setItem('musicStreamState', JSON.stringify(mockMusicState));
+                log('💾 已儲存模擬音樂狀態到 localStorage');
+                
+                setTimeout(() => {
+                    log('🔄 模擬重新整理完成，應該會自動恢復音樂狀態');
+                    updateStatus('✅ 頁面重整完成，檢查音樂是否自動重連', true);
+                }, 1000);
+            } else {
+                log('❌ 音樂重連管理器未載入');
+                updateStatus('❌ 無法執行重整測試', false);
+            }
+        }
+        
+        function testTabAudioStatus() {
+            log('🎵 開始測試分頁音訊狀態...');
+            updateStatus('🎵 正在測試分頁音訊狀態...');
+            
+            if (typeof window.tabAudioReconnectManager !== 'undefined') {
+                log('✅ 分頁音訊重連管理器已載入');
+                
+                // 請求分頁音訊狀態
+                if (window.tabAudioReconnectManager.requestTabAudioState) {
+                    window.tabAudioReconnectManager.requestTabAudioState();
+                    log('📡 已發送分頁音訊狀態查詢請求');
+                    updateStatus('✅ 分頁音訊狀態測試已啟動', true);
+                } else {
+                    log('⚠️ 分頁音訊狀態請求方法未找到');
+                    updateStatus('⚠️ 分頁音訊功能不可用', false);
+                }
+            } else {
+                log('❌ 分頁音訊重連管理器未載入');
+                updateStatus('❌ 分頁音訊重連功能未啟用', false);
+            }
+        }
+        
+        function simulatePageRefresh() {
+            log('🔄 開始完整模擬頁面重整流程...');
+            updateStatus('🔄 模擬頁面重整流程中...', false);
+            
+            // 步驟1：保存當前狀態到 localStorage
+            const mockMusicState = {
+                isPlaying: true,
+                currentVideoId: 'dQw4w9WgXcQ',
+                volume: 85,
+                isMuted: false
+            };
+            
+            const mockTabAudioState = {
+                enabled: true,
+                audioType: 'tab',
+                broadcasterId: window.myBroadcasterId
+            };
+            
+            localStorage.setItem('musicStreamState', JSON.stringify(mockMusicState));
+            localStorage.setItem('tabAudioState', JSON.stringify(mockTabAudioState));
+            
+            log('💾 狀態已保存到 localStorage');
+            
+            // 步驟2：模擬頁面卸載
+            log('📄 模擬頁面卸載...');
+            
+            // 步驟3：模擬頁面重新載入
+            setTimeout(() => {
+                log('📄 模擬頁面重新載入...');
+                
+                // 步驟4：檢查保存的狀態
+                const savedMusicState = localStorage.getItem('musicStreamState');
+                const savedTabAudioState = localStorage.getItem('tabAudioState');
+                
+                if (savedMusicState) {
+                    log('✅ 檢測到保存的音樂狀態');
+                    console.log('保存的音樂狀態:', JSON.parse(savedMusicState));
+                }
+                
+                if (savedTabAudioState) {
+                    log('✅ 檢測到保存的分頁音訊狀態');
+                    console.log('保存的分頁音訊狀態:', JSON.parse(savedTabAudioState));
+                }
+                
+                // 步驟5：模擬自動重連
+                setTimeout(() => {
+                    if (window.musicStreamReconnectManager) {
+                        log('🎵 觸發音樂狀態請求...');
+                        window.musicStreamReconnectManager.requestMusicStreamState();
+                        
+                        log('🎵 觸發分頁音訊狀態請求...');
+                        window.musicStreamReconnectManager.requestTabAudioState();
+                    }
+                    
+                    // 步驟6：清除保存的狀態（模擬重連成功後清理）
+                    setTimeout(() => {
+                        localStorage.removeItem('musicStreamState');
+                        localStorage.removeItem('tabAudioState');
+                        log('🗑️ 已清除保存的狀態（重連成功）');
+                        
+                        updateStatus('✅ 頁面重整重連流程模擬完成', true);
+                        log('🎉 頁面重整重連測試完成！');
+                    }, 500);
+                }, 300);
+            }, 200);
+        }
+        
+        function showDebugInfo() {
+            log('🐛 顯示調試資訊...');
+            
+            const debugInfo = {
+                '音樂重連管理器': typeof window.musicStreamReconnectManager !== 'undefined' ? '已載入' : '未載入',
+                '分頁音訊重連管理器': typeof window.tabAudioReconnectManager !== 'undefined' ? '已載入' : '未載入',
+                'WebSocket 狀態': window.socket ? window.socket.readyState : '未建立',
+                '觀眾ID': window.viewerId || '未設定',
+                '全域音樂播放器': window.youtubePlayer ? '已載入' : '未載入',
+                'localStorage 音樂狀態': localStorage.getItem('musicStreamState') || '無',
+                '主播ID': window.myBroadcasterId || '未設定'
+            };
+            
+            Object.entries(debugInfo).forEach(([key, value]) => {
+                log(`${key}: ${value}`);
+            });
+            
+            updateStatus('🐛 調試資訊已顯示，查看控制台日誌', true);
+        }
+        
+        // 模擬 WebSocket 連接（用於測試）
+        function initializeMockWebSocket() {
+            // 創建模擬 WebSocket 物件
+            const mockSocket = {
+                readyState: WebSocket.OPEN,
+                send: function(message) {
+                    const data = JSON.parse(message);
+                    log(`📤 模擬發送: ${data.type}`);
+                    
+                    // 模擬服務器響應
+                    setTimeout(() => {
+                        simulateServerResponse(data);
+                    }, 100);
+                }
+            };
+            
+            window.socket = mockSocket;
+            window.viewerId = 'test_viewer_' + Math.random().toString(36).substr(2, 5);
+            window.myBroadcasterId = 'test_broadcaster_' + Math.random().toString(36).substr(2, 5);
+            
+            log(`🔗 模擬 WebSocket 已建立，觀眾ID: ${window.viewerId}`);
+            log(`🔗 模擬主播ID: ${window.myBroadcasterId}`);
+        }
+        
+        // 模擬服務器響應
+        function simulateServerResponse(requestData) {
+            switch(requestData.type) {
+                case 'request_music_stream_state':
+                    log('📡 模擬收到音樂狀態響應');
+                    if (window.musicStreamReconnectManager) {
+                        window.musicStreamReconnectManager.handleMusicStreamState({
+                            isPlaying: true,
+                            currentVideoId: 'dQw4w9WgXcQ',
+                            volume: 80,
+                            isMuted: false,
+                            broadcasterId: window.myBroadcasterId
+                        });
+                    }
+                    break;
+                case 'request_tab_audio_state':
+                    log('📡 模擬收到分頁音訊狀態響應');
+                    if (window.tabAudioReconnectManager) {
+                        window.tabAudioReconnectManager.handleTabAudioState({
+                            enabled: true,
+                            audioType: 'tab',
+                            broadcasterId: window.myBroadcasterId
+                        });
+                    }
+                    break;
+            }
+        }
+
+        // 監聽音樂狀態變更
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🎵 音樂重連測試頁面已載入');
+            
+            // 初始化模擬環境
+            setTimeout(() => {
+                initializeMockWebSocket();
+                
+                // 檢查相關腳本是否已載入
+                if (typeof window.musicStreamReconnectManager !== 'undefined') {
+                    log('✅ music-stream-fix.js 已成功載入');
+                    
+                    // 初始化音樂重連管理器
+                    window.musicStreamReconnectManager.initialize(window.socket, window.viewerId);
+                    log('✅ 音樂重連管理器已初始化');
+                    
+                    // 初始化分頁音訊重連管理器（作為觀眾端）
+                    if (typeof window.tabAudioReconnectManager !== 'undefined') {
+                        log('✅ 分頁音訊重連管理器已載入');
+                        updateStatus('✅ 所有音樂重連功能已就緒', true);
+                    } else {
+                        updateStatus('⚠️ 部分功能載入中...', false);
+                    }
+                } else {
+                    log('❌ music-stream-fix.js 載入失敗');
+                    updateStatus('❌ 音樂重連功能載入失敗', false);
+                }
+            }, 1000);
+        });
+        
+        // 錯誤處理
+        window.addEventListener('error', function(e) {
+            log(`❌ 錯誤: ${e.message}`);
+        });
+        
+        // 模擬音樂狀態更新
+        window.addEventListener('message', function(e) {
+            if (e.data && e.data.type && e.data.type.startsWith('music_')) {
+                log(`🎵 收到音樂狀態更新: ${e.data.type}`);
+            }
+        });
+    </script>
+</body>
+</html>

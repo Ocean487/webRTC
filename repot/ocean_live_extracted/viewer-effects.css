@@ -1,0 +1,768 @@
+/* 觀眾端視頻特效 CSS */
+
+/* 全局 CSS 變數 */
+:root {
+    --stream-border-radius: 15px;
+}
+
+/* 彩虹濾鏡動畫 - 漸變彩虹覆蓋層 */
+@-webkit-keyframes rainbow-gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes rainbow-gradient-shift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@-webkit-keyframes rainbow-overlay-pulse {
+    0%, 100% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 0.48;
+    }
+}
+
+@keyframes rainbow-overlay-pulse {
+    0%, 100% {
+        opacity: 0.25;
+    }
+    50% {
+        opacity: 0.48;
+    }
+}
+
+@-webkit-keyframes rainbow-glow-drift {
+    0% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+    50% {
+        transform: translate(10%, 8%) scale(1.18);
+        opacity: 0.35;
+    }
+    100% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+}
+
+@keyframes rainbow-glow-drift {
+    0% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+    50% {
+        transform: translate(10%, 8%) scale(1.18);
+        opacity: 0.35;
+    }
+    100% {
+        transform: translate(-8%, -8%) scale(1.05);
+        opacity: 0.18;
+    }
+}
+
+/* 彩虹邊框動畫 - 修復動畫卡住問題 */
+@keyframes steam {
+    0% {
+        background-position: 0 0;
+    }
+    50% {
+        background-position: 400% 0;
+    }
+    100% {
+        background-position: 0 0;
+    }
+}
+
+/* 霓虹邊框動畫 */
+@keyframes neonGradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* 發光邊框動畫 */
+@keyframes glowGradientMove {
+    0%, 100% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+}
+
+@keyframes glowSweep {
+    0% {
+        background-position: 0% 50%;
+        opacity: 0.95;
+    }
+    50% {
+        background-position: 100% 50%;
+        opacity: 0.75;
+    }
+    100% {
+        background-position: 0% 50%;
+        opacity: 0.95;
+    }
+}
+
+@keyframes glowPulseIntensity {
+    0%, 100% {
+        opacity: 0.5;
+        transform: scale(1.0);
+    }
+    50% {
+        opacity: 0.9;
+        transform: scale(1.15);
+    }
+}
+
+@keyframes lightningFlicker {
+    0%, 100% {
+        opacity: 0.94;
+    }
+    8% {
+        opacity: 0.78;
+    }
+    16% {
+        opacity: 0.99;
+    }
+    28% {
+        opacity: 0.82;
+    }
+    44% {
+        opacity: 0.96;
+    }
+    60% {
+        opacity: 0.8;
+    }
+    76% {
+        opacity: 0.98;
+    }
+}
+
+/* 動畫掉落效果 */
+@keyframes fall {
+    to {
+        transform: translateY(100vh) rotate(360deg);
+        opacity: 0;
+    }
+}
+
+/* 視頻容器確保相對定位 */
+#remoteVideo {
+    position: relative;
+    z-index: 0; /* 確保視頻在邊框效果下方 */
+}
+
+.stream-video {
+    position: relative;
+    overflow: visible !important;
+}
+
+.stream-video video {
+    position: relative;
+    z-index: 0; /* 確保視頻在邊框效果下方 */
+}
+
+/* 彩虹濾鏡 - 漸變彩虹覆蓋層 */
+.stream-video.effect-rainbow-filter {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.35);
+}
+
+.stream-video.effect-rainbow-filter .rainbow-gradient-layer,
+.stream-video.effect-rainbow-filter .rainbow-glow-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    border-radius: var(--stream-border-radius, 15px);
+}
+
+.stream-video.effect-rainbow-filter .rainbow-gradient-layer {
+    z-index: 2;
+    background: linear-gradient(120deg,
+        rgba(255, 20, 147, 0.55),
+        rgba(255, 140, 0, 0.48),
+        rgba(255, 255, 0, 0.45),
+        rgba(0, 255, 128, 0.45),
+        rgba(0, 191, 255, 0.5),
+        rgba(138, 43, 226, 0.55),
+        rgba(255, 20, 147, 0.55)
+    );
+    background-size: 350% 350%;
+    mix-blend-mode: screen;
+    animation: rainbow-gradient-shift 7.5s ease-in-out infinite;
+}
+
+.stream-video.effect-rainbow-filter .rainbow-glow-layer {
+    z-index: 3;
+    background: radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.22), transparent 55%),
+                radial-gradient(circle at 70% 70%, rgba(255, 255, 255, 0.18), transparent 60%);
+    mix-blend-mode: screen;
+    animation: rainbow-overlay-pulse 5.5s ease-in-out infinite alternate,
+               rainbow-glow-drift 9s ease-in-out infinite;
+}
+
+/* 確保影片在最底層 */
+video.effect-rainbow-filter,
+#remoteVideo.effect-rainbow-filter {
+    position: relative;
+    z-index: 0;
+    filter: saturate(1.12) contrast(1.05);
+    -webkit-filter: saturate(1.12) contrast(1.05);
+}
+
+/* 舊版直接套用到 video 元素的樣式（保持向後兼容） */
+#streamVideo video.effect-rainbow-filter {
+    position: relative;
+    z-index: 0;
+}
+
+/* 彩虹邊框效果 - 確保正確顯示 */
+.stream-video.effect-rainbow-border {
+    position: relative;
+    overflow: visible !important;
+    border-radius: var(--stream-border-radius, 15px);
+    isolation: isolate; /* 創建新的堆疊上下文 */
+    background: #000; /* 確保有背景色 */
+    box-shadow: 0 0 18px rgba(255, 0, 110, 0.3);
+}
+
+.stream-video.effect-rainbow-border::before,
+.stream-video.effect-rainbow-border::after {
+    content: '';
+    position: absolute;
+    left: -2px;
+    top: -2px;
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    border-radius: calc(var(--stream-border-radius, 15px) + 2px);
+    background: linear-gradient(45deg, #fb0094, #0000ff, #00ff00, #ffff00, #ff0000, #fb0094, 
+        #0000ff, #00ff00, #ffff00, #ff0000);
+    background-size: 400%;
+    animation: steam 20s linear infinite;
+    pointer-events: none;
+}
+
+.stream-video.effect-rainbow-border::before {
+    z-index: -1;
+}
+
+.stream-video.effect-rainbow-border::after {
+    z-index: -2;
+    filter: blur(50px);
+    opacity: 0.8; /* 增加可見度 */
+}
+
+/* 確保視頻在邊框上方 */
+.stream-video.effect-rainbow-border video {
+    position: relative;
+    z-index: 1;
+    border-radius: var(--stream-border-radius, 15px);
+}
+
+/* 霓虹邊框效果 - 確保正確顯示 */
+.stream-video.effect-neon-border {
+    position: relative;
+    overflow: visible !important;
+    border-radius: var(--stream-border-radius, 15px);
+    isolation: isolate; /* 創建新的堆疊上下文 */
+    background: #000; /* 確保有背景色 */
+}
+
+.stream-video.effect-neon-border::before,
+.stream-video.effect-neon-border::after {
+    content: '';
+    position: absolute;
+    left: -4px;
+    top: -4px;
+    width: calc(100% + 8px);
+    height: calc(100% + 8px);
+    border-radius: calc(var(--stream-border-radius, 15px) + 4px);
+    background: linear-gradient(60deg,
+        #f79533,
+        #f37055,
+        #ef4e7b,
+        #a166ab,
+        #5073b8,
+        #1098ad,
+        #07b39b,
+        #6fba82);
+    background-size: 300% 300%;
+    pointer-events: none;
+}
+
+.stream-video.effect-neon-border::before {
+    z-index: -1;
+    animation: neonGradient 8s linear infinite;
+    box-shadow: 0 0 22px rgba(255, 0, 128, 0.45);
+}
+
+.stream-video.effect-neon-border::after {
+    z-index: -2;
+    filter: blur(26px);
+    opacity: 0.8; /* 增加可見度 */
+    animation: neonGradient 12s linear infinite;
+}
+
+/* 確保視頻在邊框上方 */
+.stream-video.effect-neon-border video {
+    position: relative;
+    z-index: 1;
+    border-radius: var(--stream-border-radius, 15px);
+}
+
+.stream-video.effect-glow-border {
+    position: relative;
+    isolation: isolate;
+    --lightning-radius: var(--stream-border-radius, 18px);
+    --electric-border-color: #dd8448;
+    --electric-light-color: color-mix(in srgb, var(--electric-border-color) 70%, #fff 30%);
+    --electric-gradient-color: color-mix(in srgb, var(--electric-border-color) 38%, transparent);
+    --electric-neutral: #1f1f1f;
+}
+
+@supports (color: oklch(0.5 0 0)) {
+    .stream-video.effect-glow-border {
+        --electric-light-color: oklch(from var(--electric-border-color) l c h);
+        --electric-gradient-color: oklch(from var(--electric-border-color) 0.3 calc(c / 2) h / 0.4);
+        --electric-neutral: oklch(0.185 0 0);
+    }
+}
+
+.stream-video.effect-glow-border video {
+    position: relative;
+    z-index: 3;
+}
+
+.stream-video.effect-glow-border .lightning-border-overlay {
+    position: absolute;
+    inset: -6px;
+    border-radius: calc(var(--lightning-radius) + 6px);
+    pointer-events: none;
+    z-index: 2;
+}
+
+.stream-video.effect-glow-border .lightning-border-overlay .lightning-layer {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+.stream-video.effect-glow-border .border-outer {
+    padding: 2px;
+    background:
+        linear-gradient(-30deg, var(--electric-gradient-color), transparent, var(--electric-gradient-color)),
+        linear-gradient(to bottom, var(--electric-neutral), var(--electric-neutral));
+    background-size: 180% 180%;
+    animation: glowGradientMove 18s linear infinite;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0.9;
+    z-index: 1;
+    box-shadow: 0 0 24px rgba(221, 132, 72, 0.45);
+}
+
+.stream-video.effect-glow-border .main-card {
+    border-radius: inherit;
+    padding: 2px;
+    background:
+        linear-gradient(120deg,
+            rgba(255, 194, 120, 0.95) 0%,
+            rgba(255, 150, 57, 0.98) 38%,
+            rgba(255, 234, 196, 0.85) 62%,
+            rgba(255, 147, 44, 0.92) 100%);
+    background-size: 220% 220%;
+    filter: url(#turbulent-displace);
+    opacity: 0.92;
+    animation: glowGradientMove 10s ease-in-out infinite alternate, lightningFlicker 2.2s steps(3, end) infinite;
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    z-index: 2;
+    box-shadow: 0 0 28px rgba(255, 140, 40, 0.5);
+}
+
+.stream-video.effect-glow-border .glow-layer-1 {
+    border: 2px solid rgba(221, 132, 72, 0.7);
+    filter: blur(1.2px);
+    opacity: 0.9;
+    z-index: 3;
+    animation: glowPulseIntensity 6s ease-in-out infinite alternate;
+}
+
+.stream-video.effect-glow-border .glow-layer-2 {
+    border: 2px solid var(--electric-light-color);
+    filter: blur(5px);
+    opacity: 0.7;
+    z-index: 2;
+    animation: glowPulseIntensity 6.5s ease-in-out infinite alternate;
+    animation-delay: 0.4s;
+}
+
+.stream-video.effect-glow-border .overlay-1,
+.stream-video.effect-glow-border .overlay-2 {
+    mix-blend-mode: overlay;
+    border-radius: inherit;
+    transform: scale(1.08);
+    filter: blur(16px);
+    background: linear-gradient(-30deg, rgba(255, 255, 255, 0.65), transparent 35%, transparent 65%, rgba(255, 255, 255, 0.65));
+    -webkit-mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask:
+        linear-gradient(#000 0 0) content-box,
+        linear-gradient(#000 0 0);
+    mask-composite: exclude;
+}
+
+.stream-video.effect-glow-border .overlay-1 {
+    opacity: 0.55;
+    z-index: 1;
+    animation: glowSweep 8s ease-in-out infinite;
+}
+
+.stream-video.effect-glow-border .overlay-2 {
+    opacity: 0.35;
+    z-index: 0;
+    animation: glowSweep 12s ease-in-out infinite;
+    animation-direction: reverse;
+}
+
+.stream-video.effect-glow-border .background-glow {
+    border-radius: inherit;
+    transform: scale(1.1);
+    filter: blur(32px);
+    opacity: 0.35;
+    z-index: -1;
+    background: linear-gradient(-30deg, var(--electric-light-color), transparent, var(--electric-border-color));
+    background-size: 200% 200%;
+    animation: glowPulseIntensity 7s ease-in-out infinite alternate;
+}
+
+/* 臉部追蹤覆蓋層（眼鏡、狗狗等） */
+.glasses-overlay,
+.dog-overlay,
+.pingo-overlay,
+.sech-overlay,
+.laixiong-overlay,
+.mao-overlay,
+.laogao-overlay,
+.guodong-overlay,
+.huoguo-overlay,
+.hsinchu-overlay,
+.car-overlay,
+.car2-overlay,
+.look-overlay,
+.lumumu-overlay,
+.chiikawa-overlay,
+.cat-overlay,
+.polar-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    transform-origin: center center;
+    width: 220px;
+    pointer-events: none;
+    z-index: 12;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.35));
+}
+
+.glasses-overlay img,
+.dog-overlay img,
+.pingo-overlay img,
+.sech-overlay img,
+.laixiong-overlay img,
+.mao-overlay img,
+.laogao-overlay img,
+.guodong-overlay img,
+.huoguo-overlay img,
+.hsinchu-overlay img,
+.car-overlay img,
+.car2-overlay img,
+.look-overlay img,
+.lumumu-overlay img,
+.chiikawa-overlay img,
+.cat-overlay img,
+.polar-overlay img {
+    display: block;
+    width: 100%;
+    height: auto;
+    pointer-events: none;
+}
+
+.pingo-overlay img {
+    animation: pingoSway 2.8s ease-in-out infinite alternate;
+}
+
+@keyframes pingoSway {
+    0% {
+        transform: translateX(-4%);
+    }
+    100% {
+        transform: translateX(4%);
+    }
+}
+
+.sech-overlay img {
+    animation: sechFloat 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes sechFloat {
+    0% {
+        transform: translate(-2%, -1.5%);
+    }
+    100% {
+        transform: translate(2%, 1.5%);
+    }
+}
+
+.laixiong-overlay img {
+    animation: laixiongFloat 3s ease-in-out infinite alternate;
+}
+
+@keyframes laixiongFloat {
+    0% {
+        transform: translate(-1.5%, -2.5%);
+    }
+    100% {
+        transform: translate(1.5%, 2.5%);
+    }
+}
+
+.mao-overlay img {
+    animation: maoFloat 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes maoFloat {
+    0% {
+        transform: translate(-2%, -2%);
+    }
+    100% {
+        transform: translate(2%, 2%);
+    }
+}
+
+.laogao-overlay img {
+    animation: laogaoFloat 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes laogaoFloat {
+    0% {
+        transform: translate(-2.5%, -3%) scale(1.01);
+    }
+    100% {
+        transform: translate(2.5%, 3%) scale(0.99);
+    }
+}
+
+.guodong-overlay img {
+    animation: guodongFloat 3.8s ease-in-out infinite alternate;
+}
+
+@keyframes guodongFloat {
+    0% {
+        transform: translate(-3%, -2.5%) scale(1.02);
+    }
+    100% {
+        transform: translate(3%, 2.5%) scale(0.98);
+    }
+}
+
+.huoguo-overlay img {
+    animation: huoguoFloat 4s ease-in-out infinite alternate;
+}
+
+@keyframes huoguoFloat {
+    0% {
+        transform: translate(-2.2%, -3.2%) scale(1.015);
+    }
+    100% {
+        transform: translate(2.2%, 3.2%) scale(0.985);
+    }
+}
+
+.hsinchu-overlay img {
+    animation: hsinchuFloat 3.7s ease-in-out infinite alternate;
+}
+
+@keyframes hsinchuFloat {
+    0% {
+        transform: translate(-2.8%, -2.8%) scale(1.01);
+    }
+    100% {
+        transform: translate(2.8%, 2.8%) scale(0.99);
+    }
+}
+
+.car-overlay img {
+    animation: carBounce 3.5s ease-in-out infinite alternate;
+}
+
+.car2-overlay {
+    width: 240px;
+}
+
+.car2-overlay img {
+    animation: car2Cruise 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes car2Cruise {
+    0% {
+        transform: translate(-2%, -1%) scale(1.02);
+    }
+    100% {
+        transform: translate(2%, 1%) scale(0.98);
+    }
+}
+
+.look-overlay {
+    width: 250px;
+}
+
+.look-overlay img {
+    animation: lookDrift 3.2s ease-in-out infinite alternate;
+}
+
+@keyframes lookDrift {
+    0% {
+        transform: translate(-1.5%, -1.5%) scale(1.01);
+    }
+    100% {
+        transform: translate(1.5%, 1.5%) scale(0.99);
+    }
+}
+
+.lumumu-overlay {
+    width: 255px;
+}
+
+.lumumu-overlay img {
+    animation: lumumuSway 3.4s ease-in-out infinite alternate;
+}
+
+@keyframes lumumuSway {
+    0% {
+        transform: translate(-2%, -1.8%) scale(1.015);
+    }
+    100% {
+        transform: translate(2%, 1.8%) scale(0.985);
+    }
+}
+
+.chiikawa-overlay {
+    width: 248px;
+}
+
+.chiikawa-overlay img {
+    animation: chiikawaFloat 3.3s ease-in-out infinite alternate;
+}
+
+@keyframes chiikawaFloat {
+    0% {
+        transform: translate(-1.8%, -1.6%) scale(1.012);
+    }
+    100% {
+        transform: translate(1.8%, 1.6%) scale(0.988);
+    }
+}
+
+.cat-overlay {
+    width: 250px;
+}
+
+.cat-overlay img {
+    animation: catPurr 3.5s ease-in-out infinite alternate;
+}
+
+@keyframes catPurr {
+    0% {
+        transform: translate(-2%, -1.4%) scale(1.01);
+    }
+    100% {
+        transform: translate(2%, 1.4%) scale(0.99);
+    }
+}
+
+.polar-overlay {
+    width: 235px;
+}
+
+.polar-overlay img {
+    animation: polarBounce 3.6s ease-in-out infinite alternate;
+}
+
+@keyframes polarBounce {
+    0% {
+        transform: translate(-1.6%, -2.2%) scale(1.02);
+    }
+    100% {
+        transform: translate(1.6%, 2.2%) scale(0.98);
+    }
+}
+
+@keyframes carBounce {
+    0% {
+        transform: translate(-2%, -2%) scale(1.01);
+    }
+    100% {
+        transform: translate(2%, 2%) scale(0.99);
+    }
+}
+
+/* 動畫覆蓋層 */
+.animation-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+}

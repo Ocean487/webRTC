@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>特效測試 - 簡化版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #1a1a2e;
+            color: white;
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00d9ff;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 15px;
+            overflow: visible;
+            margin-bottom: 20px;
+        }
+
+        #testVideo {
+            width: 100%;
+            height: 100%;
+            border-radius: inherit;
+            object-fit: cover;
+            position: relative;
+            z-index: 1;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px;
+            background: #2a2a4e;
+            color: white;
+            border: 2px solid #00d9ff;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            background: #00d9ff;
+            color: #1a1a2e;
+            transform: translateY(-2px);
+        }
+
+        button.active {
+            background: #00d9ff;
+            color: #1a1a2e;
+            box-shadow: 0 0 20px rgba(0, 217, 255, 0.6);
+        }
+
+        .status {
+            background: #2a2a4e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .status h3 {
+            color: #00d9ff;
+            margin-bottom: 10px;
+        }
+
+        /* 濾鏡特效 */
+        .effect-bw {
+            filter: grayscale(100%) !important;
+        }
+
+        .effect-warm {
+            filter: sepia(0.8) saturate(1.5) hue-rotate(-20deg) brightness(1.1) contrast(1.1) !important;
+        }
+
+        /* 彩虹邊框 */
+        @keyframes steam {
+            0% { background-position: 0 0; }
+            50% { background-position: 400% 0; }
+            100% { background-position: 0 0; }
+        }
+
+        .video-container.effect-rainbow-border {
+            isolation: isolate;
+        }
+
+        .video-container.effect-rainbow-border::before,
+        .video-container.effect-rainbow-border::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: calc(100% + 8px);
+            height: calc(100% + 8px);
+            background: linear-gradient(45deg,
+                #fb0094, #0000ff, #00ff00, #ffff00, #ff0000, #fb0094,
+                #0000ff, #00ff00, #ffff00, #ff0000);
+            background-size: 400% 400%;
+            border-radius: 20px;
+            animation: steam 20s linear infinite;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .video-container.effect-rainbow-border::after {
+            filter: blur(35px);
+            opacity: 0.85;
+            z-index: -1;
+        }
+
+        /* 霓虹邊框 */
+        @keyframes neon-glow {
+            0%, 100% {
+                box-shadow: 0 0 5px #00d9ff, 0 0 10px #00d9ff, 
+                           0 0 20px #00d9ff, 0 0 40px #00d9ff,
+                           inset 0 0 10px rgba(0, 217, 255, 0.2);
+            }
+            50% {
+                box-shadow: 0 0 10px #00d9ff, 0 0 20px #00d9ff, 
+                           0 0 40px #00d9ff, 0 0 80px #00d9ff,
+                           inset 0 0 20px rgba(0, 217, 255, 0.4);
+            }
+        }
+
+        .video-container.effect-neon {
+            box-shadow: 0 0 5px #00d9ff, 0 0 10px #00d9ff, 
+                       0 0 20px #00d9ff, 0 0 40px #00d9ff;
+            animation: neon-glow 1.5s ease-in-out infinite;
+        }
+
+        /* 發光邊框 */
+        .video-container.effect-glow {
+            box-shadow: 0 0 20px rgba(255, 215, 0, 0.8),
+                       0 0 40px rgba(255, 215, 0, 0.6),
+                       0 0 60px rgba(255, 215, 0, 0.4);
+        }
+
+        /* 動畫特效 */
+        .animation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            overflow: hidden;
+            z-index: 10;
+            border-radius: 15px;
+        }
+
+        @keyframes fall {
+            0% {
+                transform: translateY(-50px) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(calc(100% + 50px)) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
+        .animation-overlay div {
+            position: absolute;
+            font-size: 24px;
+            animation: fall linear;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 特效測試工具 - 簡化版</h1>
+
+        <div class="status">
+            <h3>📊 狀態資訊</h3>
+            <div id="statusInfo">等待攝影機啟動...</div>
+        </div>
+
+        <div class="video-container" id="videoContainer">
+            <video id="testVideo" autoplay muted playsinline></video>
+        </div>
+
+        <div class="controls">
+            <button onclick="testEffect('bw')">⚫ 黑白</button>
+            <button onclick="testEffect('warm')">🔥 暖色調</button>
+            <button onclick="testEffect('rainbowBorder')">🌈 彩虹邊框</button>
+            <button onclick="testEffect('neon')">💡 霓虹</button>
+            <button onclick="testEffect('glow')">✨ 發光</button>
+            <button onclick="testEffect('particles')">⭐ 星星</button>
+            <button onclick="testEffect('hearts')">❤️ 愛心</button>
+            <button onclick="testEffect('confetti')">🎉 彩帶</button>
+            <button onclick="testEffect('snow')">❄️ 雪花</button>
+            <button onclick="clearAllEffects()" style="background: #ff4444;">🧹 清除</button>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('testVideo');
+        const container = document.getElementById('videoContainer');
+        const statusInfo = document.getElementById('statusInfo');
+        let currentEffect = null;
+
+        // 啟動攝影機
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 1280, height: 720 }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+                statusInfo.innerHTML = '✅ 攝影機已啟動<br>可以開始測試特效了！';
+                console.log('✅ 攝影機已啟動');
+            } catch (error) {
+                statusInfo.innerHTML = '❌ 無法啟動攝影機: ' + error.message;
+                console.error('❌ 攝影機錯誤:', error);
+            }
+        }
+
+        function testEffect(effectType) {
+            console.log('🎨 測試特效:', effectType);
+            
+            // 清除所有按鈕的 active 狀態
+            document.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            // 如果點擊相同特效,則清除
+            if (currentEffect === effectType) {
+                clearAllEffects();
+                return;
+            }
+
+            // 清除舊特效
+            clearAllEffects();
+
+            // 設置新特效
+            currentEffect = effectType;
+            event.target.classList.add('active');
+
+            switch (effectType) {
+                case 'bw':
+                    video.classList.add('effect-bw');
+                    statusInfo.innerHTML = '✅ 已套用黑白特效<br>filter: grayscale(100%)';
+                    console.log('✅ 黑白特效已套用');
+                    break;
+
+                case 'warm':
+                    video.classList.add('effect-warm');
+                    statusInfo.innerHTML = '✅ 已套用暖色調特效<br>filter: sepia + hue-rotate';
+                    console.log('✅ 暖色調特效已套用');
+                    break;
+
+                case 'rainbowBorder':
+                    container.classList.add('effect-rainbow-border');
+                    statusInfo.innerHTML = '✅ 已套用彩虹邊框<br>使用 ::before 偽元素';
+                    console.log('✅ 彩虹邊框已套用');
+                    break;
+
+                case 'neon':
+                    container.classList.add('effect-neon');
+                    statusInfo.innerHTML = '✅ 已套用霓虹邊框<br>box-shadow + animation';
+                    console.log('✅ 霓虹邊框已套用');
+                    break;
+
+                case 'glow':
+                    container.classList.add('effect-glow');
+                    statusInfo.innerHTML = '✅ 已套用發光邊框<br>金色 box-shadow';
+                    console.log('✅ 發光邊框已套用');
+                    break;
+
+                case 'particles':
+                    createAnimation('⭐', 20);
+                    statusInfo.innerHTML = '✅ 已套用星星動畫<br>20個星星從上往下掉';
+                    console.log('✅ 星星動畫已套用');
+                    break;
+
+                case 'hearts':
+                    createAnimation('❤️', 20);
+                    statusInfo.innerHTML = '✅ 已套用愛心動畫<br>20個愛心從上往下掉';
+                    console.log('✅ 愛心動畫已套用');
+                    break;
+
+                case 'confetti':
+                    createAnimation('🎉', 20);
+                    statusInfo.innerHTML = '✅ 已套用彩帶動畫<br>20個彩帶從上往下掉';
+                    console.log('✅ 彩帶動畫已套用');
+                    break;
+
+                case 'snow':
+                    createAnimation('❄️', 20);
+                    statusInfo.innerHTML = '✅ 已套用雪花動畫<br>20個雪花從上往下掉';
+                    console.log('✅ 雪花動畫已套用');
+                    break;
+            }
+        }
+
+        function createAnimation(symbol, count) {
+            // 移除現有動畫
+            const existing = container.querySelector('.animation-overlay');
+            if (existing) existing.remove();
+
+            // 創建新動畫層
+            const overlay = document.createElement('div');
+            overlay.className = 'animation-overlay';
+            container.appendChild(overlay);
+
+            // 創建動畫元素
+            for (let i = 0; i < count; i++) {
+                const element = document.createElement('div');
+                element.textContent = symbol;
+                element.style.left = Math.random() * 100 + '%';
+                element.style.animationDuration = (Math.random() * 3 + 2) + 's';
+                element.style.animationDelay = Math.random() * 2 + 's';
+                overlay.appendChild(element);
+            }
+
+            console.log(`✅ 創建了 ${count} 個 ${symbol} 動畫元素`);
+        }
+
+        function clearAllEffects() {
+            console.log('🧹 清除所有特效');
+            
+            // 清除濾鏡
+            video.className = '';
+            
+            // 清除邊框
+            container.className = 'video-container';
+            
+            // 清除動畫
+            const overlay = container.querySelector('.animation-overlay');
+            if (overlay) overlay.remove();
+
+            // 清除按鈕狀態
+            document.querySelectorAll('button').forEach(btn => {
+                btn.classList.remove('active');
+            });
+
+            currentEffect = null;
+            statusInfo.innerHTML = '🧹 所有特效已清除';
+        }
+
+        // 頁面載入時啟動攝影機
+        window.addEventListener('load', startCamera);
+    </script>
+</body>
+</html>

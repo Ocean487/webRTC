@@ -1,0 +1,368 @@
+/* 手機觀眾介面 - 舒適版本 */
+
+/* 手機端 (768px 以下) - 舒適佈局 */
+@media (max-width: 768px) {
+    /* 主容器 - 增加呼吸空間 */
+    .viewer-container {
+        margin: 0.75rem auto;
+        padding: 0 0.75rem;
+        gap: 0.75rem;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+        height: calc(100vh - 100px); /* 減少預留空間，給內容更多空間 */
+        max-height: calc(100vh - 100px);
+    }
+
+    /* 視訊區域 - 適中大小 */
+    .video-section {
+        padding: 0.75rem;
+        border-radius: 15px;
+        height: auto;
+        max-height: 40vh; /* 增加到40%，讓視訊稍大一些 */
+        min-height: 220px;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* 直播視訊 - 保持適當比例 */
+    .stream-video {
+        border-radius: 10px;
+        margin-bottom: 0.75rem;
+        max-height: 30vh; /* 對應調整 */
+        object-fit: cover;
+        width: 100%;
+        background: #000;
+    }
+
+    /* 聊天區域 - 給予充足空間但不過度擠壓 */
+    .chat-section {
+        padding: 0.75rem;
+        border-radius: 15px;
+        height: 100%;
+        max-height: none;
+        min-height: 45vh; /* 減少到45%，平衡視訊和聊天 */
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* 聊天容器 */
+    .chat-container {
+        height: 100%;
+        max-height: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+    }
+
+    /* 聊天訊息區域 - 舒適的間距 */
+    .chat-messages {
+        padding: 0.75rem;
+        flex: 1;
+        overflow-y: auto;
+        font-size: 0.95rem; /* 稍微增大字體 */
+        line-height: 1.5; /* 增加行距 */
+        scroll-behavior: smooth;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* 聊天標題 - 清晰的分隔 */
+    .chat-header {
+        padding: 1rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .chat-header h3 {
+        font-size: 1.1rem;
+        margin: 0;
+        color: white;
+        font-weight: 600;
+    }
+
+    /* 聊天輸入區域 - 更大的觸控區域 */
+    .chat-input-container {
+        padding: 0.75rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .chat-input {
+        flex: 1;
+        padding: 0.9rem 1rem; /* 增加內邊距 */
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 25px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 1rem; /* 增大字體 */
+        min-height: 48px; /* 增大觸控區域 */
+        line-height: 1.4;
+    }
+
+    .chat-input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .send-button {
+        padding: 0.9rem 1.2rem;
+        min-height: 48px;
+        min-width: 48px;
+        border-radius: 25px;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        font-weight: 600;
+    }
+
+    /* 直播資訊 - 清晰的佈局 */
+    .stream-header {
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.75rem 0;
+        flex-wrap: wrap;
+    }
+
+    .streamer-info h2 {
+        font-size: 1.2rem; /* 增大主播名字 */
+        margin: 0;
+        color: white;
+        font-weight: 600;
+    }
+
+    .stream-status {
+        font-size: 0.9rem;
+        padding: 0.3rem 0.6rem;
+        border-radius: 15px;
+        font-weight: 500;
+    }
+
+    .streamer-avatar {
+        width: 45px;
+        height: 45px;
+        font-size: 1.1rem;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+
+    /* 觀眾數量 */
+    .viewer-count {
+        font-size: 0.9rem;
+        padding: 0.3rem 0.6rem;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 15px;
+        color: white;
+    }
+
+    /* 頂部導航欄 - 緊湊但清晰 */
+    .navbar {
+        padding: 0.75rem 0;
+    }
+
+    .nav-container {
+        padding: 0 1rem;
+    }
+
+    .logo {
+        font-size: 1.6rem;
+    }
+
+    /* 移除過度的動畫和效果以提高性能 */
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+
+    /* 關鍵動畫保留 */
+    .chat-input:focus {
+        transition: all 0.2s ease !important;
+        border-color: rgba(102, 126, 234, 0.6);
+        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    }
+
+    .send-button:active {
+        transition: transform 0.1s ease !important;
+        transform: scale(0.95);
+    }
+}
+
+/* 小手機 (480px 以下) - 進一步優化間距 */
+@media (max-width: 480px) {
+    .viewer-container {
+        margin: 0.5rem auto;
+        padding: 0 0.5rem;
+        gap: 0.5rem;
+        height: calc(100vh - 80px);
+    }
+
+    .video-section {
+        max-height: 35vh;
+        min-height: 200px;
+        padding: 0.5rem;
+    }
+
+    .stream-video {
+        max-height: 26vh;
+    }
+
+    .chat-section {
+        min-height: 50vh;
+        padding: 0.5rem;
+    }
+
+    .chat-messages {
+        font-size: 0.9rem;
+        padding: 0.5rem;
+        line-height: 1.4;
+    }
+
+    .chat-header {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .chat-input-container {
+        padding: 0.5rem;
+        gap: 0.5rem;
+    }
+
+    .chat-input {
+        font-size: 0.9rem;
+        padding: 0.8rem;
+        min-height: 44px;
+    }
+
+    .send-button {
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.8rem;
+    }
+
+    .streamer-info h2 {
+        font-size: 1.1rem;
+    }
+
+    .stream-status {
+        font-size: 0.8rem;
+    }
+
+    .streamer-avatar {
+        width: 40px;
+        height: 40px;
+        font-size: 1rem;
+    }
+}
+
+/* 超小手機 (360px 以下) - 最小化但保持可用性 */
+@media (max-width: 360px) {
+    .viewer-container {
+        height: calc(100vh - 70px);
+        margin: 0.25rem auto;
+        padding: 0 0.25rem;
+        gap: 0.25rem;
+    }
+
+    .video-section {
+        max-height: 32vh;
+        min-height: 180px;
+        padding: 0.25rem;
+    }
+
+    .stream-video {
+        max-height: 24vh;
+    }
+
+    .chat-section {
+        min-height: 55vh;
+        padding: 0.25rem;
+    }
+
+    .chat-messages {
+        font-size: 0.85rem;
+        padding: 0.25rem;
+    }
+
+    .chat-input {
+        font-size: 0.85rem;
+        min-height: 42px;
+    }
+
+    .send-button {
+        min-height: 42px;
+        min-width: 42px;
+    }
+
+    .streamer-info h2 {
+        font-size: 1rem;
+    }
+
+    .navbar {
+        padding: 0.5rem 0;
+    }
+
+    .nav-container {
+        padding: 0 0.5rem;
+    }
+}
+
+/* 橫屏模式 - 保持平衡 */
+@media (max-width: 768px) and (orientation: landscape) {
+    .viewer-container {
+        grid-template-columns: 1.2fr 1fr; /* 視訊稍大一些 */
+        grid-template-rows: 1fr;
+        height: calc(100vh - 60px);
+        gap: 0.5rem;
+    }
+
+    .video-section {
+        height: 100%;
+        max-height: none;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .stream-video {
+        flex: 1;
+        max-height: none;
+        height: 100%;
+        object-fit: cover;
+    }
+
+    .chat-section {
+        height: 100%;
+        min-height: auto;
+    }
+
+    .chat-messages {
+        font-size: 0.8rem;
+    }
+
+    .chat-input {
+        font-size: 0.8rem;
+    }
+}
+
+
+
+
+
+
+

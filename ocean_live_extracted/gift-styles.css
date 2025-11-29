@@ -1,0 +1,257 @@
+/* 禮物系統樣式 */
+
+/* 左側禮物側邊欄 */
+.gift-sidebar {
+    position: fixed;
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(10px);
+    padding: 15px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 100;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    transition: all 0.3s ease;
+}
+
+.gift-sidebar:hover {
+    background: rgba(0, 0, 0, 0.8);
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.gift-btn {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(255, 255, 255, 0.1);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.gift-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.gift-btn img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+}
+
+.gift-btn .gift-price {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: #fff;
+    white-space: nowrap;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 2px 5px;
+    border-radius: 10px;
+    opacity: 0;
+    transition: opacity 0.2s;
+}
+
+.gift-btn:hover .gift-price {
+    opacity: 1;
+}
+
+/* 儲值中心按鈕 */
+.top-up-btn {
+    background: linear-gradient(45deg, #FFD700, #FFA500);
+    color: #fff;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    transition: transform 0.2s;
+    text-decoration: none;
+    font-size: 0.9rem;
+}
+
+.top-up-btn:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+/* 禮物特效容器 */
+.gift-effect-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 9999;
+    overflow: hidden;
+}
+
+.gift-animation {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: gift-pop 3s ease-out forwards;
+    text-align: center;
+}
+
+.gift-animation img {
+    width: 200px;
+    height: 200px;
+    filter: drop-shadow(0 0 20px rgba(255, 255, 255, 0.5));
+}
+
+.gift-animation .sender-info {
+    font-size: 24px;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    margin-top: 10px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.5);
+    padding: 5px 15px;
+    border-radius: 20px;
+    display: inline-block;
+}
+
+/* 愛心特效樣式 (小且靠下) */
+.gift-animation.heart-effect {
+    top: 50%; /* 改回中間 */
+    animation: heart-float 2s ease-out forwards;
+}
+
+.gift-animation.heart-effect img {
+    width: 60px; /* 縮小圖片 */
+    height: 60px;
+}
+
+.gift-animation.heart-effect .sender-info {
+    display: none; /* 不顯示名字 */
+}
+
+@keyframes gift-pop {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    10% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+    20% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    80% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+    }
+}
+
+@keyframes heart-float {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    10% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+    20% {
+        transform: translate(-50%, -50%) scale(1);
+    }
+    80% {
+        transform: translate(-50%, -150%) scale(1); /* 稍微上浮 */
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -250%) scale(1.2); /* 繼續上浮並消失 */
+        opacity: 0;
+    }
+}
+
+/* 儲值模態框 */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 2000;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    width: 90%;
+    max-width: 400px;
+    position: relative;
+    text-align: center;
+}
+
+.modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.top-up-options {
+    display: grid;
+    grid-template-columns: repeat(2, 1);
+    gap: 15px;
+    margin-top: 20px;
+}
+
+.top-up-option {
+    border: 2px solid #eee;
+    padding: 15px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.top-up-option:hover {
+    border-color: #FFD700;
+    background: #FFFDF0;
+}
+
+.top-up-option.selected {
+    border-color: #FFA500;
+    background: #FFF5E0;
+}
+
+.coin-amount {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #333;
+}
+
+.price {
+    color: #666;
+    font-size: 0.9rem;
+}

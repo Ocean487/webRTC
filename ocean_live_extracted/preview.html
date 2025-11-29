@@ -376,7 +376,7 @@
                 // 3秒後自動開始播放
                 setTimeout(() => {
                     this.autoPlay();
-                }, 300);
+                }, 3000);
             }
             
             bindEvents() {
@@ -396,7 +396,7 @@
             startSlideShow() {
                 this.slideInterval = setInterval(() => {
                     this.nextSlide();
-                }, 1500); // 每5秒換一張
+                }, 5000); // 每5秒換一張
             }
             
             stopSlideShow() {

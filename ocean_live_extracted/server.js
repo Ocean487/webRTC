@@ -293,6 +293,10 @@ function setupWebSocketHandlers() {
                     case 'chat':
                         handleChatMessage(wss, message);
                         break;
+
+                    case 'gift':
+                        handleGiftMessage(wss, message);
+                        break;
                         
                     case 'heartbeat':
                         sendJSON(wss, { type: 'heartbeat_ack', timestamp: new Date().toISOString() });
@@ -1084,6 +1088,70 @@ function handleChatMessage(ws, message) {
         
     } catch (error) {
         console.error('處理聊天訊息時發生錯誤:', error);
+    }
+}
+
+// 處理禮物訊息
+function handleGiftMessage(ws, message) {
+    const giftType = message.giftType;
+    const username = message.username || '匿名用戶';
+    const role = message.role || 'viewer';
+    
+    // 優先從消息中獲取broadcasterId，然後從WebSocket連接中獲取
+    let broadcasterId = message.broadcasterId || ws.broadcasterId;
+    
+    // 如果還是沒有，嘗試從activeConnections中查找
+    if (!broadcasterId) {
+        for (const [connectionId, connection] of activeConnections.entries()) {
+            if (connection.ws === ws && connection.type === 'broadcaster') {
+                broadcasterId = connection.userId;
+                break;
+            }
+        }
+    }
+    
+    console.log('收到禮物:', giftType, '來自:', username, '主播ID:', broadcasterId);
+    
+    try {
+        if (!giftType) {
+            console.log('未指定禮物類型');
+            return;
+        }
+        
+        const giftMessage = {
+            type: 'gift',
+            giftType: giftType,
+            username: username,
+            role: role,
+            timestamp: new Date().toISOString(),
+            broadcasterId: broadcasterId
+        };
+        
+        // 根據主播ID分發訊息
+        if (broadcasterId) {
+            const broadcaster = activeBroadcasters.get(broadcasterId);
+            if (broadcaster) {
+                // 發送給該主播的所有觀眾
+                broadcaster.viewers.forEach((viewerWs, viewerId) => {
+                    if (viewerWs.readyState === WebSocket.OPEN) {
+                        try {
+                            viewerWs.send(JSON.stringify(giftMessage));
+                        } catch (error) {
+                            console.error('發送禮物訊息給觀眾失敗:', error);
+                        }
+                    }
+                });
+                
+                // 發送給主播
+                if (broadcaster.ws && broadcaster.ws.readyState === WebSocket.OPEN) {
+                    broadcaster.ws.send(JSON.stringify(giftMessage));
+                }
+                
+                console.log('已廣播禮物訊息給主播', broadcasterId, '和其', broadcaster.viewers.size, '個觀眾');
+            }
+        }
+    } catch (error) {
+        console.error('處理禮物訊息時發生錯誤:', error);
     }
 }
 

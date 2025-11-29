@@ -288,6 +288,80 @@ body {
     transform: translate(-50%, -50%) scale(1.05);
 }
 
+/* 視訊覆蓋聊天室 */
+.video-overlay-chat {
+    position: absolute;
+    bottom: 24px;
+    right: 24px;
+    width: min(320px, 45%);
+    max-height: 260px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+    z-index: 30;
+    overflow: hidden;
+    align-items: flex-end;
+    mask-image: linear-gradient(to bottom, transparent, rgba(0,0,0,0.6) 25%, rgba(0,0,0,0.9) 60%, rgba(0,0,0,1));
+    -webkit-mask-image: linear-gradient(to bottom, transparent, rgba(0,0,0,0.6) 25%, rgba(0,0,0,0.9) 60%, rgba(0,0,0,1));
+}
+
+.overlay-message {
+    display: inline-flex;
+    gap: 6px;
+    align-items: baseline;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.35);
+    color: #f8f8f8;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-size: 14px;
+    line-height: 1.3;
+    backdrop-filter: blur(4px);
+    animation: overlay-slide-in 0.3s ease, overlay-fade-out 0.4s ease 7.6s forwards;
+}
+
+.overlay-message .overlay-user {
+    font-weight: 600;
+    color: #ffd866;
+}
+
+.overlay-message .overlay-text {
+    color: #fff;
+}
+
+@keyframes overlay-slide-in {
+    from {
+        opacity: 0;
+        transform: translateX(-16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes overlay-fade-out {
+    to {
+        opacity: 0;
+        transform: translateX(-12px);
+    }
+}
+
+@media (max-width: 768px) {
+    .video-overlay-chat {
+        right: 12px;
+        bottom: 70px;
+        width: 70%;
+        max-height: 200px;
+    }
+    .overlay-message {
+        font-size: 12px;
+        padding: 5px 12px;
+    }
+}
+
 /* 直播信息 */
 .stream-header {
     display: flex;

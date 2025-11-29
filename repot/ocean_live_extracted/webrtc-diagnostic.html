@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 連接診斷工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Microsoft JhengHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        h1 {
+            text-align: center;
+            color: #667eea;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+            border-radius: 5px;
+        }
+        
+        .status-label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .status-value {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+        }
+        
+        .status-ok {
+            background: #10b981;
+            color: white;
+        }
+        
+        .status-error {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .status-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        
+        .status-info {
+            background: #3b82f6;
+            color: white;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+        }
+        
+        .log-entry {
+            margin: 3px 0;
+            padding: 3px;
+        }
+        
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-warning { color: #ffb74d; }
+        .log-error { color: #e57373; }
+        .log-debug { color: #9e9e9e; }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        
+        .metric-label {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 WebRTC 連接診斷工具</h1>
+        
+        <!-- 連接狀態 -->
+        <div class="section">
+            <h2>📡 連接狀態</h2>
+            <div class="status-item">
+                <span class="status-label">WebSocket 狀態:</span>
+                <span class="status-value status-info" id="wsStatus">未連接</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">主播ID:</span>
+                <span class="status-value status-info" id="broadcasterId">-</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">直播狀態:</span>
+                <span class="status-value status-info" id="streamStatus">未開始</span>
+            </div>
+            <div class="status-item">
+                <span class="status-label">本地媒體流:</span>
+                <span class="status-value status-info" id="localStreamStatus">未獲取</span>
+            </div>
+        </div>
+        
+        <!-- 統計數據 -->
+        <div class="section">
+            <h2>📊 連接統計</h2>
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-label">在線觀眾</div>
+                    <div class="metric-value" id="viewerCount">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">PeerConnection 數</div>
+                    <div class="metric-value" id="peerCount">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">已發送 Offer</div>
+                    <div class="metric-value" id="offerCount">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">ICE 候選</div>
+                    <div class="metric-value" id="iceCount">0</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 操作按鈕 -->
+        <div class="section">
+            <h2>🎮 控制台</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="testConnection()">測試連接</button>
+                <button class="btn-primary" onclick="simulateStreamStart()">模擬開始直播</button>
+                <button class="btn-primary" onclick="checkGlobalVariables()">檢查全局變量</button>
+                <button class="btn-secondary" onclick="clearLogs()">清除日誌</button>
+                <button class="btn-danger" onclick="resetAll()">重置所有</button>
+            </div>
+        </div>
+        
+        <!-- 日誌輸出 -->
+        <div class="section">
+            <h2>📝 診斷日誌</h2>
+            <div class="log-container" id="logContainer"></div>
+        </div>
+    </div>
+    
+    <script>
+        let ws = null;
+        let diagnosticData = {
+            viewerCount: 0,
+            peerCount: 0,
+            offerCount: 0,
+            iceCount: 0
+        };
+        
+        // 日誌函數
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${type}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('日誌已清除', 'info');
+        }
+        
+        // 更新狀態顯示
+        function updateStatus(elementId, value, statusClass = 'status-info') {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = value;
+                element.className = `status-value ${statusClass}`;
+            }
+        }
+        
+        function updateMetric(metricId, value) {
+            const element = document.getElementById(metricId);
+            if (element) {
+                element.textContent = value;
+            }
+        }
+        
+        // 測試連接
+        function testConnection() {
+            log('開始測試連接...', 'info');
+            
+            // 檢查 WebSocket
+            if (!window.streamingSocket) {
+                log('❌ window.streamingSocket 不存在', 'error');
+                updateStatus('wsStatus', '未初始化', 'status-error');
+            } else {
+                const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+                const state = states[window.streamingSocket.readyState];
+                log(`WebSocket 狀態: ${state}`, window.streamingSocket.readyState === 1 ? 'success' : 'warning');
+                updateStatus('wsStatus', state, window.streamingSocket.readyState === 1 ? 'status-ok' : 'status-warning');
+            }
+            
+            // 檢查主播ID
+            if (typeof getBroadcasterId === 'function') {
+                const broadcasterId = getBroadcasterId();
+                log(`主播ID: ${broadcasterId}`, 'success');
+                updateStatus('broadcasterId', broadcasterId, 'status-ok');
+            } else {
+                log('❌ getBroadcasterId 函數不存在', 'error');
+                updateStatus('broadcasterId', '錯誤', 'status-error');
+            }
+            
+            // 檢查直播狀態
+            if (typeof window.isStreaming !== 'undefined') {
+                log(`直播狀態: ${window.isStreaming ? '進行中' : '未開始'}`, window.isStreaming ? 'success' : 'info');
+                updateStatus('streamStatus', window.isStreaming ? '進行中' : '未開始', window.isStreaming ? 'status-ok' : 'status-info');
+            } else {
+                log('⚠️ window.isStreaming 未定義', 'warning');
+                updateStatus('streamStatus', '未知', 'status-warning');
+            }
+            
+            // 檢查本地媒體流
+            if (window.localStream) {
+                const tracks = window.localStream.getTracks();
+                const videoTracks = window.localStream.getVideoTracks();
+                const audioTracks = window.localStream.getAudioTracks();
+                log(`✅ 本地媒體流存在: ${videoTracks.length} 視訊, ${audioTracks.length} 音訊`, 'success');
+                updateStatus('localStreamStatus', `${videoTracks.length}V+${audioTracks.length}A`, 'status-ok');
+            } else {
+                log('❌ 本地媒體流不存在', 'error');
+                updateStatus('localStreamStatus', '不存在', 'status-error');
+            }
+            
+            // 檢查 PeerConnections
+            if (window.peerConnections) {
+                const count = window.peerConnections.size;
+                log(`PeerConnection 數量: ${count}`, count > 0 ? 'success' : 'info');
+                updateMetric('peerCount', count);
+                diagnosticData.peerCount = count;
+            } else {
+                log('⚠️ window.peerConnections 不存在', 'warning');
+            }
+            
+            log('連接測試完成', 'success');
+        }
+        
+        // 模擬開始直播
+        function simulateStreamStart() {
+            log('開始模擬直播流程...', 'info');
+            
+            if (!window.streamingSocket || window.streamingSocket.readyState !== 1) {
+                log('❌ WebSocket 未連接，無法模擬', 'error');
+                return;
+            }
+            
+            if (!window.isStreaming) {
+                log('❌ 請先在主頁面開始直播', 'error');
+                return;
+            }
+            
+            if (!window.localStream) {
+                log('❌ 本地媒體流不存在', 'error');
+                return;
+            }
+            
+            // 監聽 WebSocket 消息
+            const originalOnMessage = window.streamingSocket.onmessage;
+            window.streamingSocket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`📨 收到消息: ${data.type}`, 'info');
+                
+                if (data.type === 'online_viewers') {
+                    log(`🎯 收到在線觀眾列表: ${data.viewers ? data.viewers.length : 0} 個`, 'success');
+                    diagnosticData.viewerCount = data.viewers ? data.viewers.length : 0;
+                    updateMetric('viewerCount', diagnosticData.viewerCount);
+                    
+                    // 檢查是否會觸發 handleOnlineViewers
+                    if (typeof window.handleOnlineViewers === 'function') {
+                        log('✅ handleOnlineViewers 函數存在', 'success');
+                    } else {
+                        log('❌ handleOnlineViewers 函數不存在', 'error');
+                    }
+                }
+                
+                if (data.type === 'offer') {
+                    diagnosticData.offerCount++;
+                    updateMetric('offerCount', diagnosticData.offerCount);
+                    log(`📤 發送 Offer 給觀眾`, 'success');
+                }
+                
+                // 調用原始處理函數
+                if (originalOnMessage) {
+                    originalOnMessage.call(window.streamingSocket, event);
+                }
+            };
+            
+            log('✅ 已設置消息監聽器', 'success');
+            log('請在主頁面觀察控制台輸出', 'info');
+        }
+        
+        // 檢查全局變量
+        function checkGlobalVariables() {
+            log('檢查全局變量...', 'info');
+            
+            const variables = [
+                'streamingSocket',
+                'isStreaming',
+                'localStream',
+                'peerConnections',
+                'getBroadcasterId',
+                'handleOnlineViewers',
+                'createPeerConnection',
+                'sendStreamToViewer'
+            ];
+            
+            variables.forEach(varName => {
+                const exists = typeof window[varName] !== 'undefined';
+                const type = typeof window[varName];
+                log(`${varName}: ${exists ? '✅ 存在' : '❌ 不存在'} (${type})`, exists ? 'success' : 'error');
+            });
+            
+            log('全局變量檢查完成', 'success');
+        }
+        
+        // 重置所有
+        function resetAll() {
+            diagnosticData = {
+                viewerCount: 0,
+                peerCount: 0,
+                offerCount: 0,
+                iceCount: 0
+            };
+            
+            updateMetric('viewerCount', 0);
+            updateMetric('peerCount', 0);
+            updateMetric('offerCount', 0);
+            updateMetric('iceCount', 0);
+            
+            clearLogs();
+            log('已重置所有數據', 'info');
+        }
+        
+        // 頁面加載時初始化
+        window.addEventListener('load', function() {
+            log('WebRTC 診斷工具已啟動', 'success');
+            log('請在另一個分頁開啟主播頁面進行測試', 'info');
+            testConnection();
+        });
+        
+        // 定期更新狀態
+        setInterval(function() {
+            if (window.streamingSocket) {
+                const states = ['CONNECTING', 'OPEN', 'CLOSING', 'CLOSED'];
+                const state = states[window.streamingSocket.readyState];
+                updateStatus('wsStatus', state, window.streamingSocket.readyState === 1 ? 'status-ok' : 'status-warning');
+            }
+            
+            if (typeof window.isStreaming !== 'undefined') {
+                updateStatus('streamStatus', window.isStreaming ? '進行中' : '未開始', window.isStreaming ? 'status-ok' : 'status-info');
+            }
+            
+            if (window.localStream) {
+                const videoTracks = window.localStream.getVideoTracks();
+                const audioTracks = window.localStream.getAudioTracks();
+                updateStatus('localStreamStatus', `${videoTracks.length}V+${audioTracks.length}A`, 'status-ok');
+            }
+            
+            if (window.peerConnections) {
+                updateMetric('peerCount', window.peerConnections.size);
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

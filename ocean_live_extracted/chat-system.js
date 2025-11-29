@@ -524,6 +524,15 @@ class ChatSystem {
                 messageCountElement.textContent = nextCount;
             }
         }
+
+        if (data.role !== 'system' && typeof window.displayOverlayMessage === 'function') {
+            window.displayOverlayMessage({
+                username: data.username,
+                text: data.message,
+                role: data.role,
+                timestamp: data.timestamp
+            });
+        }
     }
     
     addSystemMessage(text) {

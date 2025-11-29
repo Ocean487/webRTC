@@ -1,0 +1,1442 @@
+/* ========================================
+   VibeLo 觀眾端 RWD 響應式設計
+   ======================================== */
+
+/* 基礎響應式設定 */
+* {
+    box-sizing: border-box;
+}
+
+/* 超小手機端 (320px - 480px) */
+@media screen and (max-width: 480px) {
+    /* 整體佈局調整 */
+    body {
+        font-size: 12px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        min-height: 100vh !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+    }
+    
+    /* 強制重置所有元素的寬度 */
+    html, body {
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* 確保所有容器不超出螢幕 */
+    * {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 強制所有主要容器使用100%寬度 */
+    .container, .main-content, .stream-section, .stream-video, 
+    .stream-info, .chat-section, .viewer-stats, .navbar {
+        width: 100% !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        flex-shrink: 1 !important;
+    }
+    
+    /* 頂部導航欄 - 更簡潔的設計 */
+    .navbar {
+        padding: 0.3rem 0 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 1000 !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    
+     .navbar .container {
+         padding: 0 1px !important;
+         flex-direction: row !important;
+         justify-content: space-between !important;
+         align-items: center !important;
+         width: 100% !important;
+         max-width: 100% !important;
+     }
+    
+    .navbar-brand {
+        font-size: 1.4rem;
+        font-weight: 700;
+        color: #667eea;
+        margin: 0;
+    }
+    
+    .navbar-nav {
+        flex-direction: row;
+        gap: 1rem;
+    }
+    
+    .nav-item {
+        margin: 0;
+    }
+    
+    .nav-link {
+        padding: 0.6rem 1rem;
+        font-size: 0.9rem;
+        border-radius: 20px;
+        background: rgba(102, 126, 234, 0.1);
+        color: #667eea;
+        transition: all 0.3s ease;
+    }
+    
+    .nav-link:hover {
+        background: rgba(102, 126, 234, 0.2);
+        transform: translateY(-1px);
+    }
+    
+     /* 主要內容區域 */
+     .main-content {
+         margin-top: 50px !important;
+         padding: 8px 4px !important;
+         flex-direction: column !important;
+         gap: 8px !important;
+         width: 100% !important;
+         max-width: 100vw !important;
+         overflow-x: hidden !important;
+         position: relative !important;
+         box-sizing: border-box !important;
+         min-height: calc(100vh - 50px) !important;
+     }
+    
+    /* 直播區域 - 更美觀的設計 */
+    .stream-section {
+        width: 100% !important;
+        max-width: 100vw !important;
+        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+    
+     .stream-video {
+        height: calc(30vw) !important;
+        min-height: 200px !important;
+        max-height: 180px !important;
+        border-radius: 8px !important;
+        overflow: hidden !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        background: #000 !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        margin-bottom: 8px !important;
+    }
+    
+    .stream-video video {
+        border-radius: 8px !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+     /* 直播信息 - 卡片式設計 */
+     .stream-info {
+         padding: 4px 1px !important;
+         margin-top: 50px !important;
+         background: rgba(255, 255, 255, 0.15) !important;
+         backdrop-filter: blur(20px) !important;
+         border-radius: 10px !important;
+         border: 1px solid rgba(255, 255, 255, 0.2) !important;
+         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+         width: 100% !important;
+         max-width: 100% !important;
+         box-sizing: border-box !important;
+     }
+    
+     .stream-header {
+         flex-direction: column !important;
+         gap: 3px !important;
+         text-align: center !important;
+         margin-bottom: 4px !important;
+     }
+    
+    .stream-title {
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3) !important;
+    }
+     
+    .streamer-name {
+        font-size: 9px !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 500 !important;
+    }
+    
+     /* 狀態指示器 - 更醒目的設計 */
+     .stream-status {
+         margin-top: 4px !important;
+         display: flex !important;
+         flex-direction: row !important;
+         justify-content: flex-end !important;
+         align-items: center !important;
+         gap: 3px !important;
+     }
+     
+     .status-text {
+         font-size: 10px !important;
+         padding: 3px 6px !important;
+         text-align: center !important;
+         border-radius: 10px !important;
+         font-weight: 600 !important;
+         background: rgba(255, 165, 0, 0.9) !important;
+         color: white !important;
+         box-shadow: 0 1px 4px rgba(255, 165, 0, 0.3) !important;
+         border: 1px solid rgba(255, 255, 255, 0.2) !important;
+     }
+    
+     .status-text.live {
+         background: rgba(244, 67, 54, 0.9) !important;
+         box-shadow: 0 2px 8px rgba(244, 67, 54, 0.3) !important;
+         animation: pulse 2s infinite !important;
+     }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+    
+    
+     /* 聊天區域 - 更現代化的設計 */
+     .chat-section {
+         width: 100% !important;
+         max-width: 100vw !important;
+         height: calc(40vw) !important;
+         min-height: 418px !important;
+         max-height: 300px !important;
+         margin-top: 3px !important;
+         background: rgba(255, 255, 255, 0.15) !important;
+         backdrop-filter: blur(20px) !important;
+         border-radius: 10px !important;
+         border: 1px solid rgba(255, 255, 255, 0.2) !important;
+         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+         overflow: hidden !important;
+         box-sizing: border-box !important;
+         position: relative !important;
+     }
+    
+     .chat-header {
+         padding: 4px 1px !important;
+         font-size: 10px !important;
+         font-weight: 600 !important;
+         color: white !important;
+         background: rgba(255, 255, 255, 0.1) !important;
+         border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+     }
+     
+    .chat-messages {
+        height: calc(50vw - 60px) !important;
+        min-height: 180px !important;
+        max-height: 300px !important;
+        padding: 6px 4px !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        flex: 1 !important;
+    }
+     
+     .chat-input-area {
+         padding: 4px 1px !important;
+         flex-direction: column !important;
+         gap: 3px !important;
+         background: rgba(255, 255, 255, 0.1) !important;
+         border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+     }
+    
+    .chat-input {
+        width: 100% !important;
+        padding: 3px !important;
+        font-size: 10px !important;
+        border-radius: 15px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        color: #333 !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .chat-input::placeholder {
+        color: rgba(0, 0, 0, 0.5) !important;
+    }
+    
+    .btn-send {
+        width: 100% !important;
+        padding: 3px !important;
+        font-size: 10px !important;
+        border-radius: 15px !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 600 !important;
+        box-shadow: 0 1px 4px rgba(102, 126, 234, 0.3) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .btn-send:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+     /* 觀眾統計 - 更美觀的設計 */
+     .viewer-stats {
+         margin-top: 4px !important;
+         padding: 4px 1px !important;
+         display: flex !important;
+         flex-direction: row !important;
+         justify-content: flex-end !important;
+         align-items: center !important;
+         gap: 3px !important;
+         background: rgba(255, 255, 255, 0.15) !important;
+         backdrop-filter: blur(20px) !important;
+         border-radius: 10px !important;
+         border: 1px solid rgba(255, 255, 255, 0.2) !important;
+         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+         width: 100% !important;
+         max-width: 100vw !important;
+         box-sizing: border-box !important;
+         position: relative !important;
+     }
+    
+    .viewer-count {
+        font-size: 10px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-align: right !important;
+    }
+    
+    .viewer-list {
+        font-size: 8px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-align: right !important;
+    }
+    
+    /* 隱藏不必要的元素 */
+    .debug-tools {
+        display: none !important;
+    }
+    
+     /* 等待畫面調整 - 更美觀的設計 */
+     .stream-video:not(.live)::before {
+         content: "📺 等待主播開始直播" !important;
+         font-size: 14px !important;
+         padding: 20px 8px !important;
+         color: rgba(255, 255, 255, 0.9) !important;
+         text-align: center !important;
+         display: flex !important;
+         align-items: center !important;
+         justify-content: center !important;
+         background: linear-gradient(135deg, rgba(102, 126, 234, 0.4) 0%, rgba(118, 75, 162, 0.4) 100%) !important;
+         border-radius: 8px !important;
+         font-weight: 600 !important;
+         text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4) !important;
+         backdrop-filter: blur(10px) !important;
+         border: 1px solid rgba(255, 255, 255, 0.2) !important;
+     }
+    
+     /* 聊天消息樣式優化 */
+     .chat-messages .message {
+         margin-bottom: 8px !important;
+         padding: 6px 2px !important;
+         border-radius: 10px !important;
+         background: rgba(255, 255, 255, 0.1) !important;
+         backdrop-filter: blur(10px) !important;
+         border: 1px solid rgba(255, 255, 255, 0.1) !important;
+         font-size: 9px !important;
+     }
+    
+    .chat-messages .message.system {
+        background: rgba(102, 126, 234, 0.2) !important;
+        border-color: rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    .chat-messages .message.user {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* 滾動條美化 */
+    .chat-messages::-webkit-scrollbar {
+        width: 4px !important;
+    }
+    
+    .chat-messages::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 2px !important;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3) !important;
+        border-radius: 2px !important;
+    }
+    
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5) !important;
+    }
+    
+    /* 確保文字不會超出容器 */
+    .stream-title,
+    .streamer-name,
+    .status-text,
+    .viewer-count,
+    .viewer-list {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+        max-width: 100% !important;
+    }
+    
+    /* 確保按鈕和輸入框不會超出容器 */
+    .btn-send,
+    .chat-input,
+    .nav-link {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 確保所有文字內容不會超出螢幕 */
+    .stream-header,
+    .stream-status,
+    .chat-header,
+    .chat-input-area {
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+    
+    /* 強制防止水平滾動 */
+    .stream-header *,
+    .stream-status *,
+    .chat-header *,
+    .chat-input-area *,
+    .chat-messages *,
+    .viewer-stats * {
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+}
+
+/* 平板端 (768px - 1023px) */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+    /* 整體佈局調整 */
+    body {
+        font-size: 15px;
+    }
+    
+    /* 主要內容區域 */
+    .main-content {
+        padding: 1.5rem;
+        flex-direction: row !important;
+        gap: 1.5rem;
+        align-items: flex-start !important;
+        justify-content: space-between !important;
+    }
+    
+    /* 直播區域 */
+    .stream-section {
+        flex: 2 !important;
+        min-width: 0;
+        display: flex !important;
+        flex-direction: column !important;
+        align-items: stretch !important;
+    }
+    
+    .stream-video {
+        height: 300px !important;
+        width: 100% !important;
+        min-height: 200px !important;
+        max-height: 400px !important;
+    }
+    
+    /* 聊天區域 */
+    .chat-section {
+        flex: 1 !important;
+        
+        width: 100% !important;
+        height: 400px;
+        align-self: flex-start !important;
+        box-sizing: border-box !important;
+    }
+    
+    .chat-header {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    .chat-input-area {
+        width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    .chat-messages {
+        height: 280px !important;
+        width: 100% !important;
+        flex: 1 !important;
+    }
+    
+    /* 直播信息 */
+    .stream-info {
+        padding: 1.5rem !important;
+        text-align: center !important;
+        width: 100% !important;
+        flex: 1 !important;
+    }
+    
+    .stream-header {
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: flex-start !important;
+        gap: 1rem !important;
+    }
+    
+    /* 直播狀態指示器優化 */
+    .stream-status {
+        flex-direction: column !important;
+        align-items: flex-end !important;
+        gap: 0.5rem !important;
+        min-width: 150px !important;
+    }
+    
+    
+    /* 狀態文字優化 */
+    .status-text {
+        width: auto !important;
+        text-align: center !important;
+        font-size: 0.9rem !important;
+        padding: 0.6rem 1rem !important;
+        min-width: 120px !important;
+    }
+    
+    /* 觀眾統計 */
+    .viewer-stats {
+        flex-direction: column !important;
+        align-items: flex-end !important;
+        gap: 0.5rem !important;
+        text-align: right !important;
+        width: 100% !important;
+        margin-top: 1rem !important;
+    }
+    
+    .viewer-count {
+        width: auto !important;
+        text-align: center !important;
+        font-size: 0.9rem !important;
+        padding: 0.6rem 1rem !important;
+        min-width: 120px !important;
+    }
+}
+
+/* 桌面端 (1024px+) */
+@media screen and (min-width: 1024px) {
+    /* 主要內容區域 */
+    .main-content {
+        padding: 2rem;
+        max-width: 1400px;
+        margin: 0 auto;
+    }
+    
+    /* 直播區域 */
+    .stream-section {
+        flex: 3;
+    }
+    
+    .stream-video {
+        height: 400px;
+    }
+    
+    /* 聊天區域 */
+    .chat-section {
+        flex: 1;
+        min-width: 350px;
+        height: 500px;
+    }
+    
+    .chat-messages {
+        height: 380px;
+    }
+    
+    /* 直播信息 */
+    .stream-info {
+        padding: 2rem;
+    }
+    
+    /* 觀眾統計 */
+    .viewer-stats {
+        padding: 1.5rem;
+    }
+}
+
+/* 超寬螢幕 (1400px+) */
+@media screen and (min-width: 1400px) {
+    .main-content {
+        max-width: 1600px;
+    }
+    
+    .stream-video {
+        height: 500px;
+    }
+    
+    .chat-section {
+        min-width: 400px;
+        height: 600px;
+    }
+    
+    .chat-messages {
+        height: 480px;
+    }
+}
+
+/* 橫向手機 (高度小於寬度) */
+@media screen and (max-height: 500px) and (orientation: landscape) {
+    .main-content {
+        flex-direction: row;
+        margin-top: 60px;
+    }
+    
+    .stream-section {
+        flex: 2;
+    }
+    
+    .stream-video {
+        height: 250px;
+    }
+    
+    .chat-section {
+        flex: 1;
+        height: 250px;
+    }
+    
+    .chat-messages {
+        height: 150px;
+    }
+    
+    .stream-info {
+        padding: 0.8rem;
+    }
+    
+    .stream-header {
+        flex-direction: row;
+    }
+}
+
+/* 觸控設備優化 */
+@media (hover: none) and (pointer: coarse) {
+    /* 增大觸控目標 */
+    .btn-send,
+    .nav-link,
+    .chat-input {
+        min-height: 44px;
+        padding: 0.8rem;
+    }
+    
+    /* 調整間距 */
+    .chat-messages .message {
+        margin-bottom: 1rem;
+        padding: 0.8rem;
+    }
+    
+    /* 優化滾動 */
+    .chat-messages {
+        -webkit-overflow-scrolling: touch;
+    }
+}
+
+/* 高DPI螢幕優化 */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+    .stream-video,
+    .chat-section,
+    .stream-info {
+        border: 0.5px solid rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* 深色模式支援 */
+@media (prefers-color-scheme: dark) {
+    .navbar {
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+    }
+    
+    .stream-info,
+    .chat-section {
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+    }
+    
+    .chat-input {
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        border-color: rgba(255, 255, 255, 0.2);
+    }
+    
+    .chat-input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+    }
+}
+
+/* 減少動畫 (用戶偏好) */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+
+    /* Allow intentional visual effects to continue animating */
+    video.effect-rainbow-filter,
+    #remoteVideo.effect-rainbow-filter,
+    .stream-video video.effect-rainbow-filter,
+    #streamVideo video.effect-rainbow-filter,
+    .stream-video.effect-rainbow-filter .rainbow-gradient-layer,
+    .stream-video.effect-rainbow-filter .rainbow-glow-layer,
+    .video-container.effect-rainbow-filter .rainbow-gradient-layer,
+    .video-container.effect-rainbow-filter .rainbow-glow-layer {
+        animation-duration: 4s !important;
+        animation-iteration-count: infinite !important;
+        -webkit-animation-duration: 4s !important;
+        -webkit-animation-iteration-count: infinite !important;
+    }
+
+    .stream-video.effect-rainbow-border::before,
+    .stream-video.effect-rainbow-border::after {
+        animation: steam 20s linear infinite !important;
+        -webkit-animation: steam 20s linear infinite !important;
+    }
+
+    .stream-video.effect-neon-border::before {
+        animation: neonGradient 8s linear infinite !important;
+        -webkit-animation: neonGradient 8s linear infinite !important;
+    }
+
+    .stream-video.effect-neon-border::after {
+        animation: neonGradient 12s linear infinite !important;
+        -webkit-animation: neonGradient 12s linear infinite !important;
+    }
+}
+
+/* 打印樣式 */
+@media print {
+    .navbar,
+    .chat-section,
+    .viewer-stats {
+        display: none;
+    }
+    
+    .main-content {
+        flex-direction: column;
+    }
+    
+    .stream-section {
+        width: 100%;
+    }
+    
+    .stream-video {
+        height: auto;
+        min-height: 300px;
+    }
+}
+
+/* 小手機端 (481px - 600px) */
+@media screen and (min-width: 481px) and (max-width: 600px) {
+    /* 整體佈局調整 */
+    body {
+        font-size: 13px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        min-height: 100vh !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+    }
+    
+    /* 強制重置所有元素的寬度 */
+    html, body {
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* 確保所有容器不超出螢幕 */
+    * {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 強制所有主要容器使用100%寬度 */
+    .container, .main-content, .stream-section, .stream-video, 
+    .stream-info, .chat-section, .viewer-stats, .navbar {
+        width: 100% !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        flex-shrink: 1 !important;
+    }
+    
+    /* 頂部導航欄 - 小螢幕優化 */
+    .navbar {
+        padding: 0.3rem 0 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 1000 !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    
+    .navbar .container {
+        padding: 0 2px !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .navbar-brand {
+        font-size: 1.2rem !important;
+        font-weight: 700 !important;
+        color: #667eea !important;
+    }
+    
+    .nav-link {
+        font-size: 0.8rem !important;
+        padding: 0.4rem 0.6rem !important;
+        border-radius: 10px !important;
+        background: rgba(102, 126, 234, 0.1) !important;
+        color: #667eea !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* 主要內容區域 */
+    .main-content {
+        margin-top: 50px !important;
+        padding: 8px 4px !important;
+        flex-direction: column !important;
+        gap: 8px !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        min-height: calc(100vh - 50px) !important;
+    }
+    
+    /* 直播區域 - 小螢幕優化 */
+    .stream-section {
+        width: 100% !important;
+        max-width: 100vw !important;
+        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+    
+    .stream-video {
+        height: calc(28vw) !important;
+        min-height: 130px !important;
+        max-height: 190px !important;
+        border-radius: 10px !important;
+        overflow: hidden !important;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1) !important;
+        background: #000 !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        margin-bottom: 8px !important;
+    }
+    
+    .stream-video video {
+        border-radius: 10px !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 直播信息 - 小螢幕優化 */
+    .stream-info {
+        padding: 6px 2px !important;
+        margin-top: 50px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+    }
+    
+    .stream-header {
+        flex-direction: column !important;
+        gap: 4px !important;
+        text-align: center !important;
+        margin-bottom: 6px !important;
+    }
+    
+    .stream-title {
+        font-size: 11px !important;
+        line-height: 1.2 !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    .streamer-name {
+        font-size: 10px !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 500 !important;
+    }
+    
+    /* 狀態指示器 - 小螢幕優化 */
+    .stream-status {
+        margin-top: 6px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        gap: 4px !important;
+    }
+    
+    .status-text {
+        font-size: 11px !important;
+        padding: 4px 8px !important;
+        text-align: center !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        background: rgba(255, 165, 0, 0.9) !important;
+        color: white !important;
+        box-shadow: 0 2px 6px rgba(255, 165, 0, 0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    .status-text.live {
+        background: rgba(244, 67, 54, 0.9) !important;
+        box-shadow: 0 3px 12px rgba(244, 67, 54, 0.3) !important;
+        animation: pulse 2s infinite !important;
+    }
+    
+    /* 聊天區域 - 小螢幕優化 */
+    .chat-section {
+        width: 100% !important;
+        max-width: 100vw !important;
+        height: calc(38vw) !important;
+        min-height: 220px !important;
+        max-height: 320px !important;
+        margin-top: 50px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1) !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+    }
+    
+    .chat-header {
+        padding: 6px 2px !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .chat-messages {
+        height: calc(48vw - 70px) !important;
+        min-height: 190px !important;
+        max-height: 320px !important;
+        padding: 6px 4px !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        flex: 1 !important;
+    }
+    
+    .chat-input-area {
+        padding: 6px 2px !important;
+        flex-direction: column !important;
+        gap: 4px !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .chat-input {
+        width: 100% !important;
+        padding: 4px !important;
+        font-size: 11px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        color: #333 !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .btn-send {
+        width: 100% !important;
+        padding: 4px !important;
+        font-size: 11px !important;
+        border-radius: 12px !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* 觀眾統計 - 小螢幕優化 */
+    .viewer-stats {
+        margin-top: 6px !important;
+        padding: 6px 2px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        gap: 4px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 10px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+    }
+    
+    .viewer-count {
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-align: right !important;
+    }
+    
+    .viewer-list {
+        font-size: 9px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-align: right !important;
+    }
+    
+    /* 等待畫面調整 - 小螢幕優化 */
+    .stream-video:not(.live)::before {
+        content: "📺 等待主播開始直播" !important;
+        font-size: 11px !important;
+        padding: 12px 2px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-align: center !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%) !important;
+        border-radius: 10px !important;
+        font-weight: 500 !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* 聊天消息樣式優化 - 小螢幕 */
+    .chat-messages .message {
+        margin-bottom: 10px !important;
+        padding: 8px 3px !important;
+        border-radius: 12px !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        font-size: 10px !important;
+    }
+    
+    .chat-messages .message.system {
+        background: rgba(102, 126, 234, 0.2) !important;
+        border-color: rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    .chat-messages .message.user {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* 響應式文字處理 */
+    .stream-title, .streamer-name, .status-text, .viewer-count, .viewer-list, 
+    .chat-header, .chat-input, .btn-send, .message {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+        max-width: 100% !important;
+    }
+    
+    /* 確保所有子元素不超出父容器 */
+    .stream-header *, .stream-status *, .chat-header *, .chat-input-area *, 
+    .chat-messages *, .viewer-stats * {
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+}
+
+/* 一般手機端 (601px - 767px) */
+@media screen and (min-width: 601px) and (max-width: 767px) {
+    /* 整體佈局調整 */
+    body {
+        font-size: 14px !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        min-height: 100vh !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+    }
+    
+    /* 強制重置所有元素的寬度 */
+    html, body {
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+    
+    /* 確保所有容器不超出螢幕 */
+    * {
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 強制所有主要容器使用100%寬度 */
+    .container, .main-content, .stream-section, .stream-video, 
+    .stream-info, .chat-section, .viewer-stats, .navbar {
+        width: 100% !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        box-sizing: border-box !important;
+        flex-shrink: 1 !important;
+    }
+    
+    /* 頂部導航欄 - 一般手機優化 */
+    .navbar {
+        padding: 0.4rem 0 !important;
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        z-index: 1000 !important;
+        background: rgba(255, 255, 255, 0.95) !important;
+        backdrop-filter: blur(20px) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+    }
+    
+    .navbar .container {
+        padding: 0 3px !important;
+        flex-direction: row !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    .navbar-brand {
+        font-size: 1.3rem !important;
+        font-weight: 700 !important;
+        color: #667eea !important;
+    }
+    
+    .nav-link {
+        font-size: 0.9rem !important;
+        padding: 0.5rem 0.7rem !important;
+        border-radius: 12px !important;
+        background: rgba(102, 126, 234, 0.1) !important;
+        color: #667eea !important;
+        text-decoration: none !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* 主要內容區域 */
+    .main-content {
+        margin-top: 55px !important;
+        padding: 10px 5px !important;
+        flex-direction: column !important;
+        gap: 10px !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+        position: relative !important;
+        box-sizing: border-box !important;
+        min-height: calc(100vh - 55px) !important;
+    }
+    
+    /* 直播區域 - 一般手機優化 */
+    .stream-section {
+        width: 100% !important;
+        max-width: 100vw !important;
+        margin-bottom: 0 !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+    }
+    
+    .stream-video {
+        height: calc(25vw) !important;
+        min-height: 140px !important;
+        max-height: 200px !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+        background: #000 !important;
+        position: relative !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        margin-bottom: 10px !important;
+    }
+    
+    .stream-video video {
+        border-radius: 12px !important;
+        width: 100% !important;
+        height: 100% !important;
+        object-fit: cover !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+    }
+    
+    /* 直播信息 - 一般手機優化 */
+    .stream-info {
+        padding: 8px 3px !important;
+        margin-top: 50px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+    }
+    
+    .stream-header {
+        flex-direction: column !important;
+        gap: 6px !important;
+        text-align: center !important;
+        margin-bottom: 8px !important;
+    }
+    
+    .stream-title {
+        font-size: 10px !important;
+        line-height: 1.2 !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    .streamer-name {
+        font-size: 12px !important;
+        color: rgba(255, 255, 255, 0.9) !important;
+        font-weight: 500 !important;
+    }
+    
+    /* 狀態指示器 - 一般手機優化 */
+    .stream-status {
+        margin-top: 8px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        gap: 6px !important;
+    }
+    
+    .status-text {
+        font-size: 13px !important;
+        padding: 6px 12px !important;
+        text-align: center !important;
+        border-radius: 15px !important;
+        font-weight: 600 !important;
+        background: rgba(255, 165, 0, 0.9) !important;
+        color: white !important;
+        box-shadow: 0 2px 8px rgba(255, 165, 0, 0.3) !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    .status-text.live {
+        background: rgba(244, 67, 54, 0.9) !important;
+        box-shadow: 0 4px 16px rgba(244, 67, 54, 0.3) !important;
+        animation: pulse 2s infinite !important;
+    }
+    
+    /* 聊天區域 - 一般手機優化 */
+    .chat-section {
+        width: 100% !important;
+        max-width: 100vw !important;
+        height: calc(35vw) !important;
+        min-height: 250px !important;
+        max-height: 350px !important;
+        margin-top: 50px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+        overflow: hidden !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+    }
+    
+    .chat-header {
+        padding: 8px 3px !important;
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .chat-messages {
+        height: calc(45vw - 80px) !important;
+        min-height: 200px !important;
+        max-height: 350px !important;
+        padding: 8px 5px !important;
+        background: rgba(255, 255, 255, 0.05) !important;
+        flex: 1 !important;
+    }
+    
+    .chat-input-area {
+        padding: 8px 3px !important;
+        flex-direction: column !important;
+        gap: 5px !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .chat-input {
+        width: 100% !important;
+        padding: 6px !important;
+        font-size: 13px !important;
+        border-radius: 15px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        background: rgba(255, 255, 255, 0.9) !important;
+        color: #333 !important;
+        backdrop-filter: blur(10px) !important;
+    }
+    
+    .btn-send {
+        width: 100% !important;
+        padding: 6px !important;
+        font-size: 13px !important;
+        border-radius: 15px !important;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        border: none !important;
+        font-weight: 600 !important;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3) !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    /* 觀眾統計 - 一般手機優化 */
+    .viewer-stats {
+        margin-top: 8px !important;
+        padding: 8px 3px !important;
+        display: flex !important;
+        flex-direction: row !important;
+        justify-content: flex-end !important;
+        align-items: center !important;
+        gap: 6px !important;
+        background: rgba(255, 255, 255, 0.15) !important;
+        backdrop-filter: blur(20px) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+        width: 100% !important;
+        max-width: 100vw !important;
+        box-sizing: border-box !important;
+        position: relative !important;
+    }
+    
+    .viewer-count {
+        font-size: 13px !important;
+        font-weight: 600 !important;
+        color: white !important;
+        text-align: right !important;
+    }
+    
+    .viewer-list {
+        font-size: 11px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-align: right !important;
+    }
+    
+    /* 等待畫面調整 - 一般手機優化 */
+    .stream-video:not(.live)::before {
+        content: "📺 等待主播開始直播" !important;
+        font-size: 13px !important;
+        padding: 16px 3px !important;
+        color: rgba(255, 255, 255, 0.8) !important;
+        text-align: center !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%) !important;
+        border-radius: 12px !important;
+        font-weight: 500 !important;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+    }
+    
+    /* 聊天消息樣式優化 - 一般手機 */
+    .chat-messages .message {
+        margin-bottom: 12px !important;
+        padding: 10px 4px !important;
+        border-radius: 15px !important;
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        font-size: 12px !important;
+    }
+    
+    .chat-messages .message.system {
+        background: rgba(102, 126, 234, 0.2) !important;
+        border-color: rgba(102, 126, 234, 0.3) !important;
+    }
+    
+    .chat-messages .message.user {
+        background: rgba(255, 255, 255, 0.15) !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+    
+    /* 響應式文字處理 */
+    .stream-title, .streamer-name, .status-text, .viewer-count, .viewer-list, 
+    .chat-header, .chat-input, .btn-send, .message {
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+        hyphens: auto !important;
+        max-width: 100% !important;
+    }
+    
+    /* 確保所有子元素不超出父容器 */
+    .stream-header *, .stream-status *, .chat-header *, .chat-input-area *, 
+    .chat-messages *, .viewer-stats * {
+        max-width: 100% !important;
+        word-wrap: break-word !important;
+        overflow-wrap: break-word !important;
+    }
+}

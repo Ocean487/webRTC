@@ -1156,7 +1156,7 @@ body {
 
 /* 聊天室 */
 .chat-panel {
-    background: rgba(255, 255, 255, 0.95);
+    background: rgb(248, 249, 250);
     backdrop-filter: blur(10px);
     border-radius: 20px;
     border: 2px solid rgba(255, 255, 255, 0.5);

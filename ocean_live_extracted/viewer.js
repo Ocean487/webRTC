@@ -751,6 +751,9 @@ function handleWebSocketMessage(data) {
             // 新的統一聊天協議 - 不在這裡處理，完全交給ChatSystem
             console.log('[VIEWER] chat類型消息由ChatSystem直接處理，跳過重複處理');
             break;
+        case 'gift':
+            handleGiftMessage(data);
+            break;
         case 'viewer_count_update':
             updateViewerCount(data.count);
             break;
@@ -1009,6 +1012,7 @@ function handleStreamStatus(data) {
         if (statusText) statusText.textContent = '直播中';
         if (videoPlaceholder) videoPlaceholder.style.display = 'none';
         
+                    attachOverlayToPip(pipVideo);
         // 更新標題
         if (streamTitle && data.title) {
             streamTitle.textContent = data.title;
@@ -1016,8 +1020,10 @@ function handleStreamStatus(data) {
             streamTitle.style.transform = 'scale(1.05)';
             setTimeout(() => {
                 streamTitle.style.transform = 'scale(1)';
+                        attachOverlayToPip(null);
                 streamTitle.classList.remove('updating');
             }, 300);
+                    attachOverlayToPip(null);
         }
         
         displaySystemMessage('🔴 直播正在進行中！');
@@ -1254,6 +1260,73 @@ function initializePeerConnection() {
                 const settings = videoTrack.getSettings();
                 if (settings) {
                     console.log('⚙️ 視頻設定:', settings);
+                }
+
+                // 處理第二個視訊軌道（畫中畫模式）
+                if (videoTracks.length > 1) {
+                    console.log('🎥 檢測到第二個視訊軌道，啟用畫中畫模式');
+                    const pipTrack = videoTracks[1];
+                    let pipVideo = document.getElementById('pipVideo');
+                    
+                    if (!pipVideo) {
+                        // 創建畫中畫視訊元素
+                        pipVideo = document.createElement('video');
+                        pipVideo.id = 'pipVideo';
+                        pipVideo.autoplay = true;
+                        pipVideo.playsInline = true;
+                        pipVideo.muted = true; // 防止回音
+                    }
+                    
+                    // 設定樣式 (每次都更新以確保正確)
+                    pipVideo.style.position = 'absolute';
+                    pipVideo.style.bottom = '40px';
+                    pipVideo.style.right = '20px';
+                    pipVideo.style.width = '30%'; // 設定為 25%
+                    pipVideo.style.height = 'auto'; // 自動高度以保持比例
+                    pipVideo.style.maxWidth = '400px';
+                    pipVideo.style.borderRadius = '12px';
+                    pipVideo.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+                    pipVideo.style.zIndex = '100';
+                    pipVideo.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+                    // pipVideo.style.objectFit = 'cover'; // 移除 cover 以顯示完整畫面
+                    pipVideo.style.transition = 'all 0.3s ease';
+                    
+                    // 確保添加到正確的容器 (streamVideo)
+                    const container = document.getElementById('streamVideo');
+                    if (container) {
+                        // 確保容器有相對定位
+                        if (window.getComputedStyle(container).position === 'static') {
+                            container.style.position = 'relative';
+                        }
+                        
+                        // 如果不在容器內，移動它
+                        if (pipVideo.parentElement !== container) {
+                            container.appendChild(pipVideo);
+                            console.log('✅ 已將畫中畫移至 streamVideo 容器');
+                        }
+                    } else {
+                        console.warn('⚠️ 找不到 streamVideo 容器，降級使用 body');
+                        document.body.appendChild(pipVideo);
+                    }
+                    
+                    // 設置串流
+                    const pipStream = new MediaStream([pipTrack]);
+                    pipVideo.srcObject = pipStream;
+                    pipVideo.style.display = 'block';
+                    
+                    // 監聽軌道結束
+                    pipTrack.onended = () => {
+                        console.log('畫中畫軌道結束');
+                        if (pipVideo) {
+                            pipVideo.style.display = 'none';
+                        }
+                    };
+                } else {
+                    // 如果只有一個軌道，隱藏畫中畫
+                    const pipVideo = document.getElementById('pipVideo');
+                    if (pipVideo) {
+                        pipVideo.style.display = 'none';
+                    }
                 }
             } else {
                 console.warn('⚠️ 沒有視頻軌道在流中');
@@ -1627,7 +1700,8 @@ function displayChatMessage(data) {
     const messageElement = document.createElement('div');
     messageElement.className = 'chat-message';
     
-    const time = new Date(data.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    const messageText = (data.text || data.message || '').toString();
+    const time = new Date(data.timestamp || Date.now()).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
     
     messageElement.innerHTML = `
         <div class="message-avatar">
@@ -1641,12 +1715,111 @@ function displayChatMessage(data) {
                 <span class="message-user">${data.username}</span>
                 <span class="message-time">${time}</span>
             </div>
-            <div class="message-text">${data.text}</div>
+            <div class="message-text">${messageText}</div>
         </div>
     `;
     
     chatMessages.appendChild(messageElement);
     chatMessages.scrollTop = chatMessages.scrollHeight;
+
+    if (typeof window.displayOverlayMessage === 'function') {
+        window.displayOverlayMessage({
+            username: data.username,
+            text: messageText,
+            role: data.isStreamer ? 'broadcaster' : data.role,
+            timestamp: data.timestamp
+        });
+    }
+}
+
+// 將聊天訊息顯示在視訊覆蓋層
+function displayOverlayMessage(rawData) {
+    if (!rawData) return;
+    const username = ((rawData.username || '訪客') + '').trim() || '訪客';
+    const role = rawData.role || '';
+    const text = (rawData.text || rawData.message || '').toString().trim();
+    if (!text) return;
+    if (username === '系統' || role === 'system') return;
+
+    updateOverlayPosition();
+    const container = document.getElementById('videoOverlayChat');
+    if (!container) return;
+
+    const bubble = document.createElement('div');
+    bubble.className = 'overlay-message';
+
+    const userSpan = document.createElement('span');
+    userSpan.className = 'overlay-user';
+    userSpan.textContent = `${username}:`;
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'overlay-text';
+    textSpan.textContent = text;
+
+    bubble.appendChild(userSpan);
+    bubble.appendChild(textSpan);
+    container.appendChild(bubble);
+
+    while (container.children.length > 8) {
+        container.removeChild(container.firstChild);
+    }
+
+    setTimeout(() => {
+        if (bubble.parentNode === container) {
+            bubble.remove();
+        }
+    }, 8000);
+}
+
+let overlayPipObserver = null;
+
+function updateOverlayPosition() {
+    const overlay = document.getElementById('videoOverlayChat');
+    if (!overlay) return;
+    const pipVideo = document.getElementById('pipVideo');
+    const pipVisible = pipVideo && pipVideo.offsetHeight > 0 && pipVideo.style.display !== 'none';
+
+    if (pipVisible) {
+        const pipBottom = parseFloat(pipVideo.style.bottom) || 40;
+        const pipHeight = pipVideo.offsetHeight || 0;
+        const gap = 16;
+        overlay.style.right = pipVideo.style.right || '20px';
+        overlay.style.bottom = `${pipBottom + pipHeight + gap}px`;
+        overlay.dataset.overlayAnchor = 'pip';
+    } else {
+        overlay.style.right = '24px';
+        overlay.style.bottom = '24px';
+        overlay.dataset.overlayAnchor = 'default';
+    }
+}
+
+function attachOverlayToPip(pipVideo) {
+    if (overlayPipObserver) {
+        overlayPipObserver.disconnect();
+        overlayPipObserver = null;
+    }
+    if (!pipVideo) {
+        updateOverlayPosition();
+        return;
+    }
+
+    if (typeof ResizeObserver !== 'undefined') {
+        overlayPipObserver = new ResizeObserver(() => updateOverlayPosition());
+        overlayPipObserver.observe(pipVideo);
+    }
+
+    if (pipVideo.readyState < 2) {
+        pipVideo.addEventListener('loadedmetadata', updateOverlayPosition, { once: true });
+    }
+
+    updateOverlayPosition();
+}
+
+window.addEventListener('resize', updateOverlayPosition);
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(updateOverlayPosition, 0);
+} else {
+    document.addEventListener('DOMContentLoaded', updateOverlayPosition);
 }
 
 
@@ -2489,6 +2662,132 @@ function enableAudioOnUserInteraction() {
     
     // 顯示提示
     displaySystemMessage('🔊 點擊任意位置啟用音頻');
+}
+
+// === 禮物系統功能 ===
+
+// 處理收到的禮物訊息
+function handleGiftMessage(data) {
+    console.log('🎁 收到禮物:', data.giftType, '來自:', data.username);
+    showGiftEffect(data.giftType, data.username);
+    
+    // 如果有聊天系統，也在聊天室顯示
+    if (window.chatSystem) {
+        const giftNames = {
+            'heart': '愛心 ❤️',
+            'rocket': '火箭 🚀',
+            'diamond': '鑽石 💎',
+            'car': '跑車 🏎️'
+        };
+        
+        const giftName = giftNames[data.giftType] || '禮物';
+        
+        window.chatSystem.addSystemMessage(`${data.username} 送出了 ${giftName}`);
+    }
+}
+
+// 顯示禮物特效
+function showGiftEffect(giftType, senderName) {
+    const container = document.getElementById('giftEffectContainer');
+    if (!container) return;
+    
+    const giftImages = {
+        'heart': 'https://cdn-icons-png.flaticon.com/512/833/833472.png',
+        'rocket': 'images/firece.png',
+        'diamond': 'images/diamond.png',
+        'car': 'images/runcar.png'
+    };
+    
+    const imgUrl = giftImages[giftType];
+    if (!imgUrl) return;
+    
+    const effectDiv = document.createElement('div');
+    effectDiv.className = 'gift-animation';
+    
+    // 為愛心添加特殊樣式類
+    if (giftType === 'heart') {
+        effectDiv.classList.add('heart-effect');
+    }
+    
+    effectDiv.innerHTML = `
+        <img src="${imgUrl}" alt="${giftType}">
+        <div class="sender-info">${senderName} 送出禮物</div>
+    `;
+    
+    container.appendChild(effectDiv);
+    
+    // 動畫結束後移除元素
+    setTimeout(() => {
+        effectDiv.remove();
+    }, 3000);
+}
+
+// 發送禮物
+function sendGift(giftType) {
+    if (!socket || socket.readyState !== WebSocket.OPEN) {
+        alert('尚未連接到服務器，無法發送禮物');
+        return;
+    }
+    
+    // 這裡可以添加扣除金幣的邏輯
+    // 目前先直接發送
+    
+    const message = {
+        type: 'gift',
+        giftType: giftType,
+        username: currentUser ? currentUser.displayName : '匿名觀眾',
+        role: 'viewer',
+        broadcasterId: targetStreamerId
+    };
+    
+    socket.send(JSON.stringify(message));
+    console.log('🎁 發送禮物:', giftType);
+}
+
+// 儲值模態框控制
+function openTopUpModal() {
+    const modal = document.getElementById('topUpModal');
+    if (modal) modal.style.display = 'flex';
+}
+
+function closeTopUpModal() {
+    const modal = document.getElementById('topUpModal');
+    if (modal) modal.style.display = 'none';
+}
+
+let selectedAmount = 0;
+
+function selectTopUp(amount) {
+    selectedAmount = amount;
+    
+    // 更新UI選中狀態
+    const options = document.querySelectorAll('.top-up-option');
+    options.forEach(opt => {
+        opt.classList.remove('selected');
+        const coinText = opt.querySelector('.coin-amount').textContent;
+        if (coinText.includes(amount)) {
+            opt.classList.add('selected');
+        }
+    });
+}
+
+function processTopUp() {
+    if (selectedAmount === 0) {
+        alert('請選擇儲值金額');
+        return;
+    }
+    
+    alert(`成功儲值 ${selectedAmount} 幣！(模擬)`);
+    closeTopUpModal();
+    // 這裡可以添加實際的儲值API調用
+}
+
+// 點擊模態框外部關閉
+window.onclick = function(event) {
+    const modal = document.getElementById('topUpModal');
+    if (event.target == modal) {
+        closeTopUpModal();
+    }
 }
 
 console.log('✅ 观众端核心功能已加载完成');

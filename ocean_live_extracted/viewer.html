@@ -16,6 +16,7 @@
             <link rel="stylesheet" href="viewer-fix-override.css">
             <link rel="stylesheet" href="viewer-rwd.css">
             <link rel="stylesheet" href="viewer-effects.css">
+            <link rel="stylesheet" href="gift-styles.css">
 </head>
 <body>
     <svg class="lightning-filter-defs" aria-hidden="true" focusable="false"
@@ -61,6 +62,9 @@
             <div class="nav-links">
                 <a href="index.html" class="nav-link">首頁</a>
                 <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="#" class="top-up-btn" onclick="openTopUpModal()">
+                    <i class="fas fa-coins"></i> 儲值中心
+                </a>
                 <a href="livestream_platform.html" class="nav-link">開始直播</a>
                 <a href="contact.html" class="nav-link">聯絡我們</a>
             </div>
@@ -90,6 +94,26 @@
 
     <!-- 主要內容 -->
     <div class="viewer-container">
+        <!-- 禮物側邊欄 -->
+        <div class="gift-sidebar">
+            <button class="gift-btn" onclick="sendGift('heart')" title="送愛心">
+                <i class="fas fa-heart" style="color: #ff4d4d; font-size: 24px;"></i>
+                <span class="gift-price">免費</span>
+            </button>
+            <button class="gift-btn" onclick="sendGift('rocket')" title="送火箭">
+                <i class="fas fa-rocket" style="color: #3498db; font-size: 24px;"></i>
+                <span class="gift-price">100幣</span>
+            </button>
+            <button class="gift-btn" onclick="sendGift('diamond')" title="送鑽石">
+                <i class="fas fa-gem" style="color: #9b59b6; font-size: 24px;"></i>
+                <span class="gift-price">500幣</span>
+            </button>
+            <button class="gift-btn" onclick="sendGift('car')" title="送跑車">
+                <i class="fas fa-car" style="color: #f1c40f; font-size: 24px;"></i>
+                <span class="gift-price">1000幣</span>
+            </button>
+        </div>
+
         <!-- 視頻區域 -->
         <div class="video-section">
             <div class="stream-video" id="streamVideo">
@@ -104,6 +128,7 @@
                        webkit-playsinline="true"
                        preload="metadata"
                        style="display: none;"></video>
+                <div id="videoOverlayChat" class="video-overlay-chat" aria-live="polite"></div>
                 <div class="play-prompt" id="playPrompt" onclick="enableAutoplay()" style="display: none;">
                     <i class="fas fa-play"></i> 點擊開始觀看
                 </div>
@@ -173,6 +198,39 @@
             <script src="viewer-connection-diagnostic.js"></script>
             <script src="viewer-connection-helper.js"></script>
             <script src="viewer-initial-state-fix.js"></script>
+    <!-- 禮物特效容器 -->
+    <div id="giftEffectContainer" class="gift-effect-container"></div>
+
+    <!-- 儲值模態框 -->
+    <div id="topUpModal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="modal-close" onclick="closeTopUpModal()">&times;</span>
+            <h2><i class="fas fa-coins" style="color: #FFD700;"></i> 儲值中心</h2>
+            <p>選擇儲值金額</p>
+            <div class="top-up-options">
+                <div class="top-up-option" onclick="selectTopUp(100)">
+                    <div class="coin-amount">100 幣</div>
+                    <div class="price">NT$ 30</div>
+                </div>
+                <div class="top-up-option" onclick="selectTopUp(500)">
+                    <div class="coin-amount">500 幣</div>
+                    <div class="price">NT$ 150</div>
+                </div>
+                <div class="top-up-option" onclick="selectTopUp(1000)">
+                    <div class="coin-amount">1000 幣</div>
+                    <div class="price">NT$ 300</div>
+                </div>
+                <div class="top-up-option" onclick="selectTopUp(3000)">
+                    <div class="coin-amount">3000 幣</div>
+                    <div class="price">NT$ 900</div>
+                </div>
+            </div>
+            <button class="top-up-btn" style="width: 100%; justify-content: center; margin-top: 20px;" onclick="processTopUp()">
+                確認儲值
+            </button>
+        </div>
+    </div>
+
             <script src="viewer-stream-fix.js"></script>
             <script src="webrtc-sync-fix.js"></script>
             <script src="immediate-fix.js"></script>

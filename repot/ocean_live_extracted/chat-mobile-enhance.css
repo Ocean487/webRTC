@@ -1,0 +1,288 @@
+/* 手機聊天室視覺增強 */
+
+/* 改善聊天訊息的可讀性 */
+@media (max-width: 768px) {
+    /* 聊天訊息氣泡樣式 */
+    .message {
+        margin: 0.4rem 0;
+        padding: 0.6rem 0.8rem;
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        font-size: 0.9rem;
+        line-height: 1.4;
+        word-break: break-word;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+    }
+
+    /* 主播訊息 - 更突出的設計 */
+    .message.broadcaster {
+        background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        color: white;
+        font-weight: 500;
+        box-shadow: 0 3px 12px rgba(255, 107, 107, 0.3);
+    }
+
+    /* 觀眾訊息 */
+    .message.viewer {
+        background: rgba(255, 255, 255, 0.18);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #f0f0f0;
+    }
+
+    /* 系統訊息 */
+    .message.system {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        font-style: italic;
+        text-align: center;
+        color: white;
+        font-size: 0.85rem;
+        opacity: 0.9;
+    }
+
+    /* 訊息內容結構 */
+    .message-content {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+    }
+
+    /* 用戶名樣式 */
+    .message .username {
+        font-weight: 600;
+        font-size: 0.85rem;
+        opacity: 0.9;
+        display: block;
+        margin-bottom: 0.1rem;
+    }
+
+    .message.broadcaster .username {
+        color: #fff;
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    }
+
+    .message.viewer .username {
+        color: #e0e0e0;
+    }
+
+    /* 訊息文本 */
+    .message .text {
+        font-size: 0.9rem;
+        line-height: 1.4;
+        word-wrap: break-word;
+        hyphens: auto;
+    }
+
+    /* 時間戳 */
+    .message .time {
+        font-size: 0.7rem;
+        opacity: 0.7;
+        margin-top: 0.2rem;
+        text-align: right;
+        font-style: italic;
+    }
+
+    /* 聊天輸入區域增強 */
+    .chat-input-container {
+        padding: 0.75rem;
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid rgba(255, 255, 255, 0.15);
+        box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-input {
+        flex: 1;
+        padding: 0.8rem 1rem;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        border-radius: 25px;
+        background: rgba(255, 255, 255, 0.1);
+        color: white;
+        font-size: 0.9rem;
+        min-height: 44px;
+        transition: all 0.3s ease;
+        box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .chat-input:focus {
+        border-color: rgba(102, 126, 234, 0.6);
+        background: rgba(255, 255, 255, 0.15);
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        outline: none;
+    }
+
+    .chat-input::placeholder {
+        color: rgba(255, 255, 255, 0.6);
+        font-style: italic;
+    }
+
+    /* 發送按鈕增強 */
+    .send-button {
+        padding: 0.8rem 1.2rem;
+        min-height: 44px;
+        min-width: 44px;
+        border-radius: 25px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        font-size: 0.9rem;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+    }
+
+    .send-button:hover, .send-button:active {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        background: linear-gradient(135deg, #7c93f0 0%, #8659b8 100%);
+    }
+
+    .send-button:disabled {
+        opacity: 0.5;
+        transform: none;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+    }
+
+    /* 聊天區域標題 */
+    .chat-header {
+        padding: 1rem 0.75rem;
+        background: rgba(255, 255, 255, 0.05);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+    }
+
+    .chat-header h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: white;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .chat-header h3::before {
+        content: "💬";
+        font-size: 1.2rem;
+    }
+
+    /* 在線用戶計數 */
+    .chat-header .online-count {
+        font-size: 0.8rem;
+        opacity: 0.8;
+        background: rgba(34, 197, 94, 0.2);
+        color: #10b981;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        margin-left: auto;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    /* 滾動條美化 */
+    .chat-messages::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .chat-messages::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 3px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 3px;
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.5);
+    }
+
+    /* 新訊息提示動畫 */
+    .message.new-message {
+        animation: slideInMessage 0.3s ease-out;
+    }
+
+    @keyframes slideInMessage {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* 載入指示器 */
+    .chat-loading {
+        text-align: center;
+        padding: 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-style: italic;
+        font-size: 0.85rem;
+    }
+
+    /* 空聊天室提示 */
+    .chat-empty {
+        text-align: center;
+        padding: 2rem 1rem;
+        color: rgba(255, 255, 255, 0.6);
+        font-style: italic;
+    }
+
+    .chat-empty::before {
+        content: "🤔";
+        display: block;
+        font-size: 2rem;
+        margin-bottom: 0.5rem;
+    }
+}
+
+/* 小手機進一步優化 */
+@media (max-width: 480px) {
+    .message {
+        font-size: 0.85rem;
+        padding: 0.5rem 0.7rem;
+        margin: 0.3rem 0;
+    }
+
+    .message .username {
+        font-size: 0.8rem;
+    }
+
+    .message .text {
+        font-size: 0.85rem;
+    }
+
+    .message .time {
+        font-size: 0.65rem;
+    }
+
+    .chat-input {
+        font-size: 0.85rem;
+        padding: 0.7rem 0.9rem;
+    }
+
+    .send-button {
+        padding: 0.7rem 1rem;
+        font-size: 0.85rem;
+    }
+
+    .chat-header h3 {
+        font-size: 1rem;
+    }
+}
+
+
+
+
+
+
+

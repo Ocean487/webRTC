@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 直播診斷工具</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .success { background: #d4edda; color: #155724; }
+        .warning { background: #fff3cd; color: #856404; }
+        .error { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        #log {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 WebRTC 直播平台診斷工具</h1>
+    
+    <div class="test-section">
+        <h2>1. 基本連接測試</h2>
+        <button onclick="testBasicConnection()">測試服務器連接</button>
+        <button onclick="testWebSocket()">測試 WebSocket</button>
+        <button onclick="testAPI()">測試 API 端點</button>
+        <div id="basic-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. WebRTC 支援檢測</h2>
+        <button onclick="testWebRTCSupport()">檢測 WebRTC 支援</button>
+        <button onclick="testMediaDevices()">檢測媒體設備</button>
+        <button onclick="testSTUNServers()">測試 STUN 服務器</button>
+        <div id="webrtc-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. 連接流程測試</h2>
+        <button onclick="testBroadcasterConnection()">模擬主播連接</button>
+        <button onclick="testViewerConnection()">模擬觀眾連接</button>
+        <button onclick="fullDiagnostic()">完整診斷</button>
+        <div id="connection-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>4. 診斷日誌</h2>
+        <button onclick="clearLog()">清除日誌</button>
+        <button onclick="exportLog()">導出日誌</button>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        let diagnosticLog = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            diagnosticLog.push(logEntry);
+            
+            const logElement = document.getElementById('log');
+            logElement.textContent += logEntry + '\n';
+            logElement.scrollTop = logElement.scrollHeight;
+            
+            console.log(logEntry);
+        }
+        
+        function updateStatus(sectionId, message, type) {
+            const element = document.getElementById(sectionId);
+            element.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+        
+        // 測試基本連接
+        async function testBasicConnection() {
+            log('🔍 開始測試基本連接...');
+            try {
+                const response = await fetch('/api/session/check');
+                if (response.ok) {
+                    const data = await response.json();
+                    log('✅ 服務器連接正常');
+                    updateStatus('basic-status', '服務器連接正常', 'success');
+                } else {
+                    log(`⚠️ 服務器回應異常: ${response.status}`);
+                    updateStatus('basic-status', `服務器回應異常: ${response.status}`, 'warning');
+                }
+            } catch (error) {
+                log(`❌ 服務器連接失敗: ${error.message}`);
+                updateStatus('basic-status', `服務器連接失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試 WebSocket
+        async function testWebSocket() {
+            log('🔍 開始測試 WebSocket 連接...');
+            try {
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                const wsUrl = `${protocol}//${window.location.host}`;
+                
+                const ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    log('✅ WebSocket 連接成功');
+                    updateStatus('basic-status', 'WebSocket 連接正常', 'success');
+                    ws.close();
+                };
+                
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket 連接失敗: ${error}`);
+                    updateStatus('basic-status', 'WebSocket 連接失敗', 'error');
+                };
+                
+                ws.onclose = (event) => {
+                    log(`🔌 WebSocket 已關閉: code=${event.code}, reason=${event.reason}`);
+                };
+                
+            } catch (error) {
+                log(`❌ WebSocket 測試失敗: ${error.message}`);
+                updateStatus('basic-status', `WebSocket 測試失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試 API 端點
+        async function testAPI() {
+            log('🔍 開始測試 API 端點...');
+            const endpoints = [
+                '/api/session/check',
+                '/api/user/current',
+                '/api/live-streams'
+            ];
+            
+            for (const endpoint of endpoints) {
+                try {
+                    const response = await fetch(endpoint);
+                    log(`📡 ${endpoint}: ${response.status} ${response.statusText}`);
+                } catch (error) {
+                    log(`❌ ${endpoint}: ${error.message}`);
+                }
+            }
+            updateStatus('basic-status', 'API 端點測試完成', 'info');
+        }
+        
+        // 測試 WebRTC 支援
+        function testWebRTCSupport() {
+            log('🔍 檢測 WebRTC 支援...');
+            
+            const features = {
+                'RTCPeerConnection': !!window.RTCPeerConnection,
+                'getUserMedia': !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+                'WebSocket': !!window.WebSocket,
+                'HTTPS': window.location.protocol === 'https:'
+            };
+            
+            for (const [feature, supported] of Object.entries(features)) {
+                const status = supported ? '✅' : '❌';
+                log(`${status} ${feature}: ${supported ? '支援' : '不支援'}`);
+            }
+            
+            const allSupported = Object.values(features).every(f => f);
+            updateStatus('webrtc-status', 
+                allSupported ? '所有 WebRTC 功能都支援' : '部分 WebRTC 功能不支援', 
+                allSupported ? 'success' : 'warning'
+            );
+        }
+        
+        // 測試媒體設備
+        async function testMediaDevices() {
+            log('🔍 檢測媒體設備...');
+            try {
+                if (!navigator.mediaDevices) {
+                    throw new Error('不支援 mediaDevices API');
+                }
+                
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(d => d.kind === 'videoinput');
+                const audioDevices = devices.filter(d => d.kind === 'audioinput');
+                
+                log(`📹 找到 ${videoDevices.length} 個視頻設備`);
+                log(`🎤 找到 ${audioDevices.length} 個音頻設備`);
+                
+                // 測試設備訪問
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                });
+                
+                log('✅ 媒體設備訪問正常');
+                stream.getTracks().forEach(track => track.stop());
+                
+                updateStatus('webrtc-status', '媒體設備檢測正常', 'success');
+                
+            } catch (error) {
+                log(`❌ 媒體設備檢測失敗: ${error.message}`);
+                updateStatus('webrtc-status', `媒體設備檢測失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        // 測試 STUN 服務器
+        async function testSTUNServers() {
+            log('🔍 測試 STUN 服務器連接...');
+            
+            const stunServers = [
+                'stun:stun.l.google.com:19302',
+                'stun:stun1.l.google.com:19302',
+                'stun:stun.services.mozilla.com'
+            ];
+            
+            for (const stunUrl of stunServers) {
+                try {
+                    const pc = new RTCPeerConnection({ iceServers: [{ urls: stunUrl }] });
+                    
+                    pc.onicecandidate = (event) => {
+                        if (event.candidate) {
+                            log(`✅ ${stunUrl}: 收到 ICE candidate`);
+                        } else {
+                            log(`🏁 ${stunUrl}: ICE 收集完成`);
+                        }
+                    };
+                    
+                    pc.createDataChannel('test');
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    
+                    // 等待一秒後關閉
+                    setTimeout(() => pc.close(), 1000);
+                    
+                } catch (error) {
+                    log(`❌ ${stunUrl}: ${error.message}`);
+                }
+            }
+            
+            updateStatus('webrtc-status', 'STUN 服務器測試完成', 'info');
+        }
+        
+        // 完整診斷
+        async function fullDiagnostic() {
+            log('🚀 開始完整診斷...');
+            
+            await testBasicConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testWebSocket();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testAPI();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            testWebRTCSupport();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testMediaDevices();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            await testSTUNServers();
+            
+            log('🏁 完整診斷完成');
+        }
+        
+        function clearLog() {
+            diagnosticLog = [];
+            document.getElementById('log').textContent = '';
+        }
+        
+        function exportLog() {
+            const logContent = diagnosticLog.join('\n');
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `webrtc-diagnostic-${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.txt`;
+            a.click();
+            
+            URL.revokeObjectURL(url);
+        }
+        
+        // 自動開始基本檢測
+        window.addEventListener('load', () => {
+            log('🔧 WebRTC 診斷工具已載入');
+            testBasicConnection();
+        });
+    </script>
+</body>
+</html>

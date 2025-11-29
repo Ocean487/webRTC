@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>觀看直播 - VibeLo</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    
+            <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+            <link rel="stylesheet" href="viewer.css">
+            <link rel="stylesheet" href="viewer-initial-styles.css">
+            <link rel="stylesheet" href="viewer-fix-override.css">
+            <link rel="stylesheet" href="viewer-rwd.css">
+            <link rel="stylesheet" href="viewer-effects.css">
+</head>
+<body>
+    <svg class="lightning-filter-defs" aria-hidden="true" focusable="false"
+        style="position: absolute; width: 0; height: 0;">
+        <defs>
+            <filter id="turbulent-displace" color-interpolation-filters="sRGB" x="-20%" y="-20%" width="140%" height="140%">
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise1" seed="1" />
+                <feOffset in="noise1" dx="0" dy="0" result="offsetNoise1">
+                    <animate attributeName="dy" values="700;0" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise2" seed="1" />
+                <feOffset in="noise2" dx="0" dy="0" result="offsetNoise2">
+                    <animate attributeName="dy" values="0;-700" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise3" seed="2" />
+                <feOffset in="noise3" dx="0" dy="0" result="offsetNoise3">
+                    <animate attributeName="dx" values="490;0" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feTurbulence type="turbulence" baseFrequency="0.02" numOctaves="10" result="noise4" seed="2" />
+                <feOffset in="noise4" dx="0" dy="0" result="offsetNoise4">
+                    <animate attributeName="dx" values="0;-490" dur="6s" repeatCount="indefinite" calcMode="linear" />
+                </feOffset>
+
+                <feComposite in="offsetNoise1" in2="offsetNoise2" result="part1" />
+                <feComposite in="offsetNoise3" in2="offsetNoise4" result="part2" />
+                <feBlend in="part1" in2="part2" mode="color-dodge" result="combinedNoise" />
+
+                <feDisplacementMap in="SourceGraphic" in2="combinedNoise" scale="30" xChannelSelector="R" yChannelSelector="B" />
+            </filter>
+        </defs>
+    </svg>
+    <!-- 頂部導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <img src="images/vibelo-logo.png" alt="VibeLo" style="height: 45px; width: auto;">
+                
+            </a>
+            
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="top-up.html" class="nav-link">儲值中心</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+
+            <button class="mobile-menu-toggle" id="mobileMenuToggle" 
+                    aria-label="開啟選單" 
+                    aria-expanded="false" 
+                    aria-controls="mobileNav">
+                <i class="fas fa-bars"></i>
+            </button>
+            
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+
+            <!-- 移動端下拉菜單 -->
+            <div class="mobile-nav" id="mobileNav">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="viewer.html" class="nav-link active">觀看直播</a>
+                <a href="top-up.html" class="nav-link">儲值中心</a>
+                <a href="contact.html" class="nav-link">聯絡我們</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要內容 -->
+    <div class="viewer-container">
+        <aside class="support-section" id="supportSection">
+            <div class="support-card">
+                <h3>我的錢包</h3>
+                <div class="wallet-balance-display" id="walletBalanceDisplay">NT$ --</div>
+                <a href="top-up.html" class="topup-link-btn" id="topupLinkBtn">
+                    <i class="fas fa-wallet"></i>
+                    前往儲值中心
+                </a>
+                <p class="wallet-login-notice" id="walletLoginNotice">請先登入才能查看餘額與送禮。</p>
+                <div class="gift-feedback" id="walletFeedback"></div>
+            </div>
+
+            <div class="support-card">
+                <h3>送禮支持</h3>
+                <div class="gift-grid" id="giftGrid">
+                    <button type="button" class="gift-button" data-gift-type="heart">
+                        <span class="gift-icon"><i class="fas fa-heart"></i></span>
+                        <span class="gift-name">心心</span>
+                        <span class="gift-price">NT$ 5</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="flower">
+                        <span class="gift-icon"><i class="fas fa-seedling"></i></span>
+                        <span class="gift-name">花朵</span>
+                        <span class="gift-price">NT$ 5</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="rocket">
+                        <span class="gift-icon"><i class="fas fa-rocket"></i></span>
+                        <span class="gift-name">火箭</span>
+                        <span class="gift-price">NT$ 1000</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="cake">
+                        <span class="gift-icon"><i class="fas fa-cake-candles"></i></span>
+                        <span class="gift-name">蛋糕</span>
+                        <span class="gift-price">NT$ 100</span>
+                    </button>                    
+                    <button type="button" class="gift-button" data-gift-type="diamond">
+                        <span class="gift-icon"><i class="fas fa-gem"></i></span>
+                        <span class="gift-name">鑽石</span>
+                        <span class="gift-price">NT$ 500</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="money">
+                        <span class="gift-icon"><i class="fas fa-money-bill-wave"></i></span>
+                        <span class="gift-name">鈔票</span>
+                        <span class="gift-price">NT$ 20</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="crown">
+                        <span class="gift-icon"><i class="fas fa-crown"></i></span>
+                        <span class="gift-name">皇冠</span>
+                        <span class="gift-price">NT$ 5000</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="star">
+                        <span class="gift-icon"><i class="fas fa-star"></i></span>
+                        <span class="gift-name">星星</span>
+                        <span class="gift-price">NT$ 10</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="headset">
+                        <span class="gift-icon"><i class="fas fa-headset"></i></span>
+                        <span class="gift-name">耳機</span>
+                        <span class="gift-price">NT$ 15</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="car">
+                        <span class="gift-icon"><i class="fas fa-car"></i></span>
+                        <span class="gift-name">跑車</span>
+                        <span class="gift-price">NT$ 2000</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="gun">
+                        <span class="gift-icon"><i class="fas fa-bullseye"></i></span>
+                        <span class="gift-name">槍</span>    
+                        <span class="gift-price">NT$ 150</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="glasses">
+                        <span class="gift-icon"><i class="fas fa-glasses"></i></span>
+                        <span class="gift-name">眼鏡</span>
+                        <span class="gift-price">NT$ 10</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="poop">
+                        <span class="gift-icon"><i class="fas fa-poop"></i></span>
+                        <span class="gift-name">便便</span>
+                        <span class="gift-price">NT$ 5</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="kiss">
+                        <span class="gift-icon"><i class="fas fa-kiss-wink-heart"></i></span>
+                        <span class="gift-name">飛吻</span>
+                        <span class="gift-price">NT$ 10</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="hug">
+                        <span class="gift-icon"><i class="fas fa-hand-holding-heart"></i></span>
+                        <span class="gift-name">擁抱</span>
+                        <span class="gift-price">NT$ 20</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="icecream">
+                        <span class="gift-icon"><i class="fas fa-ice-cream"></i></span>
+                        <span class="gift-name">冰淇淋</span>
+                        <span class="gift-price">NT$ 12</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="balloon">
+                        <span class="gift-icon"><i class="fas fa-balloon"></i></span>
+                        <span class="gift-name">氣球</span>
+                        <span class="gift-price">NT$ 8</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="fireworks">
+                        <span class="gift-icon"><i class="fas fa-fireworks"></i></span>
+                        <span class="gift-name">煙火</span>
+                        <span class="gift-price">NT$ 200</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="magicwand">
+                        <span class="gift-icon"><i class="fas fa-wand-magic-sparkles"></i></span>
+                        <span class="gift-name">魔法棒</span>
+                        <span class="gift-price">NT$ 75</span>
+                    </button>
+                    <button type="button" class="gift-button" data-gift-type="trophy">
+                        <span class="gift-icon"><i class="fas fa-trophy"></i></span>
+                        <span class="gift-name">獎盃</span>
+                        <span class="gift-price">NT$ 10000</span>
+                    </button>
+                </div>
+                <div class="gift-feedback" id="giftFeedback"></div>
+            </div>
+
+        </aside>
+
+        <!-- 視頻區域 -->
+        <div class="video-section">
+            <div class="stream-video" id="streamVideo">
+                <div id="videoPlaceholder" style="display: none;">
+                    <h3>📺 等待主播開始直播</h3>
+                    <p>主播上線後，直播畫面會自動顯示在這裡</p>
+                </div>
+                <video id="remoteVideo" 
+                       autoplay 
+                       muted
+                       playsinline 
+                       webkit-playsinline="true"
+                       preload="metadata"
+                       style="display: none;"></video>
+                <div class="play-prompt" id="playPrompt" onclick="enableAutoplay()" style="display: none;">
+                    <i class="fas fa-play"></i> 點擊開始觀看
+                </div>
+                
+            </div>
+
+            <!-- 直播信息 -->
+            <div class="stream-header">
+                <div class="streamer-info">
+                    <div class="streamer-avatar" id="streamerAvatar">
+                        <img src="images/cute-dog-avatar.png" alt="可愛狗狗頭像" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+                    </div>
+                    <div class="streamer-details">
+                        <h3 id="streamerName">等待直播中...</h3>
+                        <p class="stream-title" id="streamTitle">等待精彩直播...</p>
+                    </div>
+                </div>
+                <div class="stream-status">
+                    <div class="status-text" id="statusText">等待直播中</div>
+                    <div class="viewer-count">
+                        <i class="fas fa-eye"></i>
+                        <span id="viewerCount">0</span> 觀看
+                    </div>
+                </div>
+                <div class="broadcaster-controls">
+                    <button class="btn btn-secondary" id="switchBroadcasterBtn">
+                        <i class="fas fa-exchange-alt"></i>
+                        切換主播
+                    </button>
+                    <button class="btn btn-outline" id="browseAllBtn">
+                        <i class="fas fa-list"></i>
+                        瀏覽所有
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 聊天區域 -->
+        <div class="chat-section">
+            <div class="chat-header">
+                💬 即時聊天室
+                <div class="viewer-counter">
+                    👥 <span id="chatViewerCount">0</span>
+                </div>
+            </div>
+
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <!-- 聊天消息將在這裡顯示 -->
+                </div>
+                
+                <div class="chat-input-container">
+                    <div class="chat-input-wrapper">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="說點什麼..." maxlength="200">
+                        <button class="send-button" id="sendButton">
+                            <i class="fas fa-paper-plane"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+            <!-- JavaScript 文件 -->
+            <script src="viewer-preload-fix.js"></script>
+            <script src="network-monitor.js"></script>
+            <script src="viewer-connection-diagnostic.js"></script>
+            <script src="viewer-connection-helper.js"></script>
+            <script src="viewer-initial-state-fix.js"></script>
+            <script src="viewer-stream-fix.js"></script>
+            <script src="webrtc-sync-fix.js"></script>
+            <script src="immediate-fix.js"></script>
+            <script src="webrtc-blackscreen-fix.js"></script>
+            <script src="chat-system.js"></script>
+            <script>
+                window.FACE_API_MODEL_BASE = 'webrtc-filters-tutorial-master/public/weights';
+                window.FACE_API_MODEL_PATH_FORMAT = 'manifest';
+                window.FACE_API_MODEL_SOURCES = [
+                    { base: 'webrtc-filters-tutorial-master/public/weights', type: 'manifest', label: 'local tutorial weights' }
+                ];
+            </script>
+            <script src="webrtc-filters-tutorial-master/public/lib/face-api.min.js"></script>
+            <script src="glasses-tracker.js"></script>
+            <script src="viewer-effects.js"></script>
+            <script src="viewer.js"></script>
+            <script src="webrtc-diagnostics.js"></script>
+            <script src="connection-test.js"></script>
+            <script src="viewer-debug.js"></script>
+            <script src="music-stream-fix.js"></script>
+            <script src="viewer-audio-reconnect.js"></script>
+            <script src="viewer-refresh-audio-fix.js"></script>
+    
+    <!-- 錯誤處理腳本 -->
+    <script>
+        // 忽略瀏覽器擴展相關的錯誤
+        window.addEventListener('error', function (e) {
+            const extensionErrors = [
+                'message channel closed',
+                'Extension context invalidated',
+                'Immersive Translate',
+                'waitPluginDone timeout',
+                'inject.js',
+                'WARN: waitPluginDone timeout'
+            ];
+            
+            if (e.message && extensionErrors.some(err => e.message.includes(err))) {
+                console.log('忽略瀏覽器擴展錯誤:', e.message);
+                e.preventDefault();
+                return false;
+            }
+            
+            if (e.filename && (e.filename.includes('extension://') || e.filename.includes('inject.js'))) {
+                console.log('忽略擴展腳本錯誤:', e.filename);
+                e.preventDefault();
+                return false;
+            }
+        });
+
+        window.addEventListener('unhandledrejection', function (e) {
+            if (e.reason && e.reason.message) {
+                const extensionErrors = [
+                    'message channel closed',
+                    'Extension context invalidated',
+                    'Immersive Translate',
+                    'waitPluginDone timeout'
+                ];
+                
+                if (extensionErrors.some(err => e.reason.message.includes(err))) {
+                    console.log('忽略瀏覽器擴展Promise錯誤:', e.reason.message);
+                    e.preventDefault();
+                    return false;
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>

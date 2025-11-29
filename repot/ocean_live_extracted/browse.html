@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>瀏覽直播 - VibeLo</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="browse-styles-fixed.css">
+</head>
+<body>
+    <!-- 導航欄 -->
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-brand">
+                <a href="index.html">
+                    <img src="images/vibelo-logo.png" alt="VibeLo" class="logo">
+                    
+                </a>
+            </div>
+            
+            <div class="nav-menu" id="navMenu">
+                <a href="index.html" class="nav-link">
+                    <i class="fas fa-home"></i>
+                    <span>首頁</span>
+                </a>
+                <a href="browse.html" class="nav-link active">
+                    <i class="fas fa-eye"></i>
+                    <span>瀏覽直播</span>
+                </a>
+                <a href="livestream_platform.html" class="nav-link">
+                    <i class="fas fa-video"></i>
+                    <span>開始直播</span>
+                </a>
+                <a href="about.html" class="nav-link">
+                    <i class="fas fa-info-circle"></i>
+                    <span>關於</span>
+                </a>
+            </div>
+            
+            <div class="nav-user">
+                <div class="user-avatar" id="userAvatar" onclick="toggleUserMenu()">
+                    <i class="fas fa-user"></i>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 移動端導航 -->
+        
+    </nav>
+
+    <!-- 主要內容 -->
+    <main class="main-content">
+        <div class="browse-container">
+            <!-- 頁面標題 -->
+            <div class="page-header">
+                <h1><i class="fas fa-eye"></i> 瀏覽直播</h1>
+                <p>發現精彩的直播內容，選擇您喜歡的主播</p>
+            </div>
+            
+            <!-- 統計信息 -->
+            <div class="stats-container">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number" id="totalViewers">0</div>
+                        <div class="stat-label">總觀看人數</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-video"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number" id="totalBroadcasters">0</div>
+                        <div class="stat-label">在線主播</div>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-play-circle"></i>
+                    </div>
+                    <div class="stat-info">
+                        <div class="stat-number" id="liveStreams">0</div>
+                        <div class="stat-label">正在直播</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 搜索和篩選 -->
+            <div class="search-filter-container">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchInput" placeholder="搜索主播名稱...">
+                    
+                </div>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" data-filter="all">
+                        <i class="fas fa-globe"></i>
+                        全部
+                    </button>
+                    <button class="filter-btn" data-filter="live">
+                        <i class="fas fa-play-circle"></i>
+                        正在直播
+                    </button>
+                    <button class="filter-btn" data-filter="online">
+                        <i class="fas fa-circle"></i>
+                        在線
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 主播列表 -->
+            <div class="streamers-container">
+                <div class="streamers-grid" id="streamersGrid">
+                    <!-- 主播卡片將在這裡動態生成 -->
+                </div>
+                
+                <!-- 空狀態 -->
+                <div class="empty-state" id="emptyState" style="display: none;">
+                    <div class="empty-icon">
+                        <i class="fas fa-video-slash"></i>
+                    </div>
+                    <h3>暫無主播在線</h3>
+                    <p>目前沒有主播在線，請稍後再來查看</p>
+                    <button class="btn btn-primary" onclick="refreshStreamers()">
+                        <i class="fas fa-refresh"></i>
+                        重新整理
+                    </button>
+                </div>
+                
+                <!-- 加載狀態 -->
+                <div class="loading-state" id="loadingState">
+                    <div class="loading-spinner"></div>
+                    <p>正在載入主播列表...</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 主播詳情模態框 -->
+    <div class="modal" id="streamerModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modalTitle">主播詳情</h3>
+                <button class="modal-close" onclick="closeStreamerModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="streamer-detail">
+                    <div class="streamer-avatar-large">
+                        <img id="modalAvatar" src="" alt="">
+                    </div>
+                    <div class="streamer-info">
+                        <h4 id="modalStreamerName">主播名稱</h4>
+                        <div class="streamer-stats">
+                            <span class="stat">
+                                <i class="fas fa-eye"></i>
+                                <span id="modalViewerCount">0</span> 觀看
+                            </span>
+                            <span class="stat">
+                                <i class="fas fa-clock"></i>
+                                <span id="modalStartTime">--</span>
+                            </span>
+                        </div>
+                        <div class="streamer-title" id="modalStreamTitle">
+                            <!-- 直播標題 -->
+                        </div>
+                        <div class="streamer-status" id="modalStatus">
+                            <!-- 直播狀態 -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeStreamerModal()">
+                    <i class="fas fa-times"></i>
+                    取消
+                </button>
+                <button class="btn btn-primary" id="watchStreamBtn" onclick="watchStream()">
+                    <i class="fas fa-play"></i>
+                    觀看直播
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用戶下拉選單 -->
+    <div class="user-dropdown" id="userDropdown" style="display: none;">
+        <div class="menu-user-info">
+            <div class="menu-user-name" id="userName">用戶</div>
+        </div>
+        <a href="index.html" class="menu-link">
+            <i class="fas fa-home"></i>
+            首頁
+        </a>
+        <a href="browse.html" class="menu-link">
+            <i class="fas fa-eye"></i>
+            瀏覽直播
+        </a>
+        <a href="livestream_platform.html" class="menu-link">
+            <i class="fas fa-video"></i>
+            開始直播
+        </a>
+        <a href="about.html" class="menu-link">
+            <i class="fas fa-info-circle"></i>
+            關於平台
+        </a>
+        <div class="menu-link logout" onclick="logout()">
+            <i class="fas fa-sign-out-alt"></i>
+            登出
+        </div>
+    </div>
+
+    <!-- 腳本 -->
+    <script src="navigation.js"></script>
+    <script src="browse.js"></script>
+</body>
+</html>

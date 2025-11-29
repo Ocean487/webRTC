@@ -16,6 +16,11 @@ let isScreenSharing = false;
 let screenShareStream = null;
 let isRestoringCamera = false;
 
+// 新增：獨立軌道管理
+let currentCameraStream = null; // 攝影機串流
+let currentScreenStream = null; // 螢幕分享串流
+let blackCanvasStream = null;   // 黑畫面串流 (當沒有螢幕分享時使用)
+
 const DEVICE_STORAGE_KEYS = {
     camera: 'broadcaster_camera_device_id',
     microphone: 'broadcaster_microphone_device_id',
@@ -326,6 +331,12 @@ async function initializeBroadcaster() {
         }
     }, 4000);
     
+    // 自動初始化預覽串流
+    setTimeout(() => {
+        console.log('🔄 自動初始化預覽串流...');
+        initializeStream();
+    }, 1000);
+    
     console.log('✅ 主播端初始化完成');
 }
 
@@ -529,6 +540,242 @@ async function initializeDeviceSelectors(forceRefresh = false) {
     checkAudioOutputSupport();
 }
 
+// 音訊混音相關變數
+let audioMixingContext = null;
+let audioMixingDestination = null;
+let audioMixingSources = [];
+
+// 獲取混音後的音訊軌道
+function getMixedAudioTrack(streams) {
+    try {
+        // 初始化 AudioContext
+        if (!audioMixingContext) {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            audioMixingContext = new AudioContext();
+            audioMixingDestination = audioMixingContext.createMediaStreamDestination();
+        }
+
+        // 確保 Context 是活躍的
+        if (audioMixingContext.state === 'suspended') {
+            audioMixingContext.resume();
+        }
+
+        // 清除舊的來源連接
+        audioMixingSources.forEach(source => {
+            try { source.disconnect(); } catch (e) {}
+        });
+        audioMixingSources = [];
+
+        let hasAudio = false;
+
+        // 連接所有有效的音訊軌道
+        streams.forEach(stream => {
+            if (stream && stream.getAudioTracks().length > 0) {
+                stream.getAudioTracks().forEach(track => {
+                    if (track.readyState === 'live') {
+                        try {
+                            // 創建新的 MediaStream 只包含這個軌道，用於 SourceNode
+                            const sourceStream = new MediaStream([track]);
+                            const source = audioMixingContext.createMediaStreamSource(sourceStream);
+                            source.connect(audioMixingDestination);
+                            audioMixingSources.push(source);
+                            hasAudio = true;
+                        } catch (e) {
+                            console.warn('無法連接音訊軌道:', e);
+                        }
+                    }
+                });
+            }
+        });
+
+        if (hasAudio) {
+            return audioMixingDestination.stream.getAudioTracks()[0];
+        }
+        return null;
+    } catch (e) {
+        console.error('音訊混音失敗:', e);
+        return null;
+    }
+}
+
+// 創建黑畫面串流
+function getBlackStream() {
+    if (blackCanvasStream) return blackCanvasStream;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 1920;
+    canvas.height = 1080;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // 繪製一些文字提示
+    ctx.fillStyle = '#333333';
+    ctx.font = '48px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('等待畫面分享...', canvas.width / 2, canvas.height / 2);
+    
+    // 保持畫面更新以確保串流活躍
+    const stream = canvas.captureStream(30);
+    const track = stream.getVideoTracks()[0];
+    
+    // 定期重繪以保持活躍
+    setInterval(() => {
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#333333';
+        ctx.fillText('等待畫面分享...', canvas.width / 2, canvas.height / 2);
+    }, 1000);
+    
+    blackCanvasStream = stream;
+    return blackCanvasStream;
+}
+
+// 更新本地串流組合 (核心邏輯)
+async function updateLocalStreamComposition() {
+    console.log('🔄 更新本地串流組合...');
+    
+    // 1. 準備主軌道 (Track 0): 螢幕分享 或 黑畫面
+    let mainTrack;
+    if (currentScreenStream && currentScreenStream.active) {
+        mainTrack = currentScreenStream.getVideoTracks()[0];
+    } else {
+        mainTrack = getBlackStream().getVideoTracks()[0];
+    }
+    
+    // 2. 準備次軌道 (Track 1): 攝影機 (如果啟用)
+    let pipTrack = null;
+    if (currentCameraStream && currentCameraStream.active && isVideoEnabled) {
+        pipTrack = currentCameraStream.getVideoTracks()[0];
+    }
+    
+    // 3. 準備音訊軌道
+    let audioTracks = [];
+    
+    // 收集需要混音的串流 (攝影機 + 螢幕分享)
+    const streamsToMix = [];
+    if (currentCameraStream) streamsToMix.push(currentCameraStream);
+    if (currentScreenStream) streamsToMix.push(currentScreenStream);
+    
+    if (streamsToMix.length > 0) {
+        const mixedTrack = getMixedAudioTrack(streamsToMix);
+        if (mixedTrack) {
+            // 應用當前的靜音狀態
+            mixedTrack.enabled = isAudioEnabled;
+            audioTracks.push(mixedTrack);
+        }
+    }
+    
+    // 4. 組合新串流
+    const newStream = new MediaStream();
+    newStream.addTrack(mainTrack); // Track 0
+    
+    if (pipTrack) {
+        newStream.addTrack(pipTrack); // Track 1
+    }
+    
+    audioTracks.forEach(track => {
+        newStream.addTrack(track);
+    });
+    
+    // 5. 更新全局 localStream
+    localStream = newStream;
+    window.localStream = localStream;
+    
+    // 6. 更新 UI
+    updateLocalPreviewUI();
+    
+    // 7. 如果正在直播，更新連接
+    if (isStreaming) {
+        await updateAllPeerConnections();
+    }
+}
+
+// 更新本地預覽 UI
+function updateLocalPreviewUI() {
+    const localVideo = document.getElementById('localVideo');
+    const placeholder = document.getElementById('previewPlaceholder');
+    
+    if (!localVideo) return;
+    
+    // 設置主畫面 (Track 0)
+    const mainTrack = localStream.getVideoTracks()[0];
+    if (localVideo.srcObject?.id !== new MediaStream([mainTrack]).id) {
+        localVideo.srcObject = new MediaStream([mainTrack]);
+    }
+    
+    localVideo.style.display = 'block';
+    if (placeholder) placeholder.style.display = 'none';
+    
+    // 處理畫中畫預覽 (Track 1)
+    const videoTracks = localStream.getVideoTracks();
+    let pipVideo = document.getElementById('localPipVideo');
+    
+    if (videoTracks.length > 1) {
+        // 顯示畫中畫
+        const pipTrack = videoTracks[1];
+        
+        if (!pipVideo) {
+            pipVideo = document.createElement('video');
+            pipVideo.id = 'localPipVideo';
+            pipVideo.autoplay = true;
+            pipVideo.playsInline = true;
+            pipVideo.muted = true;
+            
+            // 樣式設定 (與觀眾端一致)
+            pipVideo.style.position = 'absolute';
+            pipVideo.style.bottom = '40px';
+            pipVideo.style.right = '20px';
+            pipVideo.style.width = '30%';
+            pipVideo.style.height = 'auto';
+            pipVideo.style.maxWidth = '400px';
+            pipVideo.style.borderRadius = '12px';
+            pipVideo.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+            pipVideo.style.zIndex = '100';
+            pipVideo.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+            pipVideo.style.transition = 'all 0.3s ease';
+            
+            // 添加到 localVideo 的父容器
+            const container = localVideo.parentElement;
+            if (window.getComputedStyle(container).position === 'static') {
+                container.style.position = 'relative';
+            }
+            container.appendChild(pipVideo);
+        }
+        
+        pipVideo.srcObject = new MediaStream([pipTrack]);
+        pipVideo.style.display = 'block';
+    } else {
+        // 隱藏畫中畫
+        if (pipVideo) {
+            pipVideo.style.display = 'none';
+            pipVideo.srcObject = null;
+        }
+    }
+}
+
+// 初始化串流 (開播前設定)
+async function initializeStream() {
+    try {
+        // 獲取攝影機和麥克風
+        currentCameraStream = await navigator.mediaDevices.getUserMedia(getConstraints());
+        
+        // 預設沒有螢幕分享 (使用黑畫面)
+        currentScreenStream = null;
+        
+        // 組合串流
+        await updateLocalStreamComposition();
+        
+        console.log('✅ 串流初始化完成 (預覽模式)');
+        addMessage('系統', '📷 攝影機已就緒，您可以先設定畫面再開始直播');
+        
+    } catch (error) {
+        console.error('初始化串流失敗:', error);
+        addMessage('系統', '❌ 無法存取攝影機或麥克風');
+    }
+}
+
 // 開始/停止直播
 async function toggleStream() {
     // 檢查用戶是否已登入
@@ -555,35 +802,24 @@ async function startStream() {
     }
     
     try {
-        // 簡化的流獲取 - 只獲取攝影機和麥克風
-        // YouTube音訊將通過系統音效混入
-        const userStream = await navigator.mediaDevices.getUserMedia(getConstraints());
-        
-        // 直接使用用戶媒體流，不進行複雜的音訊混合
-        localStream = userStream;
-        
-        // 顯示本地視訊
-        const localVideo = document.getElementById('localVideo');
-        const placeholder = document.getElementById('previewPlaceholder');
-        
-        localVideo.srcObject = localStream;
-        if (localVideo.setSinkId && currentAudioOutput) {
-            try {
-                await localVideo.setSinkId(currentAudioOutput);
-                console.log('音訊輸出端已套用至直播視訊元素:', currentAudioOutput);
-            } catch (sinkError) {
-                console.warn('無法套用指定音訊輸出端:', sinkError);
-            }
+        // 確保 AudioContext 已啟動 (解決自動播放策略問題)
+        if (audioMixingContext && audioMixingContext.state === 'suspended') {
+            await audioMixingContext.resume();
+            console.log('🔊 AudioContext 已恢復');
         }
-        localVideo.style.display = 'block';
-        placeholder.style.display = 'none';
 
+        // 如果還沒初始化，先初始化
+        if (!localStream) {
+            await initializeStream();
+        }
+        
         // 確保音訊軌道正確啟用
         ensureAudioTracksEnabled(localStream);
 
         console.log('直播流已啟動，YouTube音訊將通過系統音效混入');
 
         // 設置音訊輸出端（如果已選擇）
+        const localVideo = document.getElementById('localVideo');
         if (currentAudioOutput && currentAudioOutput !== 'default') {
             try {
                 if (localVideo.setSinkId) {
@@ -735,22 +971,28 @@ async function startStream() {
 
 // 停止直播
 function stopStream() {
+    // 停止所有串流
+    if (currentCameraStream) {
+        currentCameraStream.getTracks().forEach(track => track.stop());
+        currentCameraStream = null;
+    }
+    
+    if (currentScreenStream) {
+        currentScreenStream.getTracks().forEach(track => track.stop());
+        currentScreenStream = null;
+    }
+    
+    if (blackCanvasStream) {
+        blackCanvasStream.getTracks().forEach(track => track.stop());
+        blackCanvasStream = null;
+    }
+    
     if (localStream) {
         localStream.getTracks().forEach(track => track.stop());
         localStream = null;
     }
 
-    if (screenShareStream) {
-        screenShareStream.getTracks().forEach(track => {
-            if (track.readyState === 'live') {
-                track.stop();
-            }
-        });
-    }
-
     isScreenSharing = false;
-    screenShareStream = null;
-    isRestoringCamera = false;
     window.isScreenSharing = false;
     window.screenShareStream = null;
 
@@ -767,9 +1009,21 @@ function stopStream() {
     // 隱藏視訊，顯示預覽
     const localVideo = document.getElementById('localVideo');
     const placeholder = document.getElementById('previewPlaceholder');
+    const pipVideo = document.getElementById('localPipVideo');
     
-    localVideo.style.display = 'none';
-    placeholder.style.display = 'flex';
+    if (localVideo) {
+        localVideo.style.display = 'none';
+        localVideo.srcObject = null;
+    }
+    
+    if (pipVideo) {
+        pipVideo.style.display = 'none';
+        pipVideo.srcObject = null;
+    }
+    
+    if (placeholder) {
+        placeholder.style.display = 'flex';
+    }
 
     // 重置狀態
     isStreaming = false;
@@ -826,137 +1080,203 @@ function getQualitySettings(quality) {
     return settings[quality] || settings['720'];
 }
 
-// 切換視訊
+// 切換視訊 (控制 PiP 攝影機)
 async function toggleVideo() {
-    if (!localStream) return;
-
-    const videoTracks = localStream.getVideoTracks();
-    videoTracks.forEach(track => {
-        track.enabled = !track.enabled;
-    });
-
     isVideoEnabled = !isVideoEnabled;
-    const btn = document.getElementById('videoBtn');
-    btn.textContent = isVideoEnabled ? '📹 關閉視訊' : '📹 開啟視訊';
-
-    addMessage('系統', isVideoEnabled ? '📹 視訊已開啟' : '📹 視訊已關閉');
     
-    // 更新所有觀眾的軌道狀態
-    if (isStreaming) {
-        const viewerIds = Array.from(peerConnections.keys());
-        for (const viewerId of viewerIds) {
-            await updatePeerConnectionTracks(viewerId);
-        }
+    // 更新按鈕狀態
+    const btn = document.getElementById('videoBtn');
+    if (btn) {
+        btn.textContent = isVideoEnabled ? '📹 關閉視訊' : '📹 開啟視訊';
     }
+    
+    addMessage('系統', isVideoEnabled ? '📹 攝影機已開啟' : '📹 攝影機已關閉');
+    
+    // 更新串流組合
+    await updateLocalStreamComposition();
 }
 
 // 切換音訊
 async function toggleAudio() {
-    if (!localStream) return;
-
-    const audioTracks = localStream.getAudioTracks();
-    audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-    });
-
     isAudioEnabled = !isAudioEnabled;
+    
+    // 更新所有相關串流的音訊軌道 (輸入源)
+    if (currentCameraStream) {
+        currentCameraStream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
+    }
+    if (currentScreenStream) {
+        currentScreenStream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
+    }
+    
+    // 更新混音後的輸出軌道 (如果存在)
+    if (localStream) {
+        localStream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
+    }
+    
     const btn = document.getElementById('audioBtn');
-    btn.textContent = isAudioEnabled ? '🎤 關閉音訊' : '🎤 開啟音訊';
+    if (btn) {
+        btn.textContent = isAudioEnabled ? '🎤 關閉音訊' : '🎤 開啟音訊';
+    }
 
     addMessage('系統', isAudioEnabled ? '🎤 音訊已開啟' : '🎤 音訊已關閉');
     
-    // 更新所有觀眾的軌道狀態
-    if (isStreaming) {
-        const viewerIds = Array.from(peerConnections.keys());
-        for (const viewerId of viewerIds) {
-            await updatePeerConnectionTracks(viewerId);
-        }
+    // 如果正在直播，更新連接
+    if (isStreaming && localStream) {
+        // 確保軌道狀態已更新
+        localStream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
     }
 }
 
 // 切換鏡頭
 async function switchCamera() {
-    if (!isStreaming) return;
-
     try {
         currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
         
-        // 保存當前的音訊軌道
-        const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
-        
-        // 只停止視訊軌道，保持音訊軌道
-        if (localStream) {
-            const videoTracks = localStream.getVideoTracks();
-            videoTracks.forEach(track => track.stop());
+        // 停止舊的攝影機串流
+        if (currentCameraStream) {
+            currentCameraStream.getTracks().forEach(track => track.stop());
         }
 
-        // 重新取得媒體串流（只包含視訊）
-        const videoConstraints = getConstraints();
-        const newVideoStream = await navigator.mediaDevices.getUserMedia(videoConstraints);
+        // 重新獲取攝影機
+        currentCameraStream = await navigator.mediaDevices.getUserMedia(getConstraints());
         
-        // 創建新的串流，包含新的視訊軌道和原有的音訊軌道
-        const newStream = new MediaStream();
+        // 確保音訊狀態同步
+        currentCameraStream.getAudioTracks().forEach(track => track.enabled = isAudioEnabled);
         
-        // 添加新的視訊軌道
-        newVideoStream.getVideoTracks().forEach(track => {
-            newStream.addTrack(track);
-        });
-        
-        // 保持原有的音訊軌道
-        if (currentAudioTrack && currentAudioTrack.readyState === 'live') {
-            newStream.addTrack(currentAudioTrack);
-            console.log('保持原有音訊軌道，軌道ID:', currentAudioTrack.id);
-        }
-        
-        // 更新本地串流
-        localStream = newStream;
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = localStream;
-        
-        // 確保音訊軌道啟用
-        const newAudioTracks4 = localStream.getAudioTracks();
-        newAudioTracks4.forEach(track => {
-            track.enabled = true;
-            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
-        });
-
-        // 重新設置音訊輸出端
-        if (currentAudioOutput && currentAudioOutput !== 'default') {
-            try {
-                const localVideo = document.getElementById('localVideo');
-                if (localVideo.setSinkId) {
-                    await localVideo.setSinkId(currentAudioOutput);
-                    console.log('已重新設置音訊輸出端:', currentAudioOutput);
-                }
-            } catch (error) {
-                console.warn('重新設置音訊輸出端失敗:', error);
-            }
-        }
+        // 更新串流組合
+        await updateLocalStreamComposition();
 
         const cameraType = currentFacingMode === 'user' ? '前鏡頭' : '後鏡頭';
-        addMessage('系統', `🔄 已切換到${cameraType}，音訊保持不變`);
+        addMessage('系統', `🔄 已切換到${cameraType}`);
         
-        // 更新所有 WebRTC 連接的軌道
-        await updateAllPeerConnections();
     } catch (error) {
         console.error('切換鏡頭失敗:', error);
         addMessage('系統', '❌ 鏡頭切換失敗');
     }
 }
 
-// 分享螢幕
+// 全局變數用於合成串流
+let compositeCanvas = null;
+let compositeCtx = null;
+let compositeAnimationId = null;
+let hiddenScreenVideo = null;
+let hiddenCameraVideo = null;
+let lastDrawTime = 0;
+const TARGET_FPS = 30; // 限制為 30 FPS 以提升效能
+const FRAME_INTERVAL = 1000 / TARGET_FPS;
+
+// 啟動合成串流（螢幕分享 + 攝影機）
+function startCompositeStream(screenStream, cameraStream) {
+    return new Promise((resolve) => {
+        compositeCanvas = document.createElement('canvas');
+        // 優化：關閉 alpha 通道以提升效能
+        compositeCtx = compositeCanvas.getContext('2d', { alpha: false });
+        
+        hiddenScreenVideo = document.createElement('video');
+        hiddenScreenVideo.srcObject = screenStream;
+        hiddenScreenVideo.muted = true;
+        hiddenScreenVideo.play();
+
+        hiddenCameraVideo = document.createElement('video');
+        hiddenCameraVideo.srcObject = cameraStream;
+        hiddenCameraVideo.muted = true;
+        hiddenCameraVideo.play();
+
+        hiddenScreenVideo.onloadedmetadata = () => {
+            // 優化：限制最大解析度為 1080p，避免 4K 螢幕導致效能問題
+            const MAX_WIDTH = 1920;
+            let width = hiddenScreenVideo.videoWidth;
+            let height = hiddenScreenVideo.videoHeight;
+            
+            if (width > MAX_WIDTH) {
+                const scale = MAX_WIDTH / width;
+                width = MAX_WIDTH;
+                height = Math.round(hiddenScreenVideo.videoHeight * scale);
+            }
+            
+            compositeCanvas.width = width;
+            compositeCanvas.height = height;
+            
+            drawComposite();
+            
+            // 優化：設定 captureStream 的 FPS
+            const compositeStream = compositeCanvas.captureStream(TARGET_FPS);
+            resolve(compositeStream);
+        };
+    });
+}
+
+// 繪製合成畫面
+function drawComposite(timestamp) {
+    if (!compositeCtx || !hiddenScreenVideo || !hiddenCameraVideo) return;
+
+    compositeAnimationId = requestAnimationFrame(drawComposite);
+
+    // 優化：控制幀率
+    if (timestamp - lastDrawTime < FRAME_INTERVAL) return;
+    lastDrawTime = timestamp;
+
+    // 繪製螢幕畫面（全螢幕）
+    compositeCtx.drawImage(hiddenScreenVideo, 0, 0, compositeCanvas.width, compositeCanvas.height);
+
+    // 繪製攝影機畫面（右下角）
+    // 計算攝影機畫面大小（寬度為畫布的 20%）
+    const camWidth = compositeCanvas.width * 0.4;
+    const camAspectRatio = hiddenCameraVideo.videoWidth / hiddenCameraVideo.videoHeight;
+    const camHeight = camWidth / (camAspectRatio || (16/9));
+    const padding = 20;
+
+    // 繪製邊框
+    compositeCtx.strokeStyle = '#ffffff';
+    compositeCtx.lineWidth = 2;
+    compositeCtx.strokeRect(
+        compositeCanvas.width - camWidth - padding, 
+        compositeCanvas.height - camHeight - padding, 
+        camWidth, camHeight
+    );
+
+    // 繪製攝影機影像
+    compositeCtx.drawImage(hiddenCameraVideo, 
+        compositeCanvas.width - camWidth - padding, 
+        compositeCanvas.height - camHeight - padding, 
+        camWidth, camHeight
+    );
+}
+
+// 停止合成串流
+function stopCompositeStream() {
+    if (compositeAnimationId) {
+        cancelAnimationFrame(compositeAnimationId);
+        compositeAnimationId = null;
+    }
+    
+    if (hiddenScreenVideo) {
+        hiddenScreenVideo.pause();
+        hiddenScreenVideo.srcObject = null;
+        hiddenScreenVideo = null;
+    }
+    
+    if (hiddenCameraVideo) {
+        hiddenCameraVideo.pause();
+        hiddenCameraVideo.srcObject = null;
+        hiddenCameraVideo = null;
+    }
+    
+    compositeCanvas = null;
+    compositeCtx = null;
+}
+
+// 分享螢幕 (控制主畫面)
 async function shareScreen() {
     try {
-        if (isRestoringCamera) {
-            addMessage('系統', '⚠️ 正在恢復攝影機，請稍候再試');
+        // 如果已經在分享，則停止
+        if (currentScreenStream) {
+            console.log('停止螢幕分享');
+            stopScreenShare();
             return;
         }
 
-        if (isScreenSharing) {
-            addMessage('系統', '⚠️ 已在進行螢幕分享');
-            return;
-        }
-
+        // 獲取螢幕分享串流
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
             video: { 
                 cursor: 'always',
@@ -965,198 +1285,62 @@ async function shareScreen() {
             audio: true
         });
 
-        screenShareStream = screenStream;
+        // 設定為當前螢幕串流
+        currentScreenStream = screenStream;
         isScreenSharing = true;
-        window.screenShareStream = screenShareStream;
-        window.isScreenSharing = isScreenSharing;
+        window.isScreenSharing = true;
+        window.screenShareStream = screenStream;
 
-        // 保存當前的音訊軌道（如果有的話）
-        const currentAudioTracks = localStream
-            ? localStream.getAudioTracks().filter(track => track.readyState === 'live')
-            : [];
-        
-        // 只停止視訊軌道，保持音訊軌道
-        if (localStream) {
-            const videoTracks = localStream.getVideoTracks();
-            videoTracks.forEach(track => track.stop());
+        // 監聽螢幕分享結束 (例如使用者點擊瀏覽器的停止分享按鈕)
+        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
+            console.log('🖥️ 螢幕分享視訊軌道已結束');
+            stopScreenShare();
+        }, { once: true });
+
+        // 更新按鈕狀態
+        const screenBtn = document.getElementById('screenBtn');
+        if (screenBtn) {
+            screenBtn.innerHTML = '<i class="fas fa-stop-circle"></i><br>停止分享';
+            screenBtn.classList.add('active');
         }
 
-        // 創建新的串流，包含螢幕分享的視訊軌道和原有的音訊軌道
-        const newStream = new MediaStream();
-        
-        // 添加螢幕分享的視訊軌道
-        screenStream.getVideoTracks().forEach(track => {
-            newStream.addTrack(track);
-        });
-        
-        // 保持原有的音訊軌道（如果存在且有效）
-        if (currentAudioTracks.length > 0) {
-            currentAudioTracks.forEach(track => {
-                newStream.addTrack(track);
-                console.log('保持原有音訊軌道，軌道ID:', track.id);
-            });
-        } else {
-            // 如果沒有原有音訊軌道，添加螢幕分享的音訊軌道
-            screenStream.getAudioTracks().forEach(track => {
-                newStream.addTrack(track);
-            });
-        }
+        addMessage('系統', '🖥️ 螢幕分享已開始');
 
-        // 更新本地串流並設置到視訊元素
-        localStream = newStream;
-        const localVideo = document.getElementById('localVideo');
-        localVideo.srcObject = localStream;
-        window.localStream = localStream;
-        baseVideoStream = null;
-        
-        // 確保音訊軌道啟用
-        const newAudioTracks = localStream.getAudioTracks();
-        newAudioTracks.forEach(track => {
-            track.enabled = true;
-            console.log('音訊軌道已啟用:', track.id, '狀態:', track.readyState);
-        });
-
-        // 重新設置音訊輸出端
-        if (currentAudioOutput && currentAudioOutput !== 'default') {
-            try {
-                const localVideo = document.getElementById('localVideo');
-                if (localVideo.setSinkId) {
-                    await localVideo.setSinkId(currentAudioOutput);
-                    console.log('已重新設置音訊輸出端:', currentAudioOutput);
-                }
-            } catch (error) {
-                console.warn('重新設置音訊輸出端失敗:', error);
-            }
-        }
-
-        addMessage('系統', '🖥️ 螢幕分享已開始，音訊保持不變');
-
-        // 監聽螢幕分享結束
-        screenStream.getVideoTracks().forEach(track => {
-            track.addEventListener('ended', () => {
-                console.log('🖥️ 螢幕分享視訊軌道已結束');
-                addMessage('系統', '🖥️ 螢幕分享已結束');
-                restoreCameraAfterScreenShare();
-            }, { once: true });
-        });
-
-        // 更新所有觀眾的軌道
-        if (isStreaming) {
-            await updateAllPeerConnections();
-        }
+        // 更新串流組合
+        await updateLocalStreamComposition();
 
     } catch (error) {
         console.error('螢幕分享失敗:', error);
         addMessage('系統', '❌ 螢幕分享失敗');
-        if (screenShareStream) {
-            screenShareStream.getTracks().forEach(track => {
-                if (track.readyState === 'live') {
-                    track.stop();
-                }
-            });
-        }
-        isScreenSharing = false;
-        screenShareStream = null;
-        window.isScreenSharing = isScreenSharing;
-        window.screenShareStream = null;
+        stopScreenShare();
     }
 }
 
-async function restoreCameraAfterScreenShare() {
-    if (!isScreenSharing || isRestoringCamera) {
-        return;
+// 停止螢幕分享的輔助函數
+async function stopScreenShare() {
+    if (currentScreenStream) {
+        currentScreenStream.getTracks().forEach(track => track.stop());
+        currentScreenStream = null;
     }
-
-    isRestoringCamera = true;
-
-    try {
-        const constraints = getConstraints();
-        let cameraStream;
-        try {
-            cameraStream = await navigator.mediaDevices.getUserMedia({
-                video: constraints.video,
-                audio: false
-            });
-        } catch (error) {
-            console.error('恢復攝影機失敗:', error);
-            addMessage('系統', '❌ 螢幕分享結束後無法恢復攝影機');
-            return;
-        }
-
-        const newStream = new MediaStream();
-        cameraStream.getVideoTracks().forEach(track => newStream.addTrack(track));
-
-        let liveAudioTracks = [];
-        if (localStream) {
-            liveAudioTracks = localStream.getAudioTracks().filter(track => track.readyState === 'live');
-        }
-
-        if (liveAudioTracks.length === 0) {
-            try {
-                const audioStream = await navigator.mediaDevices.getUserMedia({
-                    audio: constraints.audio,
-                    video: false
-                });
-                liveAudioTracks = audioStream.getAudioTracks();
-            } catch (audioError) {
-                console.warn('恢復音訊軌道失敗:', audioError);
-            }
-        }
-
-        liveAudioTracks.forEach(track => newStream.addTrack(track));
-
-        if (screenShareStream) {
-            screenShareStream.getTracks().forEach(track => {
-                if (track.readyState === 'live') {
-                    track.stop();
-                }
-            });
-        }
-
-        localStream = newStream;
-        window.localStream = newStream;
-
-        const localVideo = document.getElementById('localVideo');
-        if (localVideo) {
-            localVideo.srcObject = newStream;
-            localVideo.style.display = 'block';
-            try {
-                await localVideo.play();
-            } catch (playError) {
-                console.warn('恢復攝影機時自動播放失敗:', playError);
-            }
-
-            if (currentAudioOutput && currentAudioOutput !== 'default' && localVideo.setSinkId) {
-                try {
-                    await localVideo.setSinkId(currentAudioOutput);
-                } catch (sinkError) {
-                    console.warn('恢復攝影機時設置音訊輸出端失敗:', sinkError);
-                }
-            }
-        }
-
-        ensureAudioTracksEnabled(newStream);
-        baseVideoStream = null;
-        isVideoEnabled = true;
-
-        const videoBtn = document.getElementById('videoBtn');
-        if (videoBtn) {
-            videoBtn.textContent = '📹 關閉視訊';
-        }
-
-        addMessage('系統', '📷 已切回攝影機畫面');
-
-        if (isStreaming) {
-            await updateAllPeerConnections();
-        }
-    } finally {
-        isScreenSharing = false;
-        screenShareStream = null;
-        isRestoringCamera = false;
-        window.isScreenSharing = isScreenSharing;
-        window.screenShareStream = null;
+    
+    isScreenSharing = false;
+    window.isScreenSharing = false;
+    window.screenShareStream = null;
+    
+    // 更新按鈕狀態
+    const screenBtn = document.getElementById('screenBtn');
+    if (screenBtn) {
+        screenBtn.innerHTML = '<i class="fas fa-desktop"></i><br>分享螢幕';
+        screenBtn.classList.remove('active');
     }
+    
+    addMessage('系統', '🖥️ 螢幕分享已結束');
+    
+    // 更新串流組合 (回到黑畫面)
+    await updateLocalStreamComposition();
 }
+
+
 
 // 切換畫質
 async function changeQuality() {
@@ -1197,15 +1381,18 @@ async function switchVideoDevice() {
 
     rememberDeviceSelection('camera', cameraSelect.value);
 
-    if (!isStreaming) return;
+    // 即使未直播也允許切換預覽
+    // if (!isStreaming) return;
 
     try {
         // 保存當前的音訊軌道
         const currentAudioTrack = localStream ? localStream.getAudioTracks()[0] : null;
         
         // 只停止視訊軌道
-        const videoTracks = localStream.getVideoTracks();
-        videoTracks.forEach(track => track.stop());
+        if (localStream) {
+            const videoTracks = localStream.getVideoTracks();
+            videoTracks.forEach(track => track.stop());
+        }
 
         const newStream = await navigator.mediaDevices.getUserMedia({
             video: {
@@ -1477,15 +1664,18 @@ async function switchAudioDevice() {
 
     rememberDeviceSelection('microphone', microphoneSelect.value);
 
-    if (!isStreaming) return;
+    // 即使未直播也允許切換預覽
+    // if (!isStreaming) return;
 
     try {
         // 保存當前的視訊軌道
         const currentVideoTrack = localStream ? localStream.getVideoTracks()[0] : null;
         
         // 只停止音訊軌道
-        const audioTracks = localStream.getAudioTracks();
-        audioTracks.forEach(track => track.stop());
+        if (localStream) {
+            const audioTracks = localStream.getAudioTracks();
+            audioTracks.forEach(track => track.stop());
+        }
 
         const newStream = await navigator.mediaDevices.getUserMedia({
             video: false,
@@ -2201,6 +2391,10 @@ function handleServerMessage(data) {
         case 'viewer_count_update':
             updateViewerCount(data.count);
             break;
+
+        case 'gift':
+            handleGiftMessage(data);
+            break;
             
         default:
             console.log('未知訊息類型:', data.type);
@@ -2666,41 +2860,68 @@ async function updatePeerConnectionTracks(viewerId) {
         }
         
         // 智能軌道更新：只更新變化的軌道，保持音訊軌道
-        const audioTrack = currentTracks.find(track => track.kind === 'audio');
-        const videoTrack = currentTracks.find(track => track.kind === 'video');
+        const audioTracks = currentTracks.filter(track => track.kind === 'audio');
+        const videoTracks = currentTracks.filter(track => track.kind === 'video');
         
         // 找到現有的軌道發送器
-        const existingAudioSender = currentSenders.find(sender => 
+        const existingAudioSenders = currentSenders.filter(sender => 
             sender.track && sender.track.kind === 'audio'
         );
-        const existingVideoSender = currentSenders.find(sender => 
+        const existingVideoSenders = currentSenders.filter(sender => 
             sender.track && sender.track.kind === 'video'
         );
         
-        // 只更新視訊軌道，保持音訊軌道
-        if (videoTrack && videoTrack.readyState === 'live') {
-            if (existingVideoSender) {
-                // 替換現有視訊軌道
-                await existingVideoSender.replaceTrack(videoTrack);
-                console.log('已替換視訊軌道，軌道ID:', videoTrack.id);
+        // 更新視訊軌道
+        // 策略：
+        // 1. 如果現有發送器數量 < 新軌道數量，添加新軌道
+        // 2. 如果現有發送器數量 > 新軌道數量，移除多餘發送器
+        // 3. 對於重疊部分，使用 replaceTrack
+        
+        // 處理視訊軌道
+        for (let i = 0; i < videoTracks.length; i++) {
+            const newTrack = videoTracks[i];
+            if (i < existingVideoSenders.length) {
+                // 替換現有軌道
+                const sender = existingVideoSenders[i];
+                if (sender.track.id !== newTrack.id) {
+                    await sender.replaceTrack(newTrack);
+                    console.log(`已替換視訊軌道 ${i}，軌道ID:`, newTrack.id);
+                }
             } else {
-                // 添加新視訊軌道
-                peerConnection.addTrack(videoTrack, localStream);
-                console.log('已添加新視訊軌道，軌道ID:', videoTrack.id);
+                // 添加新軌道
+                peerConnection.addTrack(newTrack, localStream);
+                console.log(`已添加新視訊軌道 ${i}，軌道ID:`, newTrack.id);
             }
         }
         
-        // 確保音訊軌道存在且啟用
-        if (audioTrack && audioTrack.readyState === 'live') {
-            if (!existingAudioSender) {
-                peerConnection.addTrack(audioTrack, localStream);
-                console.log('已添加音訊軌道，軌道ID:', audioTrack.id);
-            } else if (existingAudioSender.track !== audioTrack) {
-                // 音訊軌道已更改，替換它
-                await existingAudioSender.replaceTrack(audioTrack);
-                console.log('已替換音訊軌道，軌道ID:', audioTrack.id);
+        // 移除多餘的視訊發送器
+        if (existingVideoSenders.length > videoTracks.length) {
+            for (let i = videoTracks.length; i < existingVideoSenders.length; i++) {
+                peerConnection.removeTrack(existingVideoSenders[i]);
+                console.log(`已移除多餘視訊軌道發送器 ${i}`);
+            }
+        }
+        
+        // 處理音訊軌道 (通常只有一個，但為了完整性也做類似處理)
+        for (let i = 0; i < audioTracks.length; i++) {
+            const newTrack = audioTracks[i];
+            if (i < existingAudioSenders.length) {
+                const sender = existingAudioSenders[i];
+                if (sender.track.id !== newTrack.id) {
+                    await sender.replaceTrack(newTrack);
+                    console.log(`已替換音訊軌道 ${i}，軌道ID:`, newTrack.id);
+                }
             } else {
-                console.log('音訊軌道保持不變，軌道ID:', audioTrack.id);
+                peerConnection.addTrack(newTrack, localStream);
+                console.log(`已添加新音訊軌道 ${i}，軌道ID:`, newTrack.id);
+            }
+        }
+        
+        // 移除多餘的音訊發送器
+        if (existingAudioSenders.length > audioTracks.length) {
+            for (let i = audioTracks.length; i < existingAudioSenders.length; i++) {
+                peerConnection.removeTrack(existingAudioSenders[i]);
+                console.log(`已移除多餘音訊軌道發送器 ${i}`);
             }
         }
         
@@ -3472,4 +3693,62 @@ function updateStreamTitle() {
     } else {
         console.log('ℹ️ sendTitleUpdate 未定義，跳過廣播');
     }
+}
+
+// === 禮物系統功能 ===
+
+// 處理收到的禮物訊息
+function handleGiftMessage(data) {
+    console.log('🎁 收到禮物:', data.giftType, '來自:', data.username);
+    showGiftEffect(data.giftType, data.username);
+    
+    // 如果有聊天系統，也在聊天室顯示
+    if (window.chatSystem) {
+        const giftNames = {
+            'heart': '愛心 ❤️',
+            'rocket': '火箭 🚀',
+            'diamond': '鑽石 💎',
+            'car': '跑車 🏎️'
+        };
+        
+        const giftName = giftNames[data.giftType] || '禮物';
+        
+        window.chatSystem.addSystemMessage(`${data.username} 送出了 ${giftName}`);
+    }
+}
+
+// 顯示禮物特效
+function showGiftEffect(giftType, senderName) {
+    const container = document.getElementById('giftEffectContainer');
+    if (!container) return;
+    
+    const giftImages = {
+        'heart': 'https://cdn-icons-png.flaticon.com/512/833/833472.png',
+        'rocket': 'images/firece.png',
+        'diamond': 'images/diamond.png',
+        'car': 'images/runcar.png'
+    };
+    
+    const imgUrl = giftImages[giftType];
+    if (!imgUrl) return;
+    
+    const effectDiv = document.createElement('div');
+    effectDiv.className = 'gift-animation';
+    
+    // 為愛心添加特殊樣式類
+    if (giftType === 'heart') {
+        effectDiv.classList.add('heart-effect');
+    }
+    
+    effectDiv.innerHTML = `
+        <img src="${imgUrl}" alt="${giftType}">
+        <div class="sender-info">${senderName} 送出禮物</div>
+    `;
+    
+    container.appendChild(effectDiv);
+    
+    // 動畫結束後移除元素
+    setTimeout(() => {
+        effectDiv.remove();
+    }, 3000);
 }

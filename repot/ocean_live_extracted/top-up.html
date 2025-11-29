@@ -1,0 +1,2320 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>儲值中心 - VibeLo</title>
+    <link rel="icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="shortcut icon" type="image/png" href="images/vibelo-logo.png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-start: #6366f1;
+            --primary-end: #8b5cf6;
+            --primary-strong: #4f46e5;
+            --surface: rgba(255, 255, 255, 0.95);
+            --surface-soft: rgba(255, 255, 255, 0.85);
+            --text-dark: #1f2937;
+            --text-muted: #6b7280;
+            --border: rgba(99, 102, 241, 0.18);
+            --border-strong: rgba(79, 70, 229, 0.2);
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Noto Sans TC', Arial, sans-serif;
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 45%, #d946ef 100%);
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-bar {
+            position: sticky;
+            top: 0;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.95), rgba(139, 92, 246, 0.95));
+            box-shadow: 0 10px 30px rgba(79, 70, 229, 0.25);
+            z-index: 10;
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 24px;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .nav-left {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.15rem;
+            text-decoration: none;
+        }
+
+        .nav-left img {
+            height: 46px;
+            width: auto;
+            max-width: 100%;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-link {
+            color: #f9fafb;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 10px 16px;
+            border-radius: 999px;
+            transition: background 0.25s ease, transform 0.25s ease;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.18);
+            transform: translateY(-1px);
+        }
+
+        .mobile-menu {
+            display: none;
+            position: absolute;
+            top: 64px;
+            right: 16px;
+            left: 16px;
+            background: rgba(15, 23, 42, 0.95);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 20px 35px rgba(15, 23, 42, 0.25);
+        }
+
+        main {
+            flex: 1;
+            padding: 48px 16px 64px;
+        }
+
+        .layout {
+            max-width: 1180px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1.25fr 0.75fr;
+            gap: 32px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 32px;
+            box-shadow: 0 20px 40px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+        }
+
+        .panel h1 {
+            margin: 0 0 12px;
+            font-size: 2rem;
+        }
+
+        .panel > p {
+            margin: 0 0 24px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .stepper {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .step-indicator {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(99, 102, 241, 0.08);
+            color: var(--text-muted);
+            font-weight: 600;
+            transition: all 0.25s ease;
+        }
+
+        .step-indicator.active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.22), rgba(139, 92, 246, 0.18));
+            color: var(--primary-strong);
+            box-shadow: inset 0 0 0 1.5px rgba(99, 102, 241, 0.35);
+        }
+
+        .step-indicator .badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-strong);
+            font-weight: 700;
+        }
+
+        .step {
+            display: none;
+        }
+
+        .step.active {
+            display: block;
+        }
+
+        .form-row {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .form-row label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: var(--text-dark);
+        }
+
+        .input-control {
+            width: 100%;
+            border: 1.5px solid rgba(99, 102, 241, 0.18);
+            border-radius: 14px;
+            padding: 14px 16px;
+            font-size: 1rem;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .input-control:focus {
+            outline: none;
+            border-color: rgba(99, 102, 241, 0.6);
+            box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+        }
+
+        .action-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 14px 20px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 14px;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.25s ease, box-shadow 0.25s ease, opacity 0.2s ease;
+        }
+
+        .action-primary {
+            background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+            color: white;
+            box-shadow: 0 15px 25px rgba(99, 102, 241, 0.25);
+        }
+
+        .action-secondary {
+            background: rgba(99, 102, 241, 0.1);
+            color: var(--primary-strong);
+        }
+
+        .action-button:hover:not([disabled]) {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 30px rgba(99, 102, 241, 0.28);
+        }
+
+        .action-button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .preset-amounts {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .preset-amount {
+            border: 1.5px solid rgba(99, 102, 241, 0.22);
+            border-radius: 14px;
+            padding: 14px 16px;
+            background: rgba(255, 255, 255, 0.9);
+            font-weight: 600;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .preset-amount.active {
+            border-color: rgba(99, 102, 241, 0.65);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--primary-strong);
+            box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.3);
+        }
+
+        .payment-options {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .payment-option {
+            border: 1.5px solid rgba(99, 102, 241, 0.22);
+            border-radius: 14px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+        }
+
+        .payment-option i {
+            font-size: 1.2rem;
+            color: var(--primary-strong);
+        }
+
+        .payment-option.active {
+            border-color: rgba(99, 102, 241, 0.65);
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--primary-strong);
+            box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.3);
+        }
+
+        .payment-preview {
+            margin-top: 12px;
+            padding: 18px 20px;
+            border-radius: 18px;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.18);
+        }
+
+        .payment-preview h3 {
+            margin: 0 0 10px;
+            font-size: 1.05rem;
+            color: var(--primary-strong);
+        }
+
+        .preview-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .preview-row span:last-child {
+            color: var(--primary-strong);
+        }
+
+        .preview-row.total-row {
+            padding-top: 10px;
+            margin-top: 4px;
+            border-top: 1px dashed rgba(99, 102, 241, 0.25);
+        }
+
+        .preview-note {
+            margin-top: 12px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .preview-extra {
+            margin-top: 8px;
+            font-size: 0.9rem;
+            color: var(--primary-strong);
+            font-weight: 600;
+        }
+
+        .usdt-details {
+            margin-top: 16px;
+            padding: 18px 20px;
+            border-radius: 16px;
+            background: rgba(15, 23, 42, 0.08);
+            border: 1px solid rgba(15, 23, 42, 0.15);
+            display: none;
+        }
+
+        .usdt-details h4 {
+            margin: 0 0 12px;
+            font-size: 1rem;
+        }
+
+        .chain-options {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .chain-option {
+            flex: 1;
+            min-width: 120px;
+            border: 1.5px solid rgba(99, 102, 241, 0.22);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--text-dark);
+            background: white;
+            transition: border-color 0.2s ease, background 0.2s ease;
+        }
+
+        .chain-option input {
+            accent-color: var(--primary-strong);
+        }
+
+        .chain-option.active {
+            border-color: rgba(99, 102, 241, 0.65);
+            background: rgba(99, 102, 241, 0.1);
+        }
+
+        .usdt-info {
+            margin-top: 12px;
+            font-size: 0.95rem;
+            color: var(--primary-strong);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .payment-details {
+            margin-top: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .detail-block {
+            display: none;
+            padding: 18px 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.18);
+            background: rgba(255, 255, 255, 0.92);
+        }
+
+        .detail-block.active {
+            display: block;
+        }
+
+        .detail-block h3 {
+            margin: 0 0 12px;
+            font-size: 1.05rem;
+            color: var(--primary-strong);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 14px;
+        }
+
+        .detail-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            border-bottom: 1px dashed rgba(99, 102, 241, 0.18);
+            padding: 10px 0;
+        }
+
+        .detail-row strong {
+            font-size: 1.05rem;
+            color: var(--primary-strong);
+        }
+
+        .copy-button {
+            border: none;
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--primary-strong);
+            border-radius: 999px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .copy-button:hover {
+            background: rgba(99, 102, 241, 0.2);
+        }
+
+        .qr-box {
+            width: 220px;
+            height: 220px;
+            border-radius: 18px;
+            background: rgba(99, 102, 241, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 12px;
+            padding: 12px;
+        }
+
+        .qr-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .detail-note {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+
+        .step-summary {
+            background: rgba(99, 102, 241, 0.08);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(99, 102, 241, 0.18);
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .summary-row span:last-child {
+            color: var(--primary-strong);
+        }
+
+        .feedback {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border-radius: 12px;
+            display: none;
+            font-weight: 500;
+        }
+
+        .feedback.visible {
+            display: block;
+        }
+
+        .feedback.success {
+            background: rgba(22, 163, 74, 0.12);
+            color: #15803d;
+            border: 1px solid rgba(22, 163, 74, 0.25);
+        }
+
+        .feedback.error {
+            background: rgba(220, 38, 38, 0.12);
+            color: #b91c1c;
+            border: 1px solid rgba(220, 38, 38, 0.22);
+        }
+
+        .history-panel h2 {
+            margin: 0 0 16px;
+            font-size: 1.4rem;
+        }
+
+        .history-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .history-item {
+            background: var(--surface-soft);
+            border-radius: 16px;
+            padding: 16px 18px;
+            border: 1px solid rgba(99, 102, 241, 0.12);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .history-amount {
+            font-weight: 700;
+            color: var(--primary-strong);
+        }
+
+        .history-meta {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 6px 10px;
+            border-radius: 999px;
+        }
+
+        .status-confirmed {
+            background: rgba(22, 163, 74, 0.12);
+            color: #15803d;
+            border: 1px solid rgba(22, 163, 74, 0.2);
+        }
+
+        .status-pending {
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+            border: 1px solid rgba(245, 158, 11, 0.25);
+        }
+
+        .status-canceled {
+            background: rgba(239, 68, 68, 0.12);
+            color: #b91c1c;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        .user-card {
+            display: none;
+            background: rgba(99, 102, 241, 0.08);
+            border-radius: 16px;
+            padding: 18px 20px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+
+        .user-card.visible {
+            display: block;
+        }
+
+        .user-card h3 {
+            margin: 0 0 8px;
+            font-size: 1.1rem;
+            color: var(--primary-strong);
+        }
+
+        .user-card p {
+            margin: 4px 0;
+            color: var(--text-muted);
+        }
+
+        .user-balance {
+            margin-top: 12px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--primary-strong);
+        }
+
+        .step-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .verify-controls {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 16px;
+        }
+
+        .post-confirm-prompt {
+            display: none;
+            margin-top: 20px;
+            padding: 18px 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            background: rgba(99, 102, 241, 0.08);
+        }
+
+        .post-confirm-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .countdown-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 32px;
+            padding: 4px 10px;
+            border-radius: 999px;
+            background: rgba(15, 23, 42, 0.8);
+            color: white;
+            font-weight: 700;
+        }
+
+        .secondary-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .wallet-card {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.1));
+            border-radius: 20px;
+            padding: 24px;
+            border: 1px solid rgba(99, 102, 241, 0.22);
+        }
+
+        .wallet-heading {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+        }
+
+        .wallet-balance {
+            font-size: 2rem;
+            font-weight: 700;
+            color: white;
+            background: linear-gradient(135deg, var(--primary-start), var(--primary-end));
+            padding: 18px 20px;
+            border-radius: 18px;
+            text-align: center;
+            box-shadow: 0 12px 30px rgba(99, 102, 241, 0.32);
+        }
+
+        .wallet-summary {
+            margin-top: 16px;
+            padding: 14px 16px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.9);
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .history-empty {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 16px;
+            border: 1px dashed rgba(99, 102, 241, 0.25);
+        }
+
+        .mobile-nav-toggle {
+            display: none;
+        }
+
+        @media (max-width: 1024px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .panel {
+                padding: 28px;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-nav-toggle {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 44px;
+                height: 44px;
+                border-radius: 12px;
+                border: 1px solid rgba(255, 255, 255, 0.35);
+                background: rgba(255, 255, 255, 0.15);
+                color: #fff;
+                cursor: pointer;
+            }
+
+            .mobile-menu.show {
+                display: block;
+            }
+
+            .mobile-menu a {
+                display: block;
+                padding: 12px 14px;
+                color: #f9fafb;
+                text-decoration: none;
+                border-radius: 12px;
+            }
+
+            .mobile-menu a:hover {
+                background: rgba(99, 102, 241, 0.2);
+            }
+        }
+
+        @media (max-width: 640px) {
+            main {
+                padding: 32px 12px 48px;
+            }
+
+            .panel {
+                padding: 22px;
+            }
+
+            .stepper {
+                flex-direction: column;
+            }
+
+            .payment-options {
+                grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-left">
+                <img src="images/vibelo-logo.png" alt="VibeLo">
+                
+            </a>
+            <div class="nav-links">
+                <a href="index.html" class="nav-link">首頁</a>
+                <a href="browse.html" class="nav-link">瀏覽直播</a>
+                <a href="viewer.html" class="nav-link">觀看直播</a>
+                <a href="livestream_platform.html" class="nav-link">開始直播</a>
+                <a href="top-up.html" class="nav-link active">儲值中心</a>
+            </div>
+            <button class="mobile-nav-toggle" id="mobileNavToggle" aria-label="切換選單">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <a href="index.html">首頁</a>
+            <a href="browse.html">瀏覽直播</a>
+            <a href="viewer.html">觀看直播</a>
+            <a href="livestream_platform.html">開始直播</a>
+            <a href="top-up.html" class="nav-link active">儲值中心</a>
+        </div>
+    </nav>
+
+    <main>
+        <div class="layout">
+            <section class="panel">
+                <h1>建立儲值訂單</h1>
+                <p>四步完成觀眾儲值流程：輸入帳號、選擇金額、確認付款與活動紀錄。</p>
+
+                <div class="stepper">
+                    <div class="step-indicator active" data-step-indicator="1">
+                        <span class="badge">1</span>
+                        輸入帳號
+                    </div>
+                    <div class="step-indicator" data-step-indicator="2">
+                        <span class="badge">2</span>
+                        選擇金額與付款方式
+                    </div>
+                    <div class="step-indicator" data-step-indicator="3">
+                        <span class="badge">3</span>
+                        確認與紀錄
+                    </div>
+                </div>
+
+                <article class="user-card" id="userCard">
+                    <h3 id="userCardTitle"></h3>
+                    <p id="userCardAccount"></p>
+                    <p id="userCardEmail"></p>
+                    <div class="user-balance" id="userCardBalance"></div>
+                </article>
+
+                <section class="step active" data-step="1">
+                    <form id="accountForm">
+                        <div class="form-row">
+                            <label for="accountInput">觀眾帳號或電子郵件</label>
+                            <input type="text" id="accountInput" name="account" class="input-control" placeholder="輸入帳號或電子郵件" required>
+                        </div>
+                        <div class="step-actions">
+                            <button type="submit" class="action-button action-primary" id="lookupButton">
+                                <i class="fas fa-search"></i> 下一步
+                            </button>
+                        </div>
+                    </form>
+                    <div class="feedback" id="step1Feedback" role="alert"></div>
+                </section>
+
+                <section class="step" data-step="2">
+                    <div class="form-row">
+                        <label>常用金額</label>
+                        <div class="preset-amounts" id="presetAmounts">
+                            <button type="button" class="preset-amount" data-amount="100">NT$ 100</button>
+                            <button type="button" class="preset-amount" data-amount="250">NT$ 250</button>
+                            <button type="button" class="preset-amount" data-amount="500">NT$ 500</button>
+                            <button type="button" class="preset-amount" data-amount="1000">NT$ 1000</button>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="customAmount">自訂金額</label>
+                        <input type="number" id="customAmount" class="input-control" placeholder="輸入自訂金額" min="1">
+                    </div>
+
+                    <div class="form-row">
+                        <label>付款方式</label>
+                        <div class="payment-options" id="paymentOptions">
+                            <button type="button" class="payment-option" data-method="credit_card">
+                                <i class="fas fa-credit-card"></i>
+                                信用卡
+                            </button>
+                            <button type="button" class="payment-option" data-method="line_pay">
+                                <i class="fab fa-line"></i>
+                                LINE PAY
+                            </button>
+                            <button type="button" class="payment-option" data-method="bank_transfer">
+                                <i class="fas fa-building-columns"></i>
+                                銀行轉帳
+                            </button>
+                            <button type="button" class="payment-option" data-method="usdt">
+                                <i class="fas fa-coins"></i>
+                                USDT
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="payment-preview" id="paymentPreview">
+                        <h3>預計付款金額</h3>
+                        <div class="preview-row">
+                            <span>基礎金額</span>
+                            <span id="previewBase">NT$ 0</span>
+                        </div>
+                        <div class="preview-row">
+                            <span id="previewFeeLabel">付款手續費</span>
+                            <span id="previewFee">NT$ 0</span>
+                        </div>
+                        <div class="preview-row total-row">
+                            <span id="previewTotalLabel">應付總額</span>
+                            <span id="previewTotal">NT$ 0</span>
+                        </div>
+                        <div class="preview-note" id="feeNote">請先選擇儲值金額與付款方式。</div>
+                        <div class="preview-extra" id="previewExtra" style="display: none;"></div>
+                    </div>
+
+                    <div class="usdt-details" id="usdtDetails">
+                        <h4>USDT 支付鏈</h4>
+                        <div class="chain-options" id="usdtChainOptions">
+                            <label class="chain-option active">
+                                <input type="radio" name="usdtChain" value="bep20" checked>
+                                BEP20
+                            </label>
+                            <label class="chain-option">
+                                <input type="radio" name="usdtChain" value="erc20">
+                                ERC20
+                            </label>
+                            <label class="chain-option">
+                                <input type="radio" name="usdtChain" value="polygon">
+                                Polygon
+                            </label>
+                        </div>
+                        <div class="usdt-info">
+                            <span id="usdtRateInfo">USDT 參考匯率：--</span>
+                            <span id="usdtCountdown">匯率將在 15 秒後更新</span>
+                        </div>
+                    </div>
+
+                    <div class="step-actions">
+                        <button type="button" class="action-button action-secondary" data-action="prev">
+                            <i class="fas fa-arrow-left"></i> 返回
+                        </button>
+                        <button type="button" class="action-button action-primary" data-action="next">
+                            下一步 <i class="fas fa-arrow-right"></i>
+                        </button>
+                    </div>
+                    <div class="feedback" id="step2Feedback" role="alert"></div>
+                </section>
+
+                <section class="step" data-step="3">
+                    <div class="step-summary" id="stepSummary">
+                        <div class="summary-row">
+                            <span>觀眾</span>
+                            <span id="summaryUser">--</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>儲值金額</span>
+                            <span id="summaryAmount">--</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>付款方式</span>
+                            <span id="summaryMethod">--</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>目前餘額</span>
+                            <span id="summaryBalance">--</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>付款手續費</span>
+                            <span id="summaryFee">--</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>應付總額</span>
+                            <span id="summaryTotal">--</span>
+                        </div>
+                        <div class="summary-row" id="summaryUsdtRow" style="display: none;">
+                            <span>USDT 參考資訊</span>
+                            <span id="summaryUsdtInfo">--</span>
+                        </div>
+                    </div>
+
+                    <div class="payment-details" id="paymentDetails">
+                        <div class="detail-block" id="creditCardDetails">
+                            <h3>信用卡資料</h3>
+                            <div class="detail-grid">
+                                <div class="form-row">
+                                    <label for="cardNumberInput">卡號</label>
+                                    <input type="text" id="cardNumberInput" class="input-control" inputmode="numeric" placeholder="1234 5678 9000 0000" maxlength="19">
+                                </div>
+                                <div class="form-row">
+                                    <label for="cardExpiryInput">有效年月</label>
+                                    <input type="text" id="cardExpiryInput" class="input-control" inputmode="numeric" placeholder="MM/YY" maxlength="5">
+                                </div>
+                                <div class="form-row">
+                                    <label for="cardCvvInput">背後末三碼</label>
+                                    <input type="password" id="cardCvvInput" class="input-control" inputmode="numeric" placeholder="CVV" maxlength="3">
+                                </div>
+                            </div>
+                            <p class="detail-note">以上資料僅供建立儲值紀錄，不會實際扣款。</p>
+                        </div>
+
+                        <div class="detail-block" id="linePayDetails">
+                            <h3>LINE PAY 付款</h3>
+                            <p>掃描 QR Code 即可完成付款。</p>
+                            <div class="qr-box">
+                                <img id="linePayQr" src="" alt="LINE PAY QR Code" loading="lazy">
+                            </div>
+                            <div class="detail-row" style="border-bottom: none;">
+                                <span>付款代碼</span>
+                                <strong id="linePayCode">--</strong>
+                            </div>
+                        </div>
+
+                        <div class="detail-block" id="bankTransferDetails">
+                            <h3>銀行轉帳資訊</h3>
+                            <div class="detail-row">
+                                <span>銀行代碼</span>
+                                <div>
+                                    <strong id="bankCodeValue">---</strong>
+                                    <button type="button" class="copy-button" id="copyBankCodeBtn">複製</button>
+                                </div>
+                            </div>
+                            <div class="detail-row" style="border-bottom: none;">
+                                <span>銀行帳號</span>
+                                <div>
+                                    <strong id="bankAccountValue">---</strong>
+                                    <button type="button" class="copy-button" id="copyBankAccountBtn">複製</button>
+                                </div>
+                            </div>
+                            <p class="detail-note" id="bankAccountName">戶名：--</p>
+                        </div>
+
+                        <div class="detail-block" id="usdtOnchainDetails">
+                            <h3>USDT 鏈上地址</h3>
+                            <div class="detail-row">
+                                <span>付款鏈</span>
+                                <strong id="usdtChainLabel">--</strong>
+                            </div>
+                            <div class="detail-row">
+                                <span>錢包位址</span>
+                                <div>
+                                    <strong id="usdtAddressDisplay" style="font-size: 0.95rem;">--</strong>
+                                    <button type="button" class="copy-button" id="copyUsdtAddressBtn">複製</button>
+                                </div>
+                            </div>
+                            <div class="qr-box">
+                                <img id="usdtQrImage" src="" alt="USDT Address QR" loading="lazy">
+                            </div>
+                            <p class="detail-note">請於匯率倒數時間內完成轉帳，以免匯率變動。</p>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <label for="referenceInput">交易序號（選填）</label>
+                        <input type="text" id="referenceInput" class="input-control" placeholder="可填寫付款後提供的交易編號">
+                    </div>
+
+                    <div class="step-actions">
+                        <button type="button" class="action-button action-secondary" data-action="prev">
+                            <i class="fas fa-arrow-left"></i> 上一步
+                        </button>
+                        <button type="button" class="action-button action-primary" id="createTopUpBtn">
+                            <i class="fas fa-bolt"></i> 建立儲值紀錄
+                        </button>
+                    </div>
+
+                    <div class="verify-controls" id="verifyControls" style="display: none;">
+                        <button type="button" class="action-button action-primary" id="confirmTopUpBtn">
+                            <i class="fas fa-check-circle"></i> 標記為已入帳
+                        </button>
+                    </div>
+
+                    <div class="post-confirm-prompt" id="postConfirmPrompt" style="display: none;">
+                        <p>已完成入帳，是否要前往直播或再次建立儲值？ <span class="countdown-badge" id="postConfirmCountdown">30</span> 秒內選擇：</p>
+                        <div class="post-confirm-buttons">
+                            <button type="button" class="action-button action-primary" id="postConfirmGoLiveBtn">
+                                <i class="fas fa-play-circle"></i> 前往直播
+                            </button>
+                            <button type="button" class="action-button action-secondary" id="postConfirmAnotherBtn">
+                                <i class="fas fa-plus-circle"></i> 再次儲值
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="feedback" id="step3Feedback" role="alert"></div>
+                </section>
+            </section>
+
+            <aside class="secondary-panel">
+                <div class="wallet-card">
+                    <div class="wallet-heading">
+                        <h2>錢包狀態</h2>
+                        <a href="viewer.html" style="text-decoration: none; font-weight: 600; color: var(--primary-strong);">前往直播間</a>
+                    </div>
+                    <div class="wallet-balance" id="walletBalance">NT$ 0</div>
+                    <div class="wallet-summary" id="walletSummaryText">請先查詢觀眾帳號以載入餘額與紀錄。</div>
+                </div>
+
+                <section class="panel history-panel" style="padding: 24px;">
+                    <h2>儲值紀錄</h2>
+                    <ul class="history-list" id="historyList"></ul>
+                    <div class="history-empty" id="historyEmpty" style="display: none;">
+                        尚無儲值紀錄，建立訂單後將顯示於此。
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </main>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const stepIndicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
+            const steps = Array.from(document.querySelectorAll('[data-step]'));
+
+            const accountForm = document.getElementById('accountForm');
+            const accountInput = document.getElementById('accountInput');
+            const lookupButton = document.getElementById('lookupButton');
+            const step1Feedback = document.getElementById('step1Feedback');
+            const step2Feedback = document.getElementById('step2Feedback');
+            const step3Feedback = document.getElementById('step3Feedback');
+
+            const presetAmountButtons = Array.from(document.querySelectorAll('.preset-amount'));
+            const customAmountInput = document.getElementById('customAmount');
+            const paymentOptionButtons = Array.from(document.querySelectorAll('.payment-option'));
+
+            const stepSummary = {
+                user: document.getElementById('summaryUser'),
+                amount: document.getElementById('summaryAmount'),
+                method: document.getElementById('summaryMethod'),
+                balance: document.getElementById('summaryBalance'),
+                fee: document.getElementById('summaryFee'),
+                total: document.getElementById('summaryTotal'),
+                usdtInfo: document.getElementById('summaryUsdtInfo'),
+                usdtRow: document.getElementById('summaryUsdtRow')
+            };
+
+            const paymentPreview = {
+                base: document.getElementById('previewBase'),
+                feeLabel: document.getElementById('previewFeeLabel'),
+                fee: document.getElementById('previewFee'),
+                totalLabel: document.getElementById('previewTotalLabel'),
+                total: document.getElementById('previewTotal'),
+                note: document.getElementById('feeNote'),
+                extra: document.getElementById('previewExtra')
+            };
+
+            const usdtDetailsSection = document.getElementById('usdtDetails');
+            const usdtRateInfo = document.getElementById('usdtRateInfo');
+            const usdtCountdown = document.getElementById('usdtCountdown');
+            const usdtChainInputs = Array.from(document.querySelectorAll('input[name="usdtChain"]'));
+            const usdtChainLabels = Array.from(document.querySelectorAll('#usdtChainOptions .chain-option'));
+
+            const paymentDetailsSection = document.getElementById('paymentDetails');
+            const detailBlocks = {
+                credit_card: document.getElementById('creditCardDetails'),
+                line_pay: document.getElementById('linePayDetails'),
+                bank_transfer: document.getElementById('bankTransferDetails'),
+                usdt: document.getElementById('usdtOnchainDetails')
+            };
+
+            const creditCardInputs = {
+                number: document.getElementById('cardNumberInput'),
+                expiry: document.getElementById('cardExpiryInput'),
+                cvv: document.getElementById('cardCvvInput')
+            };
+
+            const linePayQrImage = document.getElementById('linePayQr');
+            const linePayCodeEl = document.getElementById('linePayCode');
+            const bankCodeValueEl = document.getElementById('bankCodeValue');
+            const bankAccountValueEl = document.getElementById('bankAccountValue');
+            const bankAccountNameEl = document.getElementById('bankAccountName');
+            const usdtChainLabel = document.getElementById('usdtChainLabel');
+            const usdtAddressDisplay = document.getElementById('usdtAddressDisplay');
+            const usdtQrImage = document.getElementById('usdtQrImage');
+            const copyBankCodeBtn = document.getElementById('copyBankCodeBtn');
+            const copyBankAccountBtn = document.getElementById('copyBankAccountBtn');
+            const copyUsdtAddressBtn = document.getElementById('copyUsdtAddressBtn');
+
+            const setupCopyButton = (button) => {
+                if (!button) return;
+                if (!button.dataset.originalLabel) {
+                    button.dataset.originalLabel = button.textContent;
+                }
+                button.addEventListener('click', async () => {
+                    const value = button.dataset.copyValue;
+                    if (!value) {
+                        return;
+                    }
+                    try {
+                        if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(value);
+                        } else {
+                            throw new Error('clipboard not available');
+                        }
+                        button.textContent = '已複製';
+                        setTimeout(() => {
+                            button.textContent = button.dataset.originalLabel;
+                        }, 1500);
+                    } catch (copyError) {
+                        alert(`請手動複製：${value}`);
+                    }
+                });
+            };
+
+            setupCopyButton(copyBankCodeBtn);
+            setupCopyButton(copyBankAccountBtn);
+            setupCopyButton(copyUsdtAddressBtn);
+
+            const referenceInput = document.getElementById('referenceInput');
+            const createTopUpBtn = document.getElementById('createTopUpBtn');
+            const confirmTopUpBtn = document.getElementById('confirmTopUpBtn');
+            const verifyControls = document.getElementById('verifyControls');
+            const postConfirmPrompt = document.getElementById('postConfirmPrompt');
+            const postConfirmCountdown = document.getElementById('postConfirmCountdown');
+            const postConfirmGoLiveBtn = document.getElementById('postConfirmGoLiveBtn');
+            const postConfirmAnotherBtn = document.getElementById('postConfirmAnotherBtn');
+
+            const historyList = document.getElementById('historyList');
+            const historyEmpty = document.getElementById('historyEmpty');
+            const walletBalanceEl = document.getElementById('walletBalance');
+            const walletSummaryText = document.getElementById('walletSummaryText');
+
+            const userCard = document.getElementById('userCard');
+            const userCardTitle = document.getElementById('userCardTitle');
+            const userCardAccount = document.getElementById('userCardAccount');
+            const userCardEmail = document.getElementById('userCardEmail');
+            const userCardBalance = document.getElementById('userCardBalance');
+
+            const mobileToggle = document.getElementById('mobileNavToggle');
+            const mobileMenu = document.getElementById('mobileMenu');
+
+            let activeStep = 1;
+            let selectedUser = null;
+            let selectedAmount = null;
+            let selectedMethod = null;
+            let latestTopUp = null;
+            let selectedUsdtChain = 'bep20';
+            let usdtRate = null;
+            let usdtCountdownTimer = null;
+            let usdtCountdownRemaining = 15;
+            let usdtRateLocked = false;
+            let paymentCalculation = null;
+            let pendingAutoCancelTimer = null;
+            let postConfirmCountdownTimer = null;
+
+            const POST_CONFIRM_TIMEOUT = 30;
+            const PENDING_TIMEOUT_MS = 5 * 60 * 1000;
+
+            const paymentLabels = {
+                credit_card: '信用卡',
+                line_pay: 'LINE PAY',
+                bank_transfer: '銀行轉帳',
+                usdt: 'USDT'
+            };
+
+            const paymentFeeRates = {
+                credit_card: 0.01,
+                line_pay: 0.005,
+                bank_transfer: 0.005,
+                usdt: 0
+            };
+
+            const clearPendingAutoCancelTimer = () => {
+                if (pendingAutoCancelTimer) {
+                    clearTimeout(pendingAutoCancelTimer);
+                    pendingAutoCancelTimer = null;
+                }
+            };
+
+            const setLatestTopUp = (topUp) => {
+                latestTopUp = topUp;
+                if (verifyControls) {
+                    const shouldShow = Boolean(latestTopUp && latestTopUp.status === 'pending');
+                    verifyControls.style.display = shouldShow ? 'flex' : 'none';
+                    if (shouldShow) {
+                        schedulePendingAutoCancel(latestTopUp);
+                    } else {
+                        clearPendingAutoCancelTimer();
+                    }
+                }
+            };
+
+            const updateLatestTopUpFromHistory = (history = []) => {
+                if (!Array.isArray(history) || history.length === 0) {
+                    setLatestTopUp(null);
+                    return;
+                }
+
+                const pendingEntry = history.find((entry) => entry.status === 'pending');
+                setLatestTopUp(pendingEntry || null);
+            };
+
+            const paymentMeta = {
+                creditCard: {
+                    number: '',
+                    expiry: '',
+                    cvv: ''
+                },
+                linePay: null,
+                bank: null,
+                usdt: {
+                    bep20: null,
+                    erc20: null,
+                    polygon: null
+                }
+            };
+
+            const setFeedback = (element, message, type) => {
+                if (!element) return;
+                if (!message) {
+                    element.textContent = '';
+                    element.className = 'feedback';
+                    element.style.display = 'none';
+                    return;
+                }
+
+                element.textContent = message;
+                element.className = `feedback visible ${type}`;
+                element.style.display = 'block';
+            };
+
+            const formatCurrency = (value) => {
+                const amount = Number(value) || 0;
+                return `NT$ ${amount.toLocaleString('zh-TW')}`;
+            };
+
+            const timezoneFormatter = new Intl.DateTimeFormat('zh-TW', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Taipei'
+            });
+
+            const parseDbTimestamp = (value) => {
+                if (!value) return null;
+                if (value instanceof Date && !Number.isNaN(value.getTime())) {
+                    return value.getTime();
+                }
+
+                const raw = typeof value === 'string' ? value.trim() : `${value}`;
+                if (!raw) {
+                    return null;
+                }
+
+                const normalized = raw.includes('T') ? raw : raw.replace(' ', 'T');
+                const timezonePattern = /([zZ]|[+-]\d{2}:?\d{2})$/;
+                const isoCandidate = timezonePattern.test(normalized) ? normalized : `${normalized}Z`;
+                const date = new Date(isoCandidate);
+                return Number.isNaN(date.getTime()) ? null : date.getTime();
+            };
+
+            const formatDateTime = (value) => {
+                const timestamp = parseDbTimestamp(value);
+                if (!timestamp) {
+                    return '--';
+                }
+                return timezoneFormatter.format(new Date(timestamp));
+            };
+
+            const generateRandomDigits = (length) => {
+                let output = '';
+                for (let i = 0; i < length; i += 1) {
+                    output += Math.floor(Math.random() * 10);
+                }
+                return output;
+            };
+
+            const generateRandomHex = (length) => {
+                const chars = 'abcdef0123456789';
+                let value = '';
+                for (let i = 0; i < length; i += 1) {
+                    value += chars[Math.floor(Math.random() * chars.length)];
+                }
+                return value;
+            };
+
+            const generateQRCodeUrl = (data) => `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(data)}`;
+
+            const maskCardNumber = (value) => {
+                if (!value) return '';
+                const digits = value.replace(/\s+/g, '');
+                if (digits.length <= 4) {
+                    return digits;
+                }
+                const visible = digits.slice(-4);
+                return `${'*'.repeat(Math.max(0, digits.length - 4))}${visible}`;
+            };
+
+            const formatPercent = (value) => {
+                if (!Number.isFinite(value)) return '0%';
+                const percent = (value * 100).toFixed(1);
+                return `${percent.replace(/\.0$/, '')}%`;
+            };
+
+            const updateUsdtChainActive = () => {
+                usdtChainLabels.forEach((label) => {
+                    const input = label.querySelector('input[name="usdtChain"]');
+                    label.classList.toggle('active', input && input.checked);
+                });
+            };
+
+            const setUsdtChain = (value, options = {}) => {
+                selectedUsdtChain = value;
+                usdtChainInputs.forEach((input) => {
+                    const isTarget = input.value === value;
+                    input.checked = isTarget;
+                });
+                updateUsdtChainActive();
+                if (!options.silent) {
+                    updatePaymentPreview();
+                    renderSummary();
+                    updatePaymentDetailsView();
+                }
+            };
+
+            const updateUsdtDisplays = () => {
+                if (!usdtRateInfo || !usdtCountdown) return;
+                usdtRateInfo.textContent = usdtRate
+                    ? `USDT 參考匯率：NT$ ${usdtRate}`
+                    : 'USDT 參考匯率：--';
+                if (selectedMethod !== 'usdt') {
+                    usdtCountdown.textContent = '請選擇 USDT 付款以顯示匯率';
+                    return;
+                }
+                if (usdtRateLocked) {
+                    usdtCountdown.textContent = '匯率已鎖定於確認頁';
+                    return;
+                }
+                const seconds = Math.max(0, usdtCountdownRemaining);
+                usdtCountdown.textContent = `匯率將在 ${seconds} 秒後更新`;
+            };
+
+            const refreshUsdtRate = () => {
+                usdtRate = (Math.random() * (31 - 30) + 30).toFixed(2);
+                usdtCountdownRemaining = 15;
+                updateUsdtDisplays();
+                updatePaymentPreview();
+            };
+
+            const clearUsdtInterval = () => {
+                if (usdtCountdownTimer) {
+                    clearInterval(usdtCountdownTimer);
+                    usdtCountdownTimer = null;
+                }
+            };
+
+            const startUsdtCountdown = () => {
+                if (usdtRateLocked) return;
+                clearUsdtInterval();
+                refreshUsdtRate();
+                usdtCountdownTimer = setInterval(() => {
+                    if (usdtRateLocked) {
+                        clearUsdtInterval();
+                        return;
+                    }
+                    usdtCountdownRemaining -= 1;
+                    if (usdtCountdownRemaining <= 0) {
+                        refreshUsdtRate();
+                    } else {
+                        updateUsdtDisplays();
+                        updatePaymentPreview();
+                    }
+                }, 1000);
+            };
+
+            const pauseUsdtCountdown = () => {
+                clearUsdtInterval();
+                updateUsdtDisplays();
+            };
+
+            const resetUsdtCountdown = () => {
+                clearUsdtInterval();
+                usdtRateLocked = false;
+                usdtRate = null;
+                usdtCountdownRemaining = 15;
+                updateUsdtDisplays();
+                updatePaymentPreview();
+            };
+
+            const lockUsdtRate = () => {
+                if (selectedMethod !== 'usdt') return;
+                if (!usdtRate) {
+                    refreshUsdtRate();
+                }
+                usdtRateLocked = true;
+                pauseUsdtCountdown();
+                updatePaymentPreview();
+            };
+
+            const unlockUsdtRate = () => {
+                if (selectedMethod !== 'usdt') return;
+                if (!usdtRateLocked) return;
+                usdtRateLocked = false;
+                startUsdtCountdown();
+            };
+
+            function schedulePendingAutoCancel(topUp) {
+                clearPendingAutoCancelTimer();
+                if (!topUp || topUp.status !== 'pending') {
+                    return;
+                }
+
+                const createdTime = parseDbTimestamp(topUp.createdAt || topUp.created_at);
+                if (!createdTime) {
+                    return;
+                }
+
+                const expiresAt = createdTime + PENDING_TIMEOUT_MS;
+                const remaining = expiresAt - Date.now();
+
+                if (remaining <= 0) {
+                    autoCancelTopUp(topUp.id, '逾時自動取消，超過 5 分鐘未入帳');
+                } else {
+                    pendingAutoCancelTimer = setTimeout(() => {
+                        autoCancelTopUp(topUp.id, '逾時自動取消，超過 5 分鐘未入帳');
+                    }, remaining);
+                }
+            }
+
+            const ensureLinePayInfo = () => {
+                if (!paymentMeta.linePay) {
+                    paymentMeta.linePay = {
+                        code: `LP${Date.now().toString().slice(-6)}${generateRandomDigits(2)}`
+                    };
+                }
+
+                const payload = `VIBELO|LINEPAY|CODE:${paymentMeta.linePay.code}|USER:${selectedUser ? selectedUser.username : 'guest'}|AMOUNT:${selectedAmount || 0}`;
+                paymentMeta.linePay.qrUrl = generateQRCodeUrl(payload);
+                return paymentMeta.linePay;
+            };
+
+            const ensureBankInfo = () => {
+                if (!paymentMeta.bank) {
+                    paymentMeta.bank = {
+                        bankCode: (100 + Math.floor(Math.random() * 900)).toString(),
+                        bankAccount: generateRandomDigits(12),
+                        accountName: ''
+                    };
+                }
+
+                paymentMeta.bank.accountName = selectedUser
+                    ? (selectedUser.displayName || selectedUser.username)
+                    : 'VibeLo 官方帳戶';
+
+                return paymentMeta.bank;
+            };
+
+            const ensureUsdtInfo = (chain) => {
+                if (!paymentMeta.usdt[chain]) {
+                    paymentMeta.usdt[chain] = {
+                        address: `0x${generateRandomHex(40)}`
+                    };
+                }
+
+                const payload = `VIBELO|USDT|CHAIN:${chain}|ADDR:${paymentMeta.usdt[chain].address}|AMOUNT:${selectedAmount || 0}`;
+                paymentMeta.usdt[chain].qrUrl = generateQRCodeUrl(payload);
+                return paymentMeta.usdt[chain];
+            };
+
+            const hidePaymentDetails = () => {
+                if (paymentDetailsSection) {
+                    paymentDetailsSection.style.display = 'none';
+                }
+                Object.values(detailBlocks).forEach((block) => {
+                    if (block) {
+                        block.classList.remove('active');
+                    }
+                });
+            };
+
+            const updatePaymentDetailsView = () => {
+                if (!paymentDetailsSection) return;
+
+                if (activeStep !== 3 || !selectedMethod) {
+                    hidePaymentDetails();
+                    return;
+                }
+
+                paymentDetailsSection.style.display = 'flex';
+                Object.entries(detailBlocks).forEach(([method, block]) => {
+                    if (!block) return;
+                    block.classList.toggle('active', method === selectedMethod);
+                });
+
+                switch (selectedMethod) {
+                    case 'credit_card': {
+                        if (creditCardInputs.number) {
+                            creditCardInputs.number.value = paymentMeta.creditCard.number;
+                        }
+                        if (creditCardInputs.expiry) {
+                            creditCardInputs.expiry.value = paymentMeta.creditCard.expiry;
+                        }
+                        if (creditCardInputs.cvv) {
+                            creditCardInputs.cvv.value = paymentMeta.creditCard.cvv;
+                        }
+                        break;
+                    }
+                    case 'line_pay': {
+                        const info = ensureLinePayInfo();
+                        if (linePayCodeEl) {
+                            linePayCodeEl.textContent = info.code;
+                        }
+                        if (linePayQrImage) {
+                            linePayQrImage.src = info.qrUrl;
+                            linePayQrImage.alt = `LINE PAY - ${info.code}`;
+                        }
+                        break;
+                    }
+                    case 'bank_transfer': {
+                        const info = ensureBankInfo();
+                        if (bankCodeValueEl) {
+                            bankCodeValueEl.textContent = info.bankCode;
+                        }
+                        if (copyBankCodeBtn) {
+                            copyBankCodeBtn.dataset.copyValue = info.bankCode;
+                            copyBankCodeBtn.textContent = '複製';
+                        }
+                        if (bankAccountValueEl) {
+                            bankAccountValueEl.textContent = info.bankAccount;
+                        }
+                        if (copyBankAccountBtn) {
+                            copyBankAccountBtn.dataset.copyValue = info.bankAccount;
+                            copyBankAccountBtn.textContent = '複製';
+                        }
+                        if (bankAccountNameEl) {
+                            bankAccountNameEl.textContent = `戶名：${info.accountName}`;
+                        }
+                        break;
+                    }
+                    case 'usdt': {
+                        const info = ensureUsdtInfo(selectedUsdtChain);
+                        if (usdtChainLabel) {
+                            usdtChainLabel.textContent = selectedUsdtChain.toUpperCase();
+                        }
+                        if (usdtAddressDisplay) {
+                            usdtAddressDisplay.textContent = info.address;
+                        }
+                        if (copyUsdtAddressBtn) {
+                            copyUsdtAddressBtn.dataset.copyValue = info.address;
+                            copyUsdtAddressBtn.textContent = '複製';
+                        }
+                        if (usdtQrImage) {
+                            usdtQrImage.src = info.qrUrl;
+                            usdtQrImage.alt = `USDT ${selectedUsdtChain.toUpperCase()} Address`;
+                        }
+                        break;
+                    }
+                    default:
+                        break;
+                }
+            };
+
+            const calculatePaymentDetails = () => {
+                if (!selectedAmount || !selectedMethod) {
+                    paymentCalculation = null;
+                    return null;
+                }
+
+                const baseAmount = selectedAmount;
+                const feeRate = paymentFeeRates[selectedMethod] || 0;
+                const details = {
+                    method: selectedMethod,
+                    baseAmount,
+                    feeRate,
+                    feeAmount: 0,
+                    totalAmount: baseAmount,
+                    usdtAmount: null
+                };
+
+                if (selectedMethod === 'usdt') {
+                    if (usdtRate) {
+                        const numericRate = parseFloat(usdtRate);
+                        if (!Number.isNaN(numericRate) && numericRate > 0) {
+                            details.usdtAmount = (baseAmount / numericRate).toFixed(2);
+                        }
+                    }
+                } else {
+                    details.feeAmount = Math.ceil(baseAmount * feeRate);
+                    details.totalAmount = baseAmount + details.feeAmount;
+                }
+
+                paymentCalculation = details;
+                return details;
+            };
+
+            const renderSummary = () => {
+                if (selectedUser) {
+                    stepSummary.user.textContent = selectedUser.displayName || selectedUser.username;
+                    stepSummary.balance.textContent = formatCurrency(selectedUser.balance || 0);
+                } else {
+                    stepSummary.user.textContent = '--';
+                    stepSummary.balance.textContent = '--';
+                }
+
+                stepSummary.amount.textContent = selectedAmount ? formatCurrency(selectedAmount) : '--';
+                stepSummary.method.textContent = selectedMethod ? paymentLabels[selectedMethod] || selectedMethod : '--';
+
+                const details = paymentCalculation || calculatePaymentDetails();
+
+                if (!details || !selectedMethod) {
+                    stepSummary.fee.textContent = '--';
+                    stepSummary.total.textContent = '--';
+                    stepSummary.usdtRow.style.display = 'none';
+                    return;
+                }
+
+                if (selectedMethod === 'usdt') {
+                    stepSummary.fee.textContent = '匯率換算';
+                    stepSummary.total.textContent = details.usdtAmount ? `${details.usdtAmount} USDT` : '--';
+                    if (details.usdtAmount) {
+                        stepSummary.usdtRow.style.display = 'flex';
+                        stepSummary.usdtInfo.textContent = `${details.usdtAmount} USDT ｜ 鏈：${selectedUsdtChain.toUpperCase()} ｜ 匯率 NT$ ${usdtRate || '--'}`;
+                    } else {
+                        stepSummary.usdtRow.style.display = 'none';
+                    }
+                } else {
+                    stepSummary.fee.textContent = formatCurrency(details.feeAmount);
+                    stepSummary.total.textContent = formatCurrency(details.totalAmount);
+                    stepSummary.usdtRow.style.display = 'none';
+                }
+            };
+
+            const updatePaymentPreview = () => {
+                paymentPreview.base.textContent = selectedAmount ? formatCurrency(selectedAmount) : 'NT$ 0';
+                const details = calculatePaymentDetails();
+
+                if (!selectedAmount || !selectedMethod || !details) {
+                    paymentPreview.feeLabel.textContent = '付款手續費';
+                    paymentPreview.fee.textContent = 'NT$ 0';
+                    paymentPreview.totalLabel.textContent = '應付總額';
+                    paymentPreview.total.textContent = 'NT$ 0';
+                    paymentPreview.note.textContent = '請先選擇儲值金額與付款方式。';
+                    paymentPreview.extra.style.display = 'none';
+                    return;
+                }
+
+                if (selectedMethod === 'usdt') {
+                    paymentPreview.feeLabel.textContent = 'USDT 參考匯率';
+                    paymentPreview.fee.textContent = usdtRate ? `NT$ ${usdtRate}` : '--';
+                    paymentPreview.totalLabel.textContent = '預計支付';
+                    paymentPreview.total.textContent = details.usdtAmount ? `${details.usdtAmount} USDT` : '--';
+                    if (!usdtRate) {
+                        paymentPreview.note.textContent = '正在取得最新匯率...';
+                    } else if (usdtRateLocked) {
+                        paymentPreview.note.textContent = '匯率已鎖定，請於確認步驟完成支付。';
+                    } else {
+                        paymentPreview.note.textContent = `請於 ${Math.max(0, usdtCountdownRemaining)} 秒內完成支付以鎖定匯率。`;
+                    }
+                    paymentPreview.extra.style.display = 'block';
+                    paymentPreview.extra.textContent = usdtRate
+                        ? `等值 ${formatCurrency(selectedAmount)} ｜ 鏈：${selectedUsdtChain.toUpperCase()}`
+                        : '等待匯率載入中...';
+                } else {
+                    paymentPreview.feeLabel.textContent = '付款手續費';
+                    paymentPreview.fee.textContent = formatCurrency(details.feeAmount);
+                    paymentPreview.totalLabel.textContent = '應付總額';
+                    paymentPreview.total.textContent = formatCurrency(details.totalAmount);
+                    paymentPreview.note.textContent = `此付款方式需加收 ${formatPercent(details.feeRate)} 手續費。`;
+                    paymentPreview.extra.style.display = 'none';
+                }
+
+                renderSummary();
+                updatePaymentDetailsView();
+            };
+
+            const buildPaymentNotes = () => {
+                if (!selectedMethod) {
+                    return null;
+                }
+
+                const details = paymentCalculation || calculatePaymentDetails();
+                if (!details) {
+                    return null;
+                }
+
+                let noteBase;
+                const extras = [];
+
+                if (selectedMethod === 'usdt') {
+                    if (!usdtRate || !details.usdtAmount) {
+                        noteBase = `USDT 支付｜鏈：${selectedUsdtChain.toUpperCase()}`;
+                    } else {
+                        noteBase = `USDT 支付｜鏈：${selectedUsdtChain.toUpperCase()}｜匯率 NT$ ${usdtRate}｜預估 ${details.usdtAmount} USDT`;
+                    }
+                    const info = paymentMeta.usdt[selectedUsdtChain];
+                    if (info) {
+                        extras.push(`地址 ${info.address}`);
+                    }
+                } else {
+                    noteBase = `${paymentLabels[selectedMethod]}｜手續費 ${formatPercent(details.feeRate)}｜+${formatCurrency(details.feeAmount)}｜應付 ${formatCurrency(details.totalAmount)}`;
+
+                    if (selectedMethod === 'credit_card') {
+                        extras.push(`卡號 ${maskCardNumber(paymentMeta.creditCard.number) || '未填'}`);
+                        extras.push(`效期 ${paymentMeta.creditCard.expiry || '--'}`);
+                        extras.push('CVV ***');
+                    }
+
+                    if (selectedMethod === 'line_pay' && paymentMeta.linePay) {
+                        extras.push(`代碼 ${paymentMeta.linePay.code}`);
+                    }
+
+                    if (selectedMethod === 'bank_transfer' && paymentMeta.bank) {
+                        extras.push(`銀行代碼 ${paymentMeta.bank.bankCode}`);
+                        extras.push(`帳號 ${paymentMeta.bank.bankAccount}`);
+                    }
+                }
+
+                if (extras.length) {
+                    noteBase += `｜${extras.join('｜')}`;
+                }
+
+                return noteBase;
+            };
+
+            const handlePaymentMethodSelect = (method) => {
+                selectedMethod = method;
+                paymentOptionButtons.forEach((btn) => {
+                    btn.classList.toggle('active', !!method && btn.dataset.method === method);
+                });
+
+                if (method === 'usdt') {
+                    usdtDetailsSection.style.display = 'block';
+                    if (activeStep === 3) {
+                        lockUsdtRate();
+                    } else {
+                        usdtRateLocked = false;
+                        startUsdtCountdown();
+                    }
+                } else {
+                    usdtDetailsSection.style.display = 'none';
+                    resetUsdtCountdown();
+                }
+
+                if (!method) {
+                    paymentPreview.note.textContent = '請先選擇儲值金額與付款方式。';
+                    hidePaymentDetails();
+                }
+
+                updatePaymentPreview();
+            };
+
+            const setStep = (step) => {
+                activeStep = step;
+                steps.forEach((section) => {
+                    section.classList.toggle('active', Number(section.dataset.step) === step);
+                });
+                stepIndicators.forEach((indicator) => {
+                    indicator.classList.toggle('active', Number(indicator.dataset.stepIndicator) === step);
+                });
+                updatePaymentDetailsView();
+
+                if (selectedMethod === 'usdt') {
+                    if (step === 3) {
+                        lockUsdtRate();
+                    } else {
+                        unlockUsdtRate();
+                    }
+                }
+            };
+
+            const resetSelection = () => {
+                selectedAmount = null;
+                selectedMethod = null;
+                referenceInput.value = '';
+                presetAmountButtons.forEach((btn) => btn.classList.remove('active'));
+                customAmountInput.value = '';
+                setFeedback(step2Feedback, '', '');
+                setFeedback(step3Feedback, '', '');
+                hidePostConfirmPrompt();
+                setLatestTopUp(null);
+                paymentMeta.creditCard.number = '';
+                paymentMeta.creditCard.expiry = '';
+                paymentMeta.creditCard.cvv = '';
+                paymentMeta.linePay = null;
+                paymentMeta.bank = null;
+                paymentMeta.usdt = {
+                    bep20: null,
+                    erc20: null,
+                    polygon: null
+                };
+                Object.values(creditCardInputs).forEach((input) => {
+                    if (input) {
+                        input.value = '';
+                    }
+                });
+                setUsdtChain('bep20', { silent: true });
+                handlePaymentMethodSelect(null);
+            };
+
+            const updateUserCard = (user, balance) => {
+                if (!user) {
+                    userCard.classList.remove('visible');
+                    return;
+                }
+
+                userCardTitle.textContent = user.displayName || user.username;
+                userCardAccount.textContent = `帳號：${user.username}`;
+                userCardEmail.textContent = user.email ? `Email：${user.email}` : '未設定電子郵件';
+                userCardBalance.textContent = `目前餘額：${formatCurrency(balance ?? user.balance ?? 0)}`;
+                userCard.classList.add('visible');
+            };
+
+            const renderHistory = (entries = []) => {
+                updateLatestTopUpFromHistory(entries);
+                historyList.innerHTML = '';
+
+                if (!entries.length) {
+                    historyEmpty.style.display = 'block';
+                    return;
+                }
+
+                historyEmpty.style.display = 'none';
+
+                entries.forEach((entry) => {
+                    const item = document.createElement('li');
+                    item.className = 'history-item';
+
+                    let statusClass = 'status-pending';
+                    let statusText = '待確認';
+                    let statusIcon = 'fa-hourglass-half';
+
+                    if (entry.status === 'confirmed') {
+                        statusClass = 'status-confirmed';
+                        statusText = '已入帳';
+                        statusIcon = 'fa-check-circle';
+                    } else if (entry.status === 'canceled') {
+                        statusClass = 'status-canceled';
+                        statusText = '已取消';
+                        statusIcon = 'fa-times-circle';
+                    }
+
+                    item.innerHTML = `
+                        <div class="history-header">
+                            <span class="history-amount">${formatCurrency(entry.amount)}</span>
+                            <span class="status-badge ${statusClass}">
+                                <i class="fas ${statusIcon}"></i>
+                                ${statusText}
+                            </span>
+                        </div>
+                        <div class="history-meta">
+                            <span><i class="fas fa-credit-card"></i> ${paymentLabels[entry.paymentMethod] || entry.paymentMethod}</span>
+                            <span><i class="far fa-clock"></i> ${formatDateTime(entry.createdAt)}</span>
+                            ${entry.reference ? `<span><i class="fas fa-hashtag"></i> ${entry.reference}</span>` : ''}
+                        </div>
+                    `;
+
+                    historyList.appendChild(item);
+                });
+            };
+
+            async function autoCancelTopUp(topUpId, reasonMessage = '逾時自動取消，超過 5 分鐘未入帳') {
+                if (!topUpId) {
+                    return;
+                }
+
+                clearPendingAutoCancelTimer();
+
+                try {
+                    const response = await fetch('/api/topup/cancel', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ topUpId, reason: reasonMessage })
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || '取消儲值失敗');
+                    }
+
+                    if (selectedUser && typeof data.balance === 'number') {
+                        selectedUser.balance = data.balance;
+                    }
+
+                    renderHistory(data.history || []);
+                    updateWalletView(data.balance ?? 0, data.history || []);
+                    updateUserCard(selectedUser, data.balance);
+                    renderSummary();
+
+                    const isTimeout = reasonMessage && reasonMessage.includes('逾時');
+                    setFeedback(
+                        step3Feedback,
+                        isTimeout ? '逾時未入帳的訂單已自動取消。' : '儲值紀錄已取消。',
+                        isTimeout ? 'error' : 'success'
+                    );
+                } catch (error) {
+                    console.error('取消儲值紀錄失敗:', error);
+                    setFeedback(step3Feedback, error.message || '取消儲值失敗，請稍後再試。', 'error');
+                }
+            }
+
+            const hidePostConfirmPrompt = () => {
+                if (postConfirmPrompt) {
+                    postConfirmPrompt.style.display = 'none';
+                }
+                if (postConfirmCountdownTimer) {
+                    clearInterval(postConfirmCountdownTimer);
+                    postConfirmCountdownTimer = null;
+                }
+            };
+
+            const redirectToViewer = () => {
+                window.location.href = 'viewer.html';
+            };
+
+            const showPostConfirmPrompt = () => {
+                if (!postConfirmPrompt || !postConfirmCountdown) {
+                    return;
+                }
+
+                hidePostConfirmPrompt();
+                postConfirmPrompt.style.display = 'block';
+
+                let remaining = POST_CONFIRM_TIMEOUT;
+                postConfirmCountdown.textContent = remaining;
+
+                postConfirmCountdownTimer = setInterval(() => {
+                    remaining -= 1;
+                    if (remaining <= 0) {
+                        clearInterval(postConfirmCountdownTimer);
+                        postConfirmCountdownTimer = null;
+                        redirectToViewer();
+                    } else {
+                        postConfirmCountdown.textContent = remaining;
+                    }
+                }, 1000);
+            };
+
+            const handlePostConfirmAnother = () => {
+                hidePostConfirmPrompt();
+                resetSelection();
+                if (selectedUser) {
+                    setStep(2);
+                    setFeedback(step2Feedback, '請選擇新的儲值金額。', 'success');
+                } else {
+                    setStep(1);
+                }
+            };
+
+            const updateWalletView = (balance, history) => {
+                walletBalanceEl.textContent = formatCurrency(balance);
+                walletSummaryText.textContent = history && history.length
+                    ? `最近 ${history.length} 筆儲值紀錄如下：`
+                    : '尚無儲值紀錄。';
+            };
+
+            const loadHistory = async () => {
+                if (!selectedUser) return;
+
+                try {
+                    const response = await fetch(`/api/topup/history?userId=${selectedUser.id}&limit=10`);
+                    if (!response.ok) throw new Error('failed');
+                    const data = await response.json();
+                    if (!data.success) throw new Error(data.message || '取得儲值紀錄失敗');
+
+                    selectedUser.balance = data.balance;
+                    renderHistory(data.history || []);
+                    updateWalletView(data.balance ?? 0, data.history || []);
+                    updateUserCard(selectedUser, data.balance);
+                    renderSummary();
+                    setFeedback(step3Feedback, '最新儲值紀錄已載入。', 'success');
+                } catch (error) {
+                    console.error('載入儲值紀錄失敗:', error);
+                    setFeedback(step3Feedback, '無法重新取得儲值紀錄，請稍後再試。', 'error');
+                }
+            };
+
+            accountForm.addEventListener('submit', async (event) => {
+                event.preventDefault();
+                const account = accountInput.value.trim();
+
+                if (!account) {
+                    setFeedback(step1Feedback, '請輸入觀眾帳號或電子郵件。', 'error');
+                    return;
+                }
+
+                lookupButton.disabled = true;
+                setFeedback(step1Feedback, '', '');
+
+                try {
+                    const response = await fetch('/api/topup/lookup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ account })
+                    });
+
+                    const result = await response.json();
+                    if (!response.ok || !result.success) {
+                        throw new Error(result.message || '查詢失敗');
+                    }
+
+                    selectedUser = result.user;
+                    selectedUser.balance = result.balance;
+
+                    updateUserCard(selectedUser, result.balance);
+                    renderSummary();
+                    renderHistory(result.history || []);
+                    updateWalletView(result.balance ?? 0, result.history || []);
+
+                    setFeedback(step1Feedback, '觀眾資料載入成功，請選擇儲值金額。', 'success');
+                    resetSelection();
+                    setStep(2);
+                } catch (error) {
+                    console.error('查詢帳號失敗:', error);
+                    selectedUser = null;
+                    renderHistory([]);
+                    updateWalletView(0, []);
+                    updateUserCard(null, 0);
+                    setFeedback(step1Feedback, error.message || '找不到對應帳號，請再次確認。', 'error');
+                } finally {
+                    lookupButton.disabled = false;
+                }
+            });
+
+            if (creditCardInputs.number) {
+                creditCardInputs.number.addEventListener('input', (event) => {
+                    const digits = event.target.value.replace(/\D/g, '').slice(0, 16);
+                    const formatted = digits.replace(/(\d{4})(?=\d)/g, '$1 ').trim();
+                    event.target.value = formatted;
+                    paymentMeta.creditCard.number = formatted;
+                });
+            }
+
+            if (creditCardInputs.expiry) {
+                creditCardInputs.expiry.addEventListener('input', (event) => {
+                    let digits = event.target.value.replace(/\D/g, '').slice(0, 4);
+                    if (digits.length >= 3) {
+                        digits = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+                    }
+                    event.target.value = digits;
+                    paymentMeta.creditCard.expiry = digits;
+                });
+            }
+
+            if (creditCardInputs.cvv) {
+                creditCardInputs.cvv.addEventListener('input', (event) => {
+                    const digits = event.target.value.replace(/\D/g, '').slice(0, 3);
+                    event.target.value = digits;
+                    paymentMeta.creditCard.cvv = digits;
+                });
+            }
+
+            presetAmountButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    presetAmountButtons.forEach((btn) => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    customAmountInput.value = '';
+                    selectedAmount = Number(button.dataset.amount);
+                    updatePaymentPreview();
+                });
+            });
+
+            customAmountInput.addEventListener('input', () => {
+                const value = Number(customAmountInput.value);
+                presetAmountButtons.forEach((btn) => btn.classList.remove('active'));
+                if (Number.isFinite(value) && value > 0) {
+                    selectedAmount = Math.floor(value);
+                } else {
+                    selectedAmount = null;
+                }
+                updatePaymentPreview();
+            });
+
+            paymentOptionButtons.forEach((button) => {
+                button.addEventListener('click', () => {
+                    handlePaymentMethodSelect(button.dataset.method);
+                });
+            });
+
+            if (postConfirmGoLiveBtn) {
+                postConfirmGoLiveBtn.addEventListener('click', redirectToViewer);
+            }
+
+            if (postConfirmAnotherBtn) {
+                postConfirmAnotherBtn.addEventListener('click', handlePostConfirmAnother);
+            }
+
+            usdtChainInputs.forEach((input) => {
+                input.addEventListener('change', () => {
+                    if (input.checked) {
+                        setUsdtChain(input.value);
+                    }
+                });
+            });
+
+            updateUsdtChainActive();
+
+            document.querySelectorAll('[data-action="prev"]').forEach((button) => {
+                button.addEventListener('click', () => {
+                    setFeedback(step2Feedback, '', '');
+                    setFeedback(step3Feedback, '', '');
+                    const targetStep = Math.max(1, activeStep - 1);
+                    setStep(targetStep);
+                });
+            });
+
+            document.querySelector('[data-step="2"] [data-action="next"]').addEventListener('click', () => {
+                if (!selectedUser) {
+                    setFeedback(step2Feedback, '請先查詢觀眾帳號。', 'error');
+                    return;
+                }
+
+                if (!selectedAmount || selectedAmount <= 0) {
+                    setFeedback(step2Feedback, '請選擇或輸入儲值金額。', 'error');
+                    return;
+                }
+
+                if (!selectedMethod) {
+                    setFeedback(step2Feedback, '請選擇付款方式。', 'error');
+                    return;
+                }
+
+                setFeedback(step2Feedback, '', '');
+                updatePaymentPreview();
+                renderSummary();
+                setStep(3);
+            });
+
+            createTopUpBtn.addEventListener('click', async () => {
+                if (!selectedUser || !selectedAmount || !selectedMethod) {
+                    setFeedback(step3Feedback, '缺少儲值資訊，請返回前一步確認。', 'error');
+                    return;
+                }
+
+                createTopUpBtn.disabled = true;
+                setFeedback(step3Feedback, '建立儲值紀錄中，請稍候...', 'success');
+                updatePaymentPreview();
+
+                try {
+                    const referenceValue = referenceInput.value.trim();
+                    const payload = {
+                        userId: selectedUser.id,
+                        amount: selectedAmount,
+                        paymentMethod: selectedMethod,
+                        reference: referenceValue || null
+                    };
+
+                    const paymentNotes = buildPaymentNotes();
+                    if (paymentNotes) {
+                        payload.notes = paymentNotes;
+                    }
+
+                    const response = await fetch('/api/topup', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || '建立儲值紀錄失敗');
+                    }
+
+                    hidePostConfirmPrompt();
+                    setLatestTopUp(data.topUp);
+                    selectedUser.balance = data.balance;
+
+                    renderHistory(data.history || []);
+                    updateWalletView(data.balance ?? 0, data.history || []);
+                    updateUserCard(selectedUser, data.balance);
+                    renderSummary();
+
+                    setFeedback(step3Feedback, '儲值紀錄已建立，請確認款項是否入帳。', 'success');
+                } catch (error) {
+                    console.error('建立儲值紀錄失敗:', error);
+                    setFeedback(step3Feedback, error.message || '建立儲值紀錄失敗，請稍後再試。', 'error');
+                } finally {
+                    createTopUpBtn.disabled = false;
+                }
+            });
+
+            confirmTopUpBtn.addEventListener('click', async () => {
+                if (!latestTopUp || latestTopUp.status !== 'pending') {
+                    setFeedback(step3Feedback, '目前沒有可確認的儲值紀錄。', 'error');
+                    return;
+                }
+
+                confirmTopUpBtn.disabled = true;
+                setFeedback(step3Feedback, '確認入帳中...', 'success');
+
+                try {
+                    const response = await fetch('/api/topup/confirm', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ topUpId: latestTopUp.id })
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok || !data.success) {
+                        throw new Error(data.message || '確認儲值失敗');
+                    }
+
+                    setLatestTopUp(data.topUp);
+                    selectedUser.balance = data.balance;
+
+                    renderHistory(data.history || []);
+                    updateWalletView(data.balance ?? 0, data.history || []);
+                    updateUserCard(selectedUser, data.balance);
+                    renderSummary();
+
+                    setFeedback(step3Feedback, '儲值已標記為入帳，觀眾餘額已更新。', 'success');
+                    showPostConfirmPrompt();
+                } catch (error) {
+                    console.error('確認儲值失敗:', error);
+                    setFeedback(step3Feedback, error.message || '確認儲值失敗，請稍後再試。', 'error');
+                } finally {
+                    confirmTopUpBtn.disabled = false;
+                }
+            });
+
+            mobileToggle.addEventListener('click', () => {
+                mobileMenu.classList.toggle('show');
+            });
+
+            updateUsdtDisplays();
+            updatePaymentPreview();
+        });
+    </script>
+</body>
+</html>

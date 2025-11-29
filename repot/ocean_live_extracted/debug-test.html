@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC 连接测试 - VibeLo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 10px 0;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 5px 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 WebRTC 连接测试工具</h1>
+        
+        <div id="status" class="status info">准备开始测试...</div>
+        
+        <div class="step">
+            <h3>测试步骤</h3>
+            <button onclick="testWebSocketConnection()">1. 测试 WebSocket 连接</button>
+            <button onclick="testViewerJoin()">2. 测试观众加入</button>
+            <button onclick="checkBroadcasterStatus()">3. 检查主播状态</button>
+            <button onclick="requestStreamStart()">4. 请求开始直播</button>
+            <button onclick="clearLog()">清除日志</button>
+        </div>
+        
+        <div class="log" id="log"></div>
+    </div>
+
+    <script>
+        let socket = null;
+        let isConnected = false;
+        let viewerId = 'debug_viewer_' + Math.random().toString(36).substr(2, 9);
+        let receivedMessages = {
+            viewer_joined: false,
+            broadcaster_info: false,
+            stream_start: false,
+            offer: false,
+            ice_candidate: false
+        };
+
+        function log(message) {
+            const logElement = document.getElementById('log');
+            const time = new Date().toLocaleTimeString();
+            logElement.innerHTML += `[${time}] ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+        }
+
+        function testWebSocketConnection() {
+            log('🔄 测试 WebSocket 连接...');
+            updateStatus('正在连接 WebSocket...', 'info');
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}`;
+            
+            log(`WebSocket URL: ${wsUrl}`);
+            
+            socket = new WebSocket(wsUrl);
+            
+            socket.onopen = function() {
+                log('✅ WebSocket 连接成功');
+                updateStatus('WebSocket 已连接', 'success');
+                isConnected = true;
+            };
+            
+            socket.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                log(`📥 收到消息: ${data.type}`);
+                
+                // 记录消息接收状态
+                if (receivedMessages.hasOwnProperty(data.type)) {
+                    receivedMessages[data.type] = true;
+                    log(`✅ 已收到 ${data.type} 消息`);
+                }
+                
+                // 显示消息详情
+                if (data.type === 'viewer_joined') {
+                    log(`   观众ID: ${data.viewerId}`);
+                    log(`   主播信息: ${data.broadcasterInfo ? '已提供' : '未提供'}`);
+                } else if (data.type === 'broadcaster_info') {
+                    log(`   主播名称: ${data.broadcasterInfo?.displayName || '未知'}`);
+                    log(`   消息: ${data.message || '无'}`);
+                } else if (data.type === 'stream_start') {
+                    log(`   直播标题: ${data.title || '无标题'}`);
+                } else if (data.type === 'offer') {
+                    log(`   Offer SDP 长度: ${data.offer?.sdp?.length || 0}`);
+                    log(`   主播ID: ${data.broadcasterId || '未知'}`);
+                } else if (data.type === 'ice_candidate') {
+                    log(`   ICE Candidate: ${data.candidate?.candidate || '无'}`);
+                }
+            };
+            
+            socket.onclose = function() {
+                log('❌ WebSocket 连接关闭');
+                updateStatus('WebSocket 连接已关闭', 'error');
+                isConnected = false;
+            };
+            
+            socket.onerror = function(error) {
+                log(`❌ WebSocket 错误: ${error}`);
+                updateStatus('WebSocket 连接错误', 'error');
+            };
+        }
+
+        function testViewerJoin() {
+            if (!socket || !isConnected) {
+                log('❌ WebSocket 未连接，请先测试连接');
+                return;
+            }
+            
+            log('🔄 发送观众加入请求...');
+            
+            const joinMessage = {
+                type: 'viewer_join',
+                viewerId: viewerId,
+                streamerId: 'default',
+                userInfo: { displayName: `调试观众${viewerId.substr(-3)}`, avatarUrl: null }
+            };
+            
+            socket.send(JSON.stringify(joinMessage));
+            log(`📤 已发送观众加入消息，观众ID: ${viewerId}`);
+        }
+
+        function checkBroadcasterStatus() {
+            if (!socket || !isConnected) {
+                log('❌ WebSocket 未连接');
+                return;
+            }
+            
+            log('🔄 请求主播信息...');
+            
+            socket.send(JSON.stringify({
+                type: 'request_broadcaster_info',
+                viewerId: viewerId
+            }));
+            
+            log('📤 已发送主播信息请求');
+        }
+
+        function requestStreamStart() {
+            if (!socket || !isConnected) {
+                log('❌ WebSocket 未连接');
+                return;
+            }
+            
+            log('🔄 请求开始直播...');
+            
+            socket.send(JSON.stringify({
+                type: 'request_stream_start',
+                viewerId: viewerId
+            }));
+            
+            log('📤 已发送开始直播请求');
+        }
+
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+
+        // 定期检查消息接收状态
+        setInterval(function() {
+            if (isConnected) {
+                const missing = Object.keys(receivedMessages).filter(key => !receivedMessages[key]);
+                if (missing.length > 0) {
+                    log(`⚠️ 未收到的消息类型: ${missing.join(', ')}`);
+                } else {
+                    log('✅ 所有预期消息类型都已收到');
+                }
+            }
+        }, 10000);
+
+        // 页面加载时显示观众ID
+        window.addEventListener('load', function() {
+            log(`🚀 调试工具已加载`);
+            log(`观众ID: ${viewerId}`);
+            log('💡 请按顺序执行测试步骤');
+        });
+    </script>
+</body>
+</html>
+
