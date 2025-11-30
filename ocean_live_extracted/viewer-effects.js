@@ -4,6 +4,26 @@ console.log('🎨 載入觀眾端特效處理模組...');
 // 記錄當前特效狀態，避免重複清除造成閃爍
 let currentViewerEffect = 'clear';
 const overlayEffects = new Set(['particles', 'hearts', 'confetti', 'snow']);
+const pipFilterEffects = new Set(['blur', 'rainbow', 'bw', 'sepia', 'warm', 'invert']);
+const pipFaceEffects = new Set([
+    'glasses', 'dog', 'pingo', 'sech', 'laixiong', 'maoZed', 'laogao', 'guodong', 'huoguo',
+    'hsinchu', 'car', 'car2', 'look', 'lumumu', 'chiikawa', 'cat', 'polar'
+]);
+
+function getViewerPipVideoElement() {
+    const pipVideo = document.getElementById('pipVideo');
+    if (!pipVideo) {
+        return null;
+    }
+    if (pipVideo.srcObject) {
+        return pipVideo;
+    }
+    return null;
+}
+
+function shouldRouteViewerEffectToPip(effectType) {
+    return pipFilterEffects.has(effectType) || pipFaceEffects.has(effectType);
+}
 
 const GLASSES_IMAGE_PATH = 'images/glass.png';
 const DOG_IMAGE_PATH = 'images/dog.png';
@@ -1698,14 +1718,18 @@ function applyViewerEffect(effectType) {
         return;
     }
 
-    // 使用正確的容器選擇器
     const videoContainer = document.getElementById('streamVideo');
-    
     if (!videoContainer) {
         console.error('❌ 找不到視頻容器 #streamVideo');
         return;
     }
-    
+
+    const pipVideo = getViewerPipVideoElement();
+    const pipContainer = pipVideo?.parentElement;
+    const usePipTarget = pipVideo && shouldRouteViewerEffectToPip(effectType);
+    const targetVideo = usePipTarget ? pipVideo : remoteVideo;
+    const targetContainer = usePipTarget ? (pipContainer || videoContainer) : videoContainer;
+
     console.log('🔍 [DEBUG] 視頻元素狀態:', {
         id: remoteVideo.id,
         display: remoteVideo.style.display,
@@ -1714,7 +1738,17 @@ function applyViewerEffect(effectType) {
         opacity: window.getComputedStyle(remoteVideo).opacity,
         className: remoteVideo.className
     });
-    
+
+    if (pipVideo) {
+        console.log('🪟 [DEBUG] PiP 視頻狀態:', {
+            id: pipVideo.id,
+            display: pipVideo.style.display,
+            computedDisplay: window.getComputedStyle(pipVideo).display,
+            visibility: window.getComputedStyle(pipVideo).visibility,
+            opacity: window.getComputedStyle(pipVideo).opacity
+        });
+    }
+
     console.log('🔍 [DEBUG] 視頻容器狀態:', {
         id: videoContainer.id,
         className: videoContainer.className,
@@ -1722,12 +1756,19 @@ function applyViewerEffect(effectType) {
         overflow: window.getComputedStyle(videoContainer).overflow,
         isolation: window.getComputedStyle(videoContainer).isolation
     });
+    console.log('🎯 觀眾端特效目標:', usePipTarget ? 'pipVideo' : 'remoteVideo');
 
     if (effectType === 'clear') {
         if (currentViewerEffect !== 'clear') {
             resetViewerEffectStyles(remoteVideo, videoContainer);
+            if (pipVideo) {
+                resetViewerEffectStyles(pipVideo, pipContainer);
+            }
             currentViewerEffect = 'clear';
             delete remoteVideo.dataset.viewerEffect;
+            if (pipVideo) {
+                delete pipVideo.dataset.viewerEffect;
+            }
             console.log('🧹 清除所有特效');
         } else {
             console.log('ℹ️ 已處於無特效狀態，略過重複清除');
@@ -1735,138 +1776,138 @@ function applyViewerEffect(effectType) {
         return;
     }
 
-    // 避免重複清除導致閃爍，針對需要重新啟動的特效做個別處理
     if (effectType === currentViewerEffect) {
         if (effectType === 'rainbow') {
             console.log('🔁 重新啟動彩虹濾鏡動畫');
-            restartRainbowFilterAnimation(remoteVideo);
-            ensureRemoteVideoPlaying(remoteVideo);
+            restartRainbowFilterAnimation(targetVideo);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'glasses') {
             console.log('🔁 重新啟動眼鏡追蹤');
             stopViewerGlassesTracking();
-            showViewerGlassesOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerGlassesOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'dog') {
             console.log('🔁 重新啟動狗狗追蹤');
             stopViewerDogTracking();
-            showViewerDogOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerDogOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'pingo') {
             console.log('🔁 重新啟動皮鼓追蹤');
             stopViewerPingoTracking();
-            showViewerPingoOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerPingoOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'sech') {
             console.log('🔁 重新啟動世間追蹤');
             stopViewerSechTracking();
-            showViewerSechOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerSechOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'laixiong') {
             console.log('🔁 重新啟動賴兄追蹤');
             stopViewerLaixiongTracking();
-            showViewerLaixiongOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerLaixiongOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'maoZed') {
             console.log('🔁 重新啟動毛主席追蹤');
             stopViewerMaoZedTracking();
-            showViewerMaoZedOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerMaoZedOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'laogao') {
             console.log('🔁 重新啟動老高追蹤');
             stopViewerLaogaoTracking();
-            showViewerLaogaoOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerLaogaoOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'guodong') {
             console.log('🔁 重新啟動國棟追蹤');
             stopViewerGuodongTracking();
-            showViewerGuodongOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerGuodongOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'huoguo') {
             console.log('🔁 重新啟動火鍋追蹤');
             stopViewerHuoguoTracking();
-            showViewerHuoguoOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerHuoguoOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'hsinchu') {
             console.log('🔁 重新啟動新竹追蹤');
             stopViewerHsinchuTracking();
-            showViewerHsinchuOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerHsinchuOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'car') {
             console.log('🔁 重新啟動車追蹤');
             stopViewerCarTracking();
-            showViewerCarOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerCarOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'car2') {
             console.log('🔁 重新啟動上車追蹤');
             stopViewerCar2Tracking();
-            showViewerCar2Overlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerCar2Overlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'look') {
             console.log('🔁 重新啟動回答我追蹤');
             stopViewerLookTracking();
-            showViewerLookOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerLookOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'lumumu') {
             console.log('🔁 重新啟動秀燕追蹤');
             stopViewerLumumuTracking();
-            showViewerLumumuOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerLumumuOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'chiikawa') {
             console.log('🔁 重新啟動吉伊卡哇追蹤');
             stopViewerChiikawaTracking();
-            showViewerChiikawaOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerChiikawaOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'cat') {
             console.log('🔁 重新啟動哈基米追蹤');
             stopViewerCatTracking();
-            showViewerCatOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerCatOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (effectType === 'polar') {
             console.log('🔁 重新啟動北極熊追蹤');
             stopViewerPolarTracking();
-            showViewerPolarOverlay(remoteVideo, videoContainer);
-            ensureRemoteVideoPlaying(remoteVideo);
+            showViewerPolarOverlay(targetVideo, targetContainer);
+            ensureRemoteVideoPlaying(targetVideo);
         } else if (overlayEffects.has(effectType)) {
             console.log('🔁 重新啟動動畫覆蓋層效果');
             createViewerAnimationOverlay(effectType);
-            ensureRemoteVideoPlaying(remoteVideo);
+            ensureRemoteVideoPlaying(targetVideo);
         } else {
             console.log('ℹ️ 特效未變更，保持現狀');
         }
         return;
     }
 
-    // 先移除前一個特效，確保狀態乾淨
     resetViewerEffectStyles(remoteVideo, videoContainer);
+    if (pipVideo) {
+        resetViewerEffectStyles(pipVideo, pipContainer);
+    }
 
     console.log(`🎨 應用特效: ${effectType}`);
 
-    // 應用特效
     switch (effectType) {
         case 'blur':
-            remoteVideo.style.filter = 'blur(8px)';
+            targetVideo.style.filter = 'blur(8px)';
             break;
         case 'rainbow':
-            restartRainbowFilterAnimation(remoteVideo);
+            restartRainbowFilterAnimation(targetVideo);
             console.log('✅ 漸變彩虹覆蓋層已應用');
-            console.log('   - 視頻類別:', remoteVideo.className);
-            console.log('   - 容器類別:', videoContainer ? videoContainer.className : 'N/A');
+            console.log('   - 視頻類別:', targetVideo.className);
+            console.log('   - 容器類別:', targetContainer ? targetContainer.className : 'N/A');
             break;
         case 'bw':
-            remoteVideo.style.filter = 'grayscale(100%)';
-            remoteVideo.style.webkitFilter = 'grayscale(100%)';
+            targetVideo.style.filter = 'grayscale(100%)';
+            targetVideo.style.webkitFilter = 'grayscale(100%)';
             break;
         case 'sepia':
-            remoteVideo.style.filter = 'sepia(100%)';
+            targetVideo.style.filter = 'sepia(100%)';
             break;
         case 'bright':
-            remoteVideo.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
+            targetVideo.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
             break;
         case 'warm':
-            remoteVideo.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
+            targetVideo.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
             break;
         case 'invert':
-            remoteVideo.style.filter = 'invert(1) hue-rotate(180deg)';
+            targetVideo.style.filter = 'invert(1) hue-rotate(180deg)';
             break;
         case 'rainbowBorder':
             if (videoContainer) {
@@ -1893,55 +1934,55 @@ function applyViewerEffect(effectType) {
             }
             break;
         case 'glasses':
-            showViewerGlassesOverlay(remoteVideo, videoContainer);
+            showViewerGlassesOverlay(targetVideo, targetContainer);
             break;
         case 'dog':
-            showViewerDogOverlay(remoteVideo, videoContainer);
+            showViewerDogOverlay(targetVideo, targetContainer);
             break;
         case 'pingo':
-            showViewerPingoOverlay(remoteVideo, videoContainer);
+            showViewerPingoOverlay(targetVideo, targetContainer);
             break;
         case 'sech':
-            showViewerSechOverlay(remoteVideo, videoContainer);
+            showViewerSechOverlay(targetVideo, targetContainer);
             break;
         case 'laixiong':
-            showViewerLaixiongOverlay(remoteVideo, videoContainer);
+            showViewerLaixiongOverlay(targetVideo, targetContainer);
             break;
         case 'maoZed':
-            showViewerMaoZedOverlay(remoteVideo, videoContainer);
+            showViewerMaoZedOverlay(targetVideo, targetContainer);
             break;
         case 'laogao':
-            showViewerLaogaoOverlay(remoteVideo, videoContainer);
+            showViewerLaogaoOverlay(targetVideo, targetContainer);
             break;
         case 'guodong':
-            showViewerGuodongOverlay(remoteVideo, videoContainer);
+            showViewerGuodongOverlay(targetVideo, targetContainer);
             break;
         case 'huoguo':
-            showViewerHuoguoOverlay(remoteVideo, videoContainer);
+            showViewerHuoguoOverlay(targetVideo, targetContainer);
             break;
         case 'hsinchu':
-            showViewerHsinchuOverlay(remoteVideo, videoContainer);
+            showViewerHsinchuOverlay(targetVideo, targetContainer);
             break;
         case 'car':
-            showViewerCarOverlay(remoteVideo, videoContainer);
+            showViewerCarOverlay(targetVideo, targetContainer);
             break;
         case 'car2':
-            showViewerCar2Overlay(remoteVideo, videoContainer);
+            showViewerCar2Overlay(targetVideo, targetContainer);
             break;
         case 'look':
-            showViewerLookOverlay(remoteVideo, videoContainer);
+            showViewerLookOverlay(targetVideo, targetContainer);
             break;
         case 'lumumu':
-            showViewerLumumuOverlay(remoteVideo, videoContainer);
+            showViewerLumumuOverlay(targetVideo, targetContainer);
             break;
         case 'chiikawa':
-            showViewerChiikawaOverlay(remoteVideo, videoContainer);
+            showViewerChiikawaOverlay(targetVideo, targetContainer);
             break;
         case 'cat':
-            showViewerCatOverlay(remoteVideo, videoContainer);
+            showViewerCatOverlay(targetVideo, targetContainer);
             break;
         case 'polar':
-            showViewerPolarOverlay(remoteVideo, videoContainer);
+            showViewerPolarOverlay(targetVideo, targetContainer);
             break;
         case 'particles':
             createViewerAnimationOverlay('particles');
@@ -1953,13 +1994,16 @@ function applyViewerEffect(effectType) {
             createViewerAnimationOverlay('confetti');
             break;
         case 'snow':
-        createViewerAnimationOverlay('snow');
+            createViewerAnimationOverlay('snow');
             break;
     }
 
     currentViewerEffect = effectType;
     remoteVideo.dataset.viewerEffect = effectType;
-    ensureRemoteVideoPlaying(remoteVideo);
+    if (targetVideo && targetVideo !== remoteVideo) {
+        targetVideo.dataset.viewerEffect = effectType;
+    }
+    ensureRemoteVideoPlaying(targetVideo);
 }
 
 function resetViewerEffectStyles(videoElement, videoContainer) {

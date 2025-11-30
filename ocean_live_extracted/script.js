@@ -711,46 +711,66 @@ function updateLocalPreviewUI() {
     // 處理畫中畫預覽 (Track 1)
     const videoTracks = localStream.getVideoTracks();
     let pipVideo = document.getElementById('localPipVideo');
+    let pipWrapper = document.getElementById('localPipWrapper');
     
     if (videoTracks.length > 1) {
         // 顯示畫中畫
         const pipTrack = videoTracks[1];
-        
+        const hostContainer = localVideo.parentElement;
+
+        if (!pipWrapper) {
+            pipWrapper = document.createElement('div');
+            pipWrapper.id = 'localPipWrapper';
+        }
+
+        // 樣式設定 (與觀眾端一致並提供覆蓋層定位)
+        pipWrapper.style.position = 'absolute';
+        pipWrapper.style.bottom = '40px';
+        pipWrapper.style.right = '20px';
+        pipWrapper.style.width = '30%';
+        pipWrapper.style.maxWidth = '400px';
+        pipWrapper.style.borderRadius = '12px';
+        pipWrapper.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+        pipWrapper.style.zIndex = '100';
+        pipWrapper.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+        pipWrapper.style.transition = 'all 0.3s ease';
+        pipWrapper.style.backgroundColor = 'black';
+        pipWrapper.style.overflow = 'visible';
+
+        if (window.getComputedStyle(hostContainer).position === 'static') {
+            hostContainer.style.position = 'relative';
+        }
+        if (pipWrapper.parentElement !== hostContainer) {
+            hostContainer.appendChild(pipWrapper);
+        }
+
         if (!pipVideo) {
             pipVideo = document.createElement('video');
             pipVideo.id = 'localPipVideo';
             pipVideo.autoplay = true;
             pipVideo.playsInline = true;
             pipVideo.muted = true;
-            
-            // 樣式設定 (與觀眾端一致)
-            pipVideo.style.position = 'absolute';
-            pipVideo.style.bottom = '40px';
-            pipVideo.style.right = '20px';
-            pipVideo.style.width = '30%';
+            pipVideo.style.width = '100%';
             pipVideo.style.height = 'auto';
-            pipVideo.style.maxWidth = '400px';
+            pipVideo.style.display = 'block';
             pipVideo.style.borderRadius = '12px';
-            pipVideo.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
-            pipVideo.style.zIndex = '100';
-            pipVideo.style.border = '2px solid rgba(255, 255, 255, 0.8)';
-            pipVideo.style.transition = 'all 0.3s ease';
-            
-            // 添加到 localVideo 的父容器
-            const container = localVideo.parentElement;
-            if (window.getComputedStyle(container).position === 'static') {
-                container.style.position = 'relative';
-            }
-            container.appendChild(pipVideo);
+        }
+
+        if (pipVideo.parentElement !== pipWrapper) {
+            pipWrapper.appendChild(pipVideo);
         }
         
         pipVideo.srcObject = new MediaStream([pipTrack]);
         pipVideo.style.display = 'block';
+        pipWrapper.style.display = 'block';
     } else {
         // 隱藏畫中畫
         if (pipVideo) {
             pipVideo.style.display = 'none';
             pipVideo.srcObject = null;
+        }
+        if (pipWrapper) {
+            pipWrapper.style.display = 'none';
         }
     }
 }
@@ -1010,6 +1030,7 @@ function stopStream() {
     const localVideo = document.getElementById('localVideo');
     const placeholder = document.getElementById('previewPlaceholder');
     const pipVideo = document.getElementById('localPipVideo');
+    const pipWrapper = document.getElementById('localPipWrapper');
     
     if (localVideo) {
         localVideo.style.display = 'none';
@@ -1019,6 +1040,10 @@ function stopStream() {
     if (pipVideo) {
         pipVideo.style.display = 'none';
         pipVideo.srcObject = null;
+    }
+
+    if (pipWrapper) {
+        pipWrapper.style.display = 'none';
     }
     
     if (placeholder) {
@@ -1267,6 +1292,36 @@ function stopCompositeStream() {
 }
 
 // 分享螢幕 (控制主畫面)
+const SCREEN_SHARE_CONSTRAINTS = {
+    width: { max: 1920, ideal: 1600 },
+    height: { max: 1080, ideal: 900 },
+    frameRate: { max: 24, ideal: 20 }
+};
+
+async function applyScreenShareOptimizations(track) {
+    if (!track) {
+        return;
+    }
+
+    if (typeof track.applyConstraints === 'function') {
+        try {
+            await track.applyConstraints({
+                width: SCREEN_SHARE_CONSTRAINTS.width,
+                height: SCREEN_SHARE_CONSTRAINTS.height,
+                frameRate: SCREEN_SHARE_CONSTRAINTS.frameRate
+            });
+            console.log('✅ 已替螢幕分享軌道套用解析度/幀率限制');
+        } catch (error) {
+            console.warn('⚠️ 螢幕分享 applyConstraints 失敗，使用預設設定', error);
+        }
+    }
+
+    if ('contentHint' in track) {
+        track.contentHint = 'detail';
+        console.log('🎯 已將 contentHint 設為 detail 以優化文字/投影片');
+    }
+}
+
 async function shareScreen() {
     try {
         // 如果已經在分享，則停止
@@ -1278,11 +1333,18 @@ async function shareScreen() {
 
         // 獲取螢幕分享串流
         const screenStream = await navigator.mediaDevices.getDisplayMedia({
-            video: { 
+            video: {
+                displaySurface: 'window',
                 cursor: 'always',
-                displaySurface: 'monitor'
+                width: SCREEN_SHARE_CONSTRAINTS.width,
+                height: SCREEN_SHARE_CONSTRAINTS.height,
+                frameRate: SCREEN_SHARE_CONSTRAINTS.frameRate
             },
-            audio: true
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                sampleRate: 48000
+            }
         });
 
         // 設定為當前螢幕串流
@@ -1291,11 +1353,18 @@ async function shareScreen() {
         window.isScreenSharing = true;
         window.screenShareStream = screenStream;
 
-        // 監聽螢幕分享結束 (例如使用者點擊瀏覽器的停止分享按鈕)
-        screenStream.getVideoTracks()[0].addEventListener('ended', () => {
-            console.log('🖥️ 螢幕分享視訊軌道已結束');
-            stopScreenShare();
-        }, { once: true });
+        const screenTrack = screenStream.getVideoTracks()[0];
+        if (screenTrack) {
+            await applyScreenShareOptimizations(screenTrack);
+
+            // 監聽螢幕分享結束 (例如使用者點擊瀏覽器的停止分享按鈕)
+            screenTrack.addEventListener('ended', () => {
+                console.log('🖥️ 螢幕分享視訊軌道已結束');
+                stopScreenShare();
+            }, { once: true });
+        } else {
+            console.warn('⚠️ 螢幕分享未提供視訊軌道');
+        }
 
         // 更新按鈕狀態
         const screenBtn = document.getElementById('screenBtn');
@@ -3421,6 +3490,57 @@ function setPreferredVideoCodecs(peerConnection) {
 }
 
 // 在建立 PeerConnection 後呼叫編碼優化
+function isScreenShareTrack(track, index) {
+    if (!track) {
+        return index === 0;
+    }
+
+    const label = (track.label || '').toLowerCase();
+    if (label.includes('screen') || label.includes('display') || label.includes('window')) {
+        return true;
+    }
+
+    if (typeof track.getSettings === 'function') {
+        const settings = track.getSettings();
+        if (settings?.displaySurface && settings.displaySurface !== 'camera') {
+            return true;
+        }
+    }
+
+    return index === 0; // localStream 預設 Track 0 為螢幕
+}
+
+function optimizeVideoSenderEncoding(sender, track, index) {
+    if (!sender || typeof sender.getParameters !== 'function' || typeof sender.setParameters !== 'function') {
+        return;
+    }
+
+    const screenTrack = isScreenShareTrack(track, index);
+
+    sender.getParameters().then((params) => {
+        if (!params.encodings || !params.encodings.length) {
+            params.encodings = [{}];
+        }
+
+        const encoding = params.encodings[0];
+        if (screenTrack) {
+            encoding.maxBitrate = 4_000_000;
+            encoding.maxFramerate = 24;
+            encoding.scaleResolutionDownBy = 1;
+        } else {
+            encoding.maxBitrate = 800_000;
+            encoding.maxFramerate = 30;
+            encoding.scaleResolutionDownBy = encoding.scaleResolutionDownBy || 1.25;
+        }
+
+        return sender.setParameters(params);
+    }).then(() => {
+        console.log(`✅ 已優化 ${screenTrack ? '螢幕分享' : '攝影機'} 視訊軌道 ${index} 編碼參數`);
+    }).catch((error) => {
+        console.warn(`⚠️ 優化視訊軌道 ${index} 編碼參數失敗:`, error);
+    });
+}
+
 function createOptimizedPeerConnection(viewerId) {
     try {
         console.log('為觀眾', viewerId, '建立優化的 WebRTC 連接');
@@ -3442,21 +3562,7 @@ function createOptimizedPeerConnection(viewerId) {
                     console.log(`✅ 已添加視訊軌道 ${index}:`, track.readyState, track.id);
                     
                     // 嘗試優化此發送器的編碼參數
-                    if (sender.setParameters) {
-                        sender.getParameters().then(params => {
-                            if (params.encodings && params.encodings.length > 0) {
-                                // 設定適中的碼率，確保兼容性
-                                params.encodings[0].maxBitrate = 2500000; // 2.5 Mbps
-                                params.encodings[0].maxFramerate = 30;
-                                
-                                return sender.setParameters(params);
-                            }
-                        }).then(() => {
-                            console.log(`✅ 已優化視訊軌道 ${index} 編碼參數`);
-                        }).catch(error => {
-                            console.warn(`⚠️ 優化視訊軌道 ${index} 編碼參數失敗:`, error);
-                        });
-                    }
+                    optimizeVideoSenderEncoding(sender, track, index);
                 } catch (error) {
                     console.error(`❌ 添加視訊軌道 ${index} 失敗:`, error);
                 }

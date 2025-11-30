@@ -1512,6 +1512,34 @@ let currentEffect = null;
 let canvasContext = null;
 let effectCanvas = null;
 
+const PIP_FILTER_EFFECTS = new Set(['blur', 'rainbow', 'bw', 'sepia', 'warm', 'invert']);
+const PIP_FACE_EFFECTS = new Set([
+    'glasses', 'dog', 'pingo', 'sech', 'laixiong', 'maoZed', 'laogao', 'guodong', 'huoguo',
+    'hsinchu', 'car', 'car2', 'look', 'lumumu', 'chiikawa', 'cat', 'polar'
+]);
+
+function getActiveLocalPipVideo() {
+    const pipVideo = document.getElementById('localPipVideo');
+    if (!pipVideo) {
+        return null;
+    }
+    if (pipVideo.srcObject) {
+        return pipVideo;
+    }
+    return null;
+}
+
+function shouldRouteEffectToPip(effectType) {
+    return PIP_FILTER_EFFECTS.has(effectType) || PIP_FACE_EFFECTS.has(effectType);
+}
+
+function resolveEffectTarget(effectType, primaryVideo, pipVideo) {
+    if (pipVideo && shouldRouteEffectToPip(effectType)) {
+        return pipVideo;
+    }
+    return primaryVideo;
+}
+
 // 確保函數在全域範圍可用
 window.applyEffect = applyEffect;
 window.applyNewEffect = applyNewEffect;
@@ -1566,31 +1594,43 @@ function applyEffect(effectType, triggerButton = null) {
 function applyNewEffect(effectType, videoElement, triggerButton = null) {
     console.log('🔧 applyNewEffect 開始:', effectType);
     
-    // 移除所有特效按鈕的active狀態
-    document.querySelectorAll('.effect-btn').forEach(btn => {
+    document.querySelectorAll('.effect-btn').forEach((btn) => {
         btn.classList.remove('active');
     });
 
-    if (!videoElement) {
-        videoElement = document.getElementById('localVideo');
-    }
+    let primaryVideo = videoElement || document.getElementById('localVideo');
 
-    if (!videoElement) {
+    if (!primaryVideo) {
         console.error('❌ applyNewEffect: 找不到 localVideo 元素');
         return;
     }
 
-    console.log('📹 視頻元素確認:', {
-        width: videoElement.offsetWidth,
-        height: videoElement.offsetHeight,
-        display: window.getComputedStyle(videoElement).display
+    const pipVideo = getActiveLocalPipVideo();
+    const effectVideo = resolveEffectTarget(effectType, primaryVideo, pipVideo);
+    const videoContainer = effectVideo?.parentElement || primaryVideo?.parentElement;
+
+    console.log('📹 主畫面狀態:', {
+        width: primaryVideo.offsetWidth,
+        height: primaryVideo.offsetHeight,
+        display: window.getComputedStyle(primaryVideo).display
     });
+    if (pipVideo) {
+        console.log('🪟 PiP 畫面狀態:', {
+            width: pipVideo.offsetWidth,
+            height: pipVideo.offsetHeight,
+            display: window.getComputedStyle(pipVideo).display
+        });
+    }
+    console.log('🎯 特效目標:', effectVideo === pipVideo ? 'pipVideo' : 'localVideo');
 
     if (typeof hideFilmFrameOverlay === 'function') {
-        hideFilmFrameOverlay(videoElement);
+        hideFilmFrameOverlay(primaryVideo);
     }
 
-    resetVideoEffectStyles(videoElement);
+    resetVideoEffectStyles(primaryVideo);
+    if (pipVideo && pipVideo !== primaryVideo) {
+        resetVideoEffectStyles(pipVideo);
+    }
 
     if (triggerButton && effectType !== 'clear') {
         triggerButton.classList.add('active');
@@ -1598,35 +1638,30 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
     }
     
     if (effectType === 'clear') {
-        // 通知觀眾端清除特效
         broadcastEffectToViewers('clear');
         return;
     }
     
-    // 設置新特效
     currentEffect = effectType;
-    const videoContainer = videoElement.parentElement;
     let messageHandled = false;
     
     console.log('🎨 開始套用特效:', effectType);
     
-    // 添加特效類別到影片元素
     switch (effectType) {
         case 'blur':
-            videoElement.style.filter = 'blur(8px)';
-            console.log('✅ 模糊特效已套用, filter:', videoElement.style.filter);
+            effectVideo.style.filter = 'blur(8px)';
+            console.log('✅ 模糊特效已套用, filter:', effectVideo.style.filter);
             break;
         case 'rainbow':
-            // 將漸變彩虹覆蓋層套用到容器
             if (videoContainer) {
                 ensureRainbowOverlayLayers(videoContainer);
                 videoContainer.classList.remove('effect-rainbow-filter');
-                void videoContainer.offsetHeight; // 觸發重排
+                void videoContainer.offsetHeight;
                 videoContainer.classList.add('effect-rainbow-filter');
                 console.log('✅ 漸變彩虹覆蓋層已套用到容器');
             } else {
-                videoElement.classList.add('effect-rainbow-filter');
-                const fallbackContainer = videoElement.parentElement;
+                effectVideo.classList.add('effect-rainbow-filter');
+                const fallbackContainer = primaryVideo.parentElement;
                 if (fallbackContainer) {
                     ensureRainbowOverlayLayers(fallbackContainer);
                 }
@@ -1634,103 +1669,100 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             }
             break;
         case 'bw':
-            videoElement.style.filter = 'grayscale(100%)';
-            videoElement.style.webkitFilter = 'grayscale(100%)';
-            console.log('✅ 黑白特效已套用, filter:', videoElement.style.filter);
-            // 驗證是否成功套用
+            effectVideo.style.filter = 'grayscale(100%)';
+            effectVideo.style.webkitFilter = 'grayscale(100%)';
+            console.log('✅ 黑白特效已套用, filter:', effectVideo.style.filter);
             setTimeout(() => {
-                const computedFilter = window.getComputedStyle(videoElement).filter;
+                const computedFilter = window.getComputedStyle(effectVideo).filter;
                 console.log('🔍 實際計算後的 filter:', computedFilter);
             }, 100);
             break;
         case 'sepia':
-            videoElement.style.filter = 'sepia(100%)';
+            effectVideo.style.filter = 'sepia(100%)';
             console.log('✅ 懷舊特效已套用');
             break;
         case 'glasses':
-            showGlassesOverlay(videoElement);
+            showGlassesOverlay(effectVideo);
             console.log('✅ 眼鏡特效已套用');
             break;
         case 'dog':
-            showDogOverlay(videoElement);
+            showDogOverlay(effectVideo);
             console.log('✅ 狗狗特效已套用');
             break;
         case 'pingo':
-            showPingoOverlay(videoElement);
+            showPingoOverlay(effectVideo);
             console.log('✅ 皮鼓特效已套用');
             break;
         case 'sech':
-            showSechOverlay(videoElement);
+            showSechOverlay(effectVideo);
             console.log('✅ 世間特效已套用');
             break;
         case 'laixiong':
-            showLaixiongOverlay(videoElement);
+            showLaixiongOverlay(effectVideo);
             console.log('✅ 賴兄特效已套用');
             break;
         case 'maoZed':
-            showMaoZedOverlay(videoElement);
+            showMaoZedOverlay(effectVideo);
             console.log('✅ 毛主席特效已套用');
             break;
         case 'laogao':
-            showLaogaoOverlay(videoElement);
+            showLaogaoOverlay(effectVideo);
             console.log('✅ 老高特效已套用');
             break;
         case 'guodong':
-            showGuodongOverlay(videoElement);
+            showGuodongOverlay(effectVideo);
             console.log('✅ 國棟特效已套用');
             break;
         case 'huoguo':
-            showHuoguoOverlay(videoElement);
+            showHuoguoOverlay(effectVideo);
             console.log('✅ 火鍋特效已套用');
             break;
         case 'hsinchu':
-            showHsinchuOverlay(videoElement);
+            showHsinchuOverlay(effectVideo);
             console.log('✅ 新竹特效已套用');
             break;
         case 'car':
-            showCarOverlay(videoElement);
+            showCarOverlay(effectVideo);
             console.log('✅ 車特效已套用');
             break;
         case 'car2':
-            showCar2Overlay(videoElement);
+            showCar2Overlay(effectVideo);
             console.log('✅ 上車特效已套用');
             break;
         case 'look':
-            showLookOverlay(videoElement);
+            showLookOverlay(effectVideo);
             console.log('✅ 回答我特效已套用');
             break;
         case 'lumumu':
-            showLumumuOverlay(videoElement);
+            showLumumuOverlay(effectVideo);
             console.log('✅ 秀燕特效已套用');
             break;
         case 'chiikawa':
-            showChiikawaOverlay(videoElement);
+            showChiikawaOverlay(effectVideo);
             console.log('✅ 吉伊卡哇特效已套用');
             break;
         case 'cat':
-            showCatOverlay(videoElement);
+            showCatOverlay(effectVideo);
             console.log('✅ 哈基米特效已套用');
             break;
         case 'polar':
-            showPolarOverlay(videoElement);
+            showPolarOverlay(effectVideo);
             console.log('✅ 北極熊特效已套用');
             break;
         case 'bright':
-            videoElement.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
+            effectVideo.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
             console.log('✅ 美白特效已套用');
             break;
         case 'warm':
-            // 紅紅的暖色調效果
-            videoElement.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
-            console.log('✅ 暖色調特效已套用, filter:', videoElement.style.filter);
-            // 驗證是否成功套用
+            effectVideo.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
+            console.log('✅ 暖色調特效已套用, filter:', effectVideo.style.filter);
             setTimeout(() => {
-                const computedFilter = window.getComputedStyle(videoElement).filter;
+                const computedFilter = window.getComputedStyle(effectVideo).filter;
                 console.log('🔍 實際計算後的 filter:', computedFilter);
             }, 100);
             break;
         case 'invert':
-            videoElement.style.filter = 'invert(1) hue-rotate(180deg)';
+            effectVideo.style.filter = 'invert(1) hue-rotate(180deg)';
             console.log('✅ 反相特效已套用');
             if (typeof applyVideoEffect === 'function') {
                 applyVideoEffect('invert');
@@ -1738,11 +1770,9 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             }
             break;
         case 'rainbowBorder':
-            // 邊框樣式的彩虹
             if (videoContainer) {
                 videoContainer.classList.add('effect-rainbow-border');
                 console.log('✅ 彩虹邊框已套用, classes:', videoContainer.classList.toString());
-                // 驗證容器樣式
                 setTimeout(() => {
                     const hasClass = videoContainer.classList.contains('effect-rainbow-border');
                     const overflow = window.getComputedStyle(videoContainer).overflow;
@@ -1751,7 +1781,7 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             }
             break;
         case 'neon':
-            videoElement.style.filter = 'contrast(1.2) saturate(1.3)';
+            effectVideo.style.filter = 'contrast(1.2) saturate(1.3)';
             if (videoContainer) {
                 videoContainer.classList.add('effect-neon-border');
                 console.log('✅ 霓虹邊框已套用');
@@ -1784,12 +1814,10 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             console.warn('⚠️ 未知的特效類型:', effectType);
     }
     
-    // 標記活躍按鈕
     if (event && event.target) {
         event.target.classList.add('active');
     }
     
-    // 通知觀眾端應用相同特效
     broadcastEffectToViewers(effectType);
     
     console.log(`✅ 特效套用完成: ${effectType}`);
@@ -3932,6 +3960,11 @@ function clearEffect() {
     if (videoElement) {
         resetVideoEffectStyles(videoElement);
         hideFilmFrameOverlay(videoElement);
+    }
+
+    const pipVideo = document.getElementById('localPipVideo');
+    if (pipVideo) {
+        resetVideoEffectStyles(pipVideo);
     }
     
     // 移除動畫覆蓋層

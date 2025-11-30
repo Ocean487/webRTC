@@ -1012,17 +1012,17 @@ function handleStreamStatus(data) {
         if (statusText) statusText.textContent = '直播中';
         if (videoPlaceholder) videoPlaceholder.style.display = 'none';
         
-                    attachOverlayToPip(pipVideo);
+                attachOverlayToPip(getPipAnchorElement());
         // 更新標題
         if (streamTitle && data.title) {
             streamTitle.textContent = data.title;
             streamTitle.classList.add('updating');
             streamTitle.style.transform = 'scale(1.05)';
-            setTimeout(() => {
+                setTimeout(() => {
                 streamTitle.style.transform = 'scale(1)';
-                        attachOverlayToPip(null);
+                    attachOverlayToPip(null);
                 streamTitle.classList.remove('updating');
-            }, 300);
+                }, 300);
                     attachOverlayToPip(null);
         }
         
@@ -1267,66 +1267,81 @@ function initializePeerConnection() {
                     console.log('🎥 檢測到第二個視訊軌道，啟用畫中畫模式');
                     const pipTrack = videoTracks[1];
                     let pipVideo = document.getElementById('pipVideo');
+                    let pipWrapper = document.getElementById('pipVideoWrapper');
                     
-                    if (!pipVideo) {
-                        // 創建畫中畫視訊元素
-                        pipVideo = document.createElement('video');
-                        pipVideo.id = 'pipVideo';
-                        pipVideo.autoplay = true;
-                        pipVideo.playsInline = true;
-                        pipVideo.muted = true; // 防止回音
-                    }
-                    
-                    // 設定樣式 (每次都更新以確保正確)
-                    pipVideo.style.position = 'absolute';
-                    pipVideo.style.bottom = '40px';
-                    pipVideo.style.right = '20px';
-                    pipVideo.style.width = '30%'; // 設定為 25%
-                    pipVideo.style.height = 'auto'; // 自動高度以保持比例
-                    pipVideo.style.maxWidth = '400px';
-                    pipVideo.style.borderRadius = '12px';
-                    pipVideo.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
-                    pipVideo.style.zIndex = '100';
-                    pipVideo.style.border = '2px solid rgba(255, 255, 255, 0.8)';
-                    // pipVideo.style.objectFit = 'cover'; // 移除 cover 以顯示完整畫面
-                    pipVideo.style.transition = 'all 0.3s ease';
-                    
-                    // 確保添加到正確的容器 (streamVideo)
                     const container = document.getElementById('streamVideo');
+                    if (!pipWrapper) {
+                        pipWrapper = document.createElement('div');
+                        pipWrapper.id = 'pipVideoWrapper';
+                    }
+
+                    pipWrapper.style.position = 'absolute';
+                    pipWrapper.style.bottom = '40px';
+                    pipWrapper.style.right = '20px';
+                    pipWrapper.style.width = '30%';
+                    pipWrapper.style.maxWidth = '400px';
+                    pipWrapper.style.borderRadius = '12px';
+                    pipWrapper.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
+                    pipWrapper.style.zIndex = '100';
+                    pipWrapper.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+                    pipWrapper.style.transition = 'all 0.3s ease';
+                    pipWrapper.style.backgroundColor = 'black';
+                    pipWrapper.style.overflow = 'visible';
+
                     if (container) {
-                        // 確保容器有相對定位
                         if (window.getComputedStyle(container).position === 'static') {
                             container.style.position = 'relative';
                         }
-                        
-                        // 如果不在容器內，移動它
-                        if (pipVideo.parentElement !== container) {
-                            container.appendChild(pipVideo);
+                        if (pipWrapper.parentElement !== container) {
+                            container.appendChild(pipWrapper);
                             console.log('✅ 已將畫中畫移至 streamVideo 容器');
                         }
                     } else {
                         console.warn('⚠️ 找不到 streamVideo 容器，降級使用 body');
-                        document.body.appendChild(pipVideo);
+                        document.body.appendChild(pipWrapper);
+                    }
+
+                    if (!pipVideo) {
+                        pipVideo = document.createElement('video');
+                        pipVideo.id = 'pipVideo';
+                        pipVideo.autoplay = true;
+                        pipVideo.playsInline = true;
+                        pipVideo.muted = true;
+                        pipVideo.style.width = '100%';
+                        pipVideo.style.height = 'auto';
+                        pipVideo.style.display = 'block';
+                        pipVideo.style.borderRadius = '12px';
+                    }
+                    if (pipVideo.parentElement !== pipWrapper) {
+                        pipWrapper.appendChild(pipVideo);
                     }
                     
-                    // 設置串流
                     const pipStream = new MediaStream([pipTrack]);
                     pipVideo.srcObject = pipStream;
                     pipVideo.style.display = 'block';
+                    pipWrapper.style.display = 'block';
+                    attachOverlayToPip(pipWrapper);
                     
-                    // 監聽軌道結束
                     pipTrack.onended = () => {
                         console.log('畫中畫軌道結束');
                         if (pipVideo) {
                             pipVideo.style.display = 'none';
                         }
+                        if (pipWrapper) {
+                            pipWrapper.style.display = 'none';
+                        }
+                        attachOverlayToPip(null);
                     };
                 } else {
-                    // 如果只有一個軌道，隱藏畫中畫
                     const pipVideo = document.getElementById('pipVideo');
+                    const pipWrapper = document.getElementById('pipVideoWrapper');
                     if (pipVideo) {
                         pipVideo.style.display = 'none';
                     }
+                    if (pipWrapper) {
+                        pipWrapper.style.display = 'none';
+                    }
+                    attachOverlayToPip(null);
                 }
             } else {
                 console.warn('⚠️ 沒有視頻軌道在流中');
@@ -1773,17 +1788,21 @@ function displayOverlayMessage(rawData) {
 
 let overlayPipObserver = null;
 
+function getPipAnchorElement() {
+    return document.getElementById('pipVideoWrapper') || document.getElementById('pipVideo');
+}
+
 function updateOverlayPosition() {
     const overlay = document.getElementById('videoOverlayChat');
     if (!overlay) return;
-    const pipVideo = document.getElementById('pipVideo');
-    const pipVisible = pipVideo && pipVideo.offsetHeight > 0 && pipVideo.style.display !== 'none';
+    const pipAnchor = getPipAnchorElement();
+    const pipVisible = pipAnchor && pipAnchor.offsetHeight > 0 && pipAnchor.style.display !== 'none';
 
     if (pipVisible) {
-        const pipBottom = parseFloat(pipVideo.style.bottom) || 40;
-        const pipHeight = pipVideo.offsetHeight || 0;
+        const pipBottom = parseFloat(pipAnchor.style.bottom) || 40;
+        const pipHeight = pipAnchor.offsetHeight || 0;
         const gap = 16;
-        overlay.style.right = pipVideo.style.right || '20px';
+        overlay.style.right = pipAnchor.style.right || '20px';
         overlay.style.bottom = `${pipBottom + pipHeight + gap}px`;
         overlay.dataset.overlayAnchor = 'pip';
     } else {
@@ -1793,22 +1812,23 @@ function updateOverlayPosition() {
     }
 }
 
-function attachOverlayToPip(pipVideo) {
+function attachOverlayToPip(pipElement) {
     if (overlayPipObserver) {
         overlayPipObserver.disconnect();
         overlayPipObserver = null;
     }
-    if (!pipVideo) {
+    if (!pipElement) {
         updateOverlayPosition();
         return;
     }
 
     if (typeof ResizeObserver !== 'undefined') {
         overlayPipObserver = new ResizeObserver(() => updateOverlayPosition());
-        overlayPipObserver.observe(pipVideo);
+        overlayPipObserver.observe(pipElement);
     }
 
-    if (pipVideo.readyState < 2) {
+    const pipVideo = document.getElementById('pipVideo');
+    if (pipVideo && pipVideo.readyState < 2) {
         pipVideo.addEventListener('loadedmetadata', updateOverlayPosition, { once: true });
     }
 
