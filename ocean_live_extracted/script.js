@@ -20,6 +20,10 @@ let isRestoringCamera = false;
 let currentCameraStream = null; // 攝影機串流
 let currentScreenStream = null; // 螢幕分享串流
 let blackCanvasStream = null;   // 黑畫面串流 (當沒有螢幕分享時使用)
+let processedCameraStream = null; // 套用特效後的攝影機串流 (僅視訊)
+let processedCameraTrack = null;  // 快速引用特效後的攝影機視訊軌
+let cameraEffectType = 'none';    // 目前套用在攝影機上的特效
+let baseCameraStream = null;      // 儲存原始攝影機串流供特效使用
 
 const DEVICE_STORAGE_KEYS = {
     camera: 'broadcaster_camera_device_id',
@@ -632,6 +636,38 @@ function getBlackStream() {
     return blackCanvasStream;
 }
 
+const CAMERA_PIP_ONLY_EFFECTS = new Set(['bright', 'wrinkle']);
+
+function getEffectiveCameraVideoTrack() {
+    if (processedCameraTrack && processedCameraTrack.readyState === 'live') {
+        processedCameraTrack.enabled = isVideoEnabled;
+        return processedCameraTrack;
+    }
+    if (currentCameraStream && currentCameraStream.active) {
+        const track = currentCameraStream.getVideoTracks()[0] || null;
+        if (track) {
+            track.enabled = isVideoEnabled;
+        }
+        return track;
+    }
+    return null;
+}
+
+function clearCameraEffectState({ stopProcessor = false } = {}) {
+    if (processedCameraStream) {
+        processedCameraStream.getTracks().forEach(track => track.stop());
+    }
+    processedCameraStream = null;
+    processedCameraTrack = null;
+    cameraEffectType = 'none';
+    baseCameraStream = null;
+
+    if (stopProcessor && typeof window !== 'undefined' && window.videoEffectsProcessor) {
+        window.videoEffectsProcessor.stopProcessing();
+        window.videoEffectsProcessor.setEffect('none');
+    }
+}
+
 // 更新本地串流組合 (核心邏輯)
 async function updateLocalStreamComposition() {
     console.log('🔄 更新本地串流組合...');
@@ -646,8 +682,8 @@ async function updateLocalStreamComposition() {
     
     // 2. 準備次軌道 (Track 1): 攝影機 (如果啟用)
     let pipTrack = null;
-    if (currentCameraStream && currentCameraStream.active && isVideoEnabled) {
-        pipTrack = currentCameraStream.getVideoTracks()[0];
+    if (isVideoEnabled) {
+        pipTrack = getEffectiveCameraVideoTrack();
     }
     
     // 3. 準備音訊軌道
@@ -991,6 +1027,7 @@ async function startStream() {
 
 // 停止直播
 function stopStream() {
+    clearCameraEffectState({ stopProcessor: true });
     // 停止所有串流
     if (currentCameraStream) {
         currentCameraStream.getTracks().forEach(track => track.stop());
@@ -1155,6 +1192,7 @@ async function toggleAudio() {
 // 切換鏡頭
 async function switchCamera() {
     try {
+        clearCameraEffectState({ stopProcessor: true });
         currentFacingMode = currentFacingMode === 'user' ? 'environment' : 'user';
         
         // 停止舊的攝影機串流
@@ -3621,6 +3659,18 @@ function applyVideoEffect(effectType) {
         addMessage('系統', '❌ 請先開始直播才能使用特效');
         return;
     }
+
+    if (CAMERA_PIP_ONLY_EFFECTS.has(effectType)) {
+        applyCameraOnlyVideoEffect(effectType);
+        return;
+    }
+
+    if (processedCameraStream) {
+        clearCameraEffectState();
+        if (window.videoEffectsProcessor) {
+            window.videoEffectsProcessor.stopProcessing();
+        }
+    }
     
     try {
         // 儲存原始視訊流，避免重複處理造成顏色累積
@@ -3677,17 +3727,74 @@ function applyVideoEffect(effectType) {
     }
 }
 
+function applyCameraOnlyVideoEffect(effectType) {
+    if (!currentCameraStream || !currentCameraStream.active) {
+        addMessage('系統', '❌ 無法取得攝影機畫面');
+        return;
+    }
+
+    try {
+        baseCameraStream = baseCameraStream || currentCameraStream;
+        if (!baseCameraStream) {
+            addMessage('系統', '❌ 沒有可處理的攝影機畫面');
+            return;
+        }
+
+        if (window.videoEffectsProcessor) {
+            window.videoEffectsProcessor.stopProcessing();
+            window.videoEffectsProcessor.setVideoSource(baseCameraStream);
+            window.videoEffectsProcessor.setEffect(effectType);
+            window.videoEffectsProcessor.startProcessing();
+        }
+
+        setTimeout(() => {
+            if (!window.videoEffectsProcessor) return;
+            const processedStream = window.videoEffectsProcessor.getProcessedStream();
+            if (!processedStream) {
+                console.warn('⚠️ 無法取得處理後的攝影機串流');
+                return;
+            }
+
+            const processedTrack = processedStream.getVideoTracks()[0];
+            if (!processedTrack) {
+                console.warn('⚠️ 處理後的攝影機串流缺少視訊軌');
+                return;
+            }
+
+            processedCameraStream = processedStream;
+            processedCameraTrack = processedTrack;
+            cameraEffectType = effectType;
+            processedCameraTrack.enabled = isVideoEnabled;
+
+            updateLocalStreamComposition();
+            addMessage('系統', `🎨 已在畫中畫套用 ${getEffectDisplayName(effectType)} 特效`);
+            console.log(`✅ 特效 ${effectType} 已應用於攝影機畫面`);
+        }, 150);
+    } catch (error) {
+        console.error('應用攝影機特效時出錯:', error);
+        addMessage('系統', `❌ 無法在畫中畫套用特效: ${error.message}`);
+    }
+}
+
 // 恢復原始視頻流
 function restoreOriginalStream() {
     console.log('🔄 恢復原始視頻流');
     
-    if (window.videoEffectsProcessor) {
+    let restored = false;
+
+    if (processedCameraStream) {
+        clearCameraEffectState({ stopProcessor: true });
+        updateLocalStreamComposition();
+        restored = true;
+        addMessage('系統', '🔄 已移除攝影機特效');
+        console.log('✅ 攝影機畫面已恢復原狀');
+    } else if (window.videoEffectsProcessor) {
         window.videoEffectsProcessor.stopProcessing();
     }
 
     const originalStream = baseVideoStream || localStream;
     
-    if (originalStream) {
+    if (baseVideoStream && originalStream) {
         const localVideo = document.getElementById('localVideo');
         if (localVideo) {
             localVideo.srcObject = originalStream;
@@ -3698,6 +3805,7 @@ function restoreOriginalStream() {
             // 更新所有觀眾的流
             updateStreamForAllViewers(originalStream);
 
+            restored = true;
             addMessage('系統', '🔄 已恢復原始畫面');
             console.log('✅ 原始視頻流已恢復');
         }
@@ -3746,12 +3854,13 @@ function getEffectDisplayName(effectType) {
         'vintage': '復古濾鏡',
         'blackwhite': '黑白濾鏡',
         'sepia': '懷舊濾鏡',
-    'invert': '反相濾鏡',
-    'glasses': '戴眼鏡特效',
+        'invert': '反相濾鏡',
+        'glasses': '戴眼鏡特效',
         'edge': '邊緣檢測',
         'emboss': '浮雕效果',
         'blur': '模糊效果',
-        'bright': '亮度增強',
+        'bright': '消皺特徵點',
+        'wrinkle': '消皺平滑',
         'rainbow': '彩虹效果'
     };
     

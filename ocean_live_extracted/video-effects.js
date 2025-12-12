@@ -1,4 +1,17 @@
+const FACE_MESH_VERSION = '0.4.1633559619';
+const FACE_MESH_CDN_BASE = `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh@${FACE_MESH_VERSION}`;
+
 // 視頻特效處理系統 - 基於 WebRTC 教學和 Webcam Toy 概念
+const FACE_OVAL_INDICES = [
+    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379,
+    378, 400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127,
+    162, 21, 54, 103, 67, 109
+];
+const LEFT_EYE_INDICES = [33, 7, 163, 144, 145, 153, 154, 155, 133, 173, 157, 158, 159, 160, 161, 246];
+const RIGHT_EYE_INDICES = [263, 249, 390, 373, 374, 380, 381, 382, 362, 398, 384, 385, 386, 387, 388, 466];
+const LIPS_INDICES = [61, 146, 91, 181, 84, 17, 314, 405, 321, 375, 291, 308, 324, 318, 402, 317, 14, 87, 178, 88, 95, 185, 40, 39, 37, 0, 267, 269, 270, 409, 415, 310, 311, 312, 13, 82, 81, 42, 183, 78];
+const LEFT_BROW_INDICES = [46, 53, 52, 65, 55, 70, 63, 105, 66, 107, 55];
+const RIGHT_BROW_INDICES = [276, 283, 282, 295, 285, 300, 293, 334, 296, 336, 285];
 class VideoEffectsProcessor {
     constructor() {
         this.canvas = null;
@@ -24,6 +37,28 @@ class VideoEffectsProcessor {
             edge: false,
             emboss: false
         };
+
+        // MediaPipe Face Mesh 狀態（用於消皺平滑）
+        this.faceMesh = null;
+        this.faceMeshReady = false;
+        this.faceMeshLoading = null;
+        this.faceMeshBusy = false;
+        this.lastFaceLandmarks = null;
+        this.lastFaceTs = 0;
+        this.faceMeshThrottleMs = 8;
+        this.maskCanvas = null;
+        this.maskCtx = null;
+        this.faceUVCanvas = null;
+        this.faceUVCtx = null;
+        this.faceUVSize = 512;
+        this.cvReady = false;
+        this.cvLoading = null;
+        this.frameBuffer = null;
+        this.faceProcessCanvas = null;
+        this.faceProcessCtx = null;
+        this.maxFaceProcessWidth = 220;
+        this.smoothedFaceLandmarks = null;
+        this.landmarkSmoothFactor = 0.5;
         
         this.initializeCanvas();
     }
@@ -186,7 +221,9 @@ class VideoEffectsProcessor {
             case 'blur':
                 return this.applyBlurEffect(imageData);
             case 'bright':
-                return this.applyBrightnessEffect(imageData);
+                return this.applyFaceMeshLandmarkEffect(imageData);
+            case 'wrinkle':
+                return this.applyWrinkleSmoothEffect(imageData);
             case 'rainbow':
                 return this.applyRainbowEffect(imageData);
             default:
@@ -375,6 +412,35 @@ class VideoEffectsProcessor {
         return imageData;
     }
     
+    // FaceMesh 特徵點覆蓋（供「消皺」功能使用）
+    applyFaceMeshLandmarkEffect(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+
+        this.ensureFaceMesh();
+        if (!this.faceMeshReady) {
+            return imageData;
+        }
+
+        const now = performance.now();
+        if (!this.faceMeshBusy && now - this.lastFaceTs > this.faceMeshThrottleMs) {
+            this.faceMeshBusy = true;
+            this.faceMesh.send({ image: this.effectCanvas })
+                .catch(err => console.warn('⚠️ Face Mesh 推論失敗:', err))
+                .finally(() => {
+                    this.faceMeshBusy = false;
+                });
+        }
+
+        const landmarks = this.lastFaceLandmarks;
+        if (!landmarks) {
+            return imageData;
+        }
+
+        this.renderFaceCutoutOverlay(imageData, landmarks, width, height);
+        return imageData;
+    }
+    
     // HSL 轉 RGB
     hslToRgb(h, s, l) {
         let r, g, b;
@@ -399,6 +465,695 @@ class VideoEffectsProcessor {
         }
         
         return [Math.round(r * 255), Math.round(g * 255), Math.round(b * 255)];
+    }
+
+    // 消皺平滑特效：透過 Face Mesh 建立皮膚遮罩後模糊並微調亮度與飽和度
+    applyWrinkleSmoothEffect(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+
+        // 確保 Face Mesh 已載入，未就緒時先回傳原圖避免阻塞
+        this.ensureFaceMesh();
+        if (!this.faceMeshReady) {
+            return imageData;
+        }
+
+        // 初始化遮罩畫布
+        if (!this.maskCanvas) {
+            this.maskCanvas = document.createElement('canvas');
+            this.maskCtx = this.maskCanvas.getContext('2d');
+        }
+        if (this.maskCanvas.width !== width || this.maskCanvas.height !== height) {
+            this.maskCanvas.width = width;
+            this.maskCanvas.height = height;
+        }
+
+        const now = performance.now();
+        if (!this.faceMeshBusy && now - this.lastFaceTs > this.faceMeshThrottleMs) {
+            this.faceMeshBusy = true;
+            this.faceMesh.send({ image: this.effectCanvas })
+                .catch(err => console.warn('⚠️ Face Mesh 推論失敗:', err))
+                .finally(() => {
+                    this.faceMeshBusy = false;
+                });
+        }
+
+        const landmarks = this.lastFaceLandmarks;
+        if (!landmarks) {
+            return imageData;
+        }
+
+        // 建立皮膚遮罩（臉部 oval 並排除眼睛、眉毛、嘴巴）
+        this.buildSkinMask(landmarks, width, height);
+        const maskImage = this.maskCtx.getImageData(0, 0, width, height);
+        const maskData = maskImage.data;
+
+        // 嘗試使用 OpenCV.js 進行高階磨皮（可選）
+        this.ensureOpenCv();
+        if (this.applyOpenCvSkinSmoothing(imageData, maskImage)) {
+            return imageData;
+        }
+
+        if (this.applyMosaicSkin(imageData, maskImage, 6)) {
+            return imageData;
+        }
+
+        const faceBox = this.getFaceBoundingBox(landmarks, width, height);
+        if (!faceBox) {
+            return imageData;
+        }
+
+        if (!this.faceUVCanvas) {
+            this.faceUVCanvas = document.createElement('canvas');
+            this.faceUVCtx = this.faceUVCanvas.getContext('2d');
+        }
+
+        const uvSize = this.faceUVSize;
+        if (this.faceUVCanvas.width !== uvSize || this.faceUVCanvas.height !== uvSize) {
+            this.faceUVCanvas.width = uvSize;
+            this.faceUVCanvas.height = uvSize;
+        }
+
+        const srcX = Math.max(0, Math.floor(faceBox.x));
+        const srcY = Math.max(0, Math.floor(faceBox.y));
+        const srcW = Math.max(1, Math.min(width - srcX, Math.ceil(faceBox.w)));
+        const srcH = Math.max(1, Math.min(height - srcY, Math.ceil(faceBox.h)));
+
+        this.faceUVCtx.clearRect(0, 0, uvSize, uvSize);
+        this.faceUVCtx.drawImage(this.effectCanvas, srcX, srcY, srcW, srcH, 0, 0, uvSize, uvSize);
+
+        let uvImage = this.faceUVCtx.getImageData(0, 0, uvSize, uvSize);
+        uvImage = this.gaussianBlurImage(uvImage, uvSize, uvSize, 12);
+        uvImage = this.gaussianBlurImage(uvImage, uvSize, uvSize, 8);
+        const uvData = uvImage.data;
+
+        const data = imageData.data;
+        const saturationBoost = 0.2;
+        const whitenBoost = 55;
+        const lerp = (a, b, t) => a + (b - a) * t;
+        const startX = srcX;
+        const endX = Math.min(width, Math.ceil(faceBox.x + faceBox.w));
+        const startY = srcY;
+        const endY = Math.min(height, Math.ceil(faceBox.y + faceBox.h));
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                const idx = (y * width + x) * 4;
+                let alpha = maskData[idx + 3] / 255;
+                if (alpha <= 0.02) continue;
+
+                const u = (x - faceBox.x) / faceBox.w;
+                const v = (y - faceBox.y) / faceBox.h;
+                if (u < 0 || u > 1 || v < 0 || v > 1) continue;
+
+                alpha = Math.min(1, Math.pow(alpha, 1.45));
+                const mixStrength = Math.min(1, alpha * 1.2);
+
+                const [ur, ug, ub] = this.sampleUVPixel(uvData, uvSize, uvSize, u, v);
+                let nr = lerp(data[idx], ur, mixStrength);
+                let ng = lerp(data[idx + 1], ug, mixStrength);
+                let nb = lerp(data[idx + 2], ub, mixStrength);
+
+                const sampleLum = 0.299 * ur + 0.587 * ug + 0.114 * ub;
+                const baseLum = 0.299 * nr + 0.587 * ng + 0.114 * nb;
+                const lightGain = Math.max(0, sampleLum - baseLum) * mixStrength;
+                const whiten = whitenBoost * mixStrength;
+
+                nr = this.clamp(nr + lightGain + whiten);
+                ng = this.clamp(ng + lightGain + whiten);
+                nb = this.clamp(nb + lightGain + whiten);
+
+                const [sr, sg, sb] = this.adjustSaturation(nr, ng, nb, saturationBoost * mixStrength);
+                data[idx] = sr;
+                data[idx + 1] = sg;
+                data[idx + 2] = sb;
+            }
+        }
+
+        return imageData;
+    }
+
+    buildSkinMask(landmarks, width, height) {
+        if (!this.maskCtx) return;
+        const ctx = this.maskCtx;
+        ctx.clearRect(0, 0, width, height);
+
+        // 臉部輪廓
+        ctx.save();
+        ctx.beginPath();
+        FACE_OVAL_INDICES.forEach((idx, i) => {
+            const pt = landmarks[idx];
+            const x = pt.x * width;
+            const y = pt.y * height;
+            if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+        });
+        ctx.closePath();
+        ctx.fillStyle = 'white';
+        ctx.fill();
+
+        // 挖除眼睛與嘴巴避免過度模糊
+        ctx.globalCompositeOperation = 'destination-out';
+        [LEFT_EYE_INDICES, RIGHT_EYE_INDICES, LIPS_INDICES, LEFT_BROW_INDICES, RIGHT_BROW_INDICES].forEach((set) => {
+            ctx.beginPath();
+            set.forEach((idx, i) => {
+                const pt = landmarks[idx];
+                const x = pt.x * width;
+                const y = pt.y * height;
+                if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+            });
+            ctx.closePath();
+            ctx.fill();
+        });
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.restore();
+    }
+
+    getFaceBoundingBox(landmarks, width, height) {
+        if (!landmarks || landmarks.length === 0) return null;
+        let minX = 1;
+        let minY = 1;
+        let maxX = 0;
+        let maxY = 0;
+
+        for (const pt of landmarks) {
+            minX = Math.min(minX, pt.x);
+            minY = Math.min(minY, pt.y);
+            maxX = Math.max(maxX, pt.x);
+            maxY = Math.max(maxY, pt.y);
+        }
+
+        const padding = 0.04;
+        minX = Math.max(0, minX - padding);
+        minY = Math.max(0, minY - padding);
+        maxX = Math.min(1, maxX + padding);
+        maxY = Math.min(1, maxY + padding);
+
+        const boxWidth = (maxX - minX) * width;
+        const boxHeight = (maxY - minY) * height;
+        if (boxWidth < 2 || boxHeight < 2) return null;
+
+        return {
+            x: minX * width,
+            y: minY * height,
+            w: boxWidth,
+            h: boxHeight
+        };
+    }
+
+    sampleUVPixel(pixels, width, height, u, v) {
+        const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+        const x = clamp(u, 0, 1) * (width - 1);
+        const y = clamp(v, 0, 1) * (height - 1);
+        const x0 = Math.floor(x);
+        const y0 = Math.floor(y);
+        const x1 = Math.min(width - 1, x0 + 1);
+        const y1 = Math.min(height - 1, y0 + 1);
+        const xf = x - x0;
+        const yf = y - y0;
+
+        const idx = (yy, xx) => (yy * width + xx) * 4;
+        const interpolate = (c00, c10, c01, c11) => {
+            const top = c00 + (c10 - c00) * xf;
+            const bottom = c01 + (c11 - c01) * xf;
+            return top + (bottom - top) * yf;
+        };
+
+        const idx00 = idx(y0, x0);
+        const idx10 = idx(y0, x1);
+        const idx01 = idx(y1, x0);
+        const idx11 = idx(y1, x1);
+
+        const r = interpolate(pixels[idx00], pixels[idx10], pixels[idx01], pixels[idx11]);
+        const g = interpolate(pixels[idx00 + 1], pixels[idx10 + 1], pixels[idx01 + 1], pixels[idx11 + 1]);
+        const b = interpolate(pixels[idx00 + 2], pixels[idx10 + 2], pixels[idx01 + 2], pixels[idx11 + 2]);
+        return [r, g, b];
+    }
+
+    gaussianBlurImage(imageData, width, height, radius) {
+        const src = imageData.data;
+        const temp = new Uint8ClampedArray(src.length);
+        const dst = new Uint8ClampedArray(src.length);
+        const kernelSize = radius * 2 + 1;
+        const weight = kernelSize;
+
+        // 水平模糊
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                for (let c = 0; c < 3; c++) {
+                    let sum = 0;
+                    for (let k = -radius; k <= radius; k++) {
+                        const clampedX = Math.min(width - 1, Math.max(0, x + k));
+                        const idx = (y * width + clampedX) * 4 + c;
+                        sum += src[idx];
+                    }
+                    temp[(y * width + x) * 4 + c] = sum / weight;
+                }
+            }
+        }
+
+        // 垂直模糊
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                for (let c = 0; c < 3; c++) {
+                    let sum = 0;
+                    for (let k = -radius; k <= radius; k++) {
+                        const clampedY = Math.min(height - 1, Math.max(0, y + k));
+                        const idx = (clampedY * width + x) * 4 + c;
+                        sum += temp[idx];
+                    }
+                    dst[(y * width + x) * 4 + c] = sum / weight;
+                }
+            }
+        }
+
+        return new ImageData(dst, width, height);
+    }
+
+    adjustSaturation(r, g, b, amount) {
+        // HSL 方式調整飽和度
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h, s, l;
+        l = (max + min) / 2 / 255;
+        if (max === min) {
+            h = s = 0;
+        } else {
+            const d = (max - min);
+            s = l > 0.5 ? d / (510 - max - min) : d / (max + min);
+            switch (max) {
+                case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+                case g: h = (b - r) / d + 2; break;
+                default: h = (r - g) / d + 4; break;
+            }
+            h /= 6;
+        }
+        s = Math.max(0, Math.min(1, s + amount));
+
+        const hue2rgb = (p, q, t) => {
+            if (t < 0) t += 1;
+            if (t > 1) t -= 1;
+            if (t < 1 / 6) return p + (q - p) * 6 * t;
+            if (t < 1 / 2) return q;
+            if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+            return p;
+        };
+
+        let q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        let p = 2 * l - q;
+        const nr = hue2rgb(p, q, h + 1 / 3);
+        const ng = hue2rgb(p, q, h);
+        const nb = hue2rgb(p, q, h - 1 / 3);
+        return [this.clamp(nr * 255), this.clamp(ng * 255), this.clamp(nb * 255)];
+    }
+
+    clamp(v) {
+        return Math.max(0, Math.min(255, v));
+    }
+
+    renderFaceCutoutOverlay(imageData, landmarks, width, height) {
+        if (!this.maskCanvas) {
+            this.maskCanvas = document.createElement('canvas');
+            this.maskCtx = this.maskCanvas.getContext('2d');
+        }
+
+        if (this.maskCanvas.width !== width || this.maskCanvas.height !== height) {
+            this.maskCanvas.width = width;
+            this.maskCanvas.height = height;
+        }
+
+        this.buildSkinMask(landmarks, width, height);
+        const maskImage = this.maskCtx.getImageData(0, 0, width, height);
+        const maskData = maskImage.data;
+        const data = imageData.data;
+        if (!this.frameBuffer || this.frameBuffer.length !== data.length) {
+            this.frameBuffer = new Uint8ClampedArray(data.length);
+        }
+        this.frameBuffer.set(data);
+        const originalData = this.frameBuffer;
+        const faceBox = this.getFaceBoundingBox(landmarks, width, height);
+        if (!faceBox) return;
+
+        const startX = Math.max(0, Math.floor(faceBox.x));
+        const startY = Math.max(0, Math.floor(faceBox.y));
+        const endX = Math.min(width, Math.ceil(faceBox.x + faceBox.w));
+        const endY = Math.min(height, Math.ceil(faceBox.y + faceBox.h));
+        const regionWidth = Math.max(1, endX - startX);
+        const regionHeight = Math.max(1, endY - startY);
+
+        if (!this.faceProcessCanvas) {
+            this.faceProcessCanvas = document.createElement('canvas');
+            this.faceProcessCtx = this.faceProcessCanvas.getContext('2d', { willReadFrequently: true });
+        }
+
+        const maxWidth = this.maxFaceProcessWidth || 220;
+        const scaleDown = Math.min(1, maxWidth / regionWidth);
+        const processWidth = Math.max(1, Math.round(regionWidth * scaleDown));
+        const processHeight = Math.max(1, Math.round(regionHeight * scaleDown));
+
+        if (this.faceProcessCanvas.width !== processWidth || this.faceProcessCanvas.height !== processHeight) {
+            this.faceProcessCanvas.width = processWidth;
+            this.faceProcessCanvas.height = processHeight;
+        }
+
+        const processCtx = this.faceProcessCtx;
+        processCtx.imageSmoothingEnabled = true;
+        if (processCtx.imageSmoothingQuality) {
+            processCtx.imageSmoothingQuality = 'high';
+        }
+        processCtx.clearRect(0, 0, processWidth, processHeight);
+        const supportsFilter = typeof processCtx.filter === 'string';
+        const previousFilter = supportsFilter ? processCtx.filter : null;
+        if (supportsFilter) {
+            processCtx.filter = 'blur(4px)';
+        }
+        processCtx.drawImage(this.effectCanvas, startX, startY, regionWidth, regionHeight, 0, 0, processWidth, processHeight);
+        if (supportsFilter) {
+            processCtx.filter = previousFilter || 'none';
+        }
+
+        const smoothRegion = processCtx.getImageData(0, 0, processWidth, processHeight);
+        const smoothData = smoothRegion.data;
+
+        data.set(originalData);
+
+        for (let y = startY; y < endY; y++) {
+            for (let x = startX; x < endX; x++) {
+                const idx = (y * width + x) * 4;
+                const alpha = maskData[idx + 3] / 255;
+                if (alpha <= 0.02) continue;
+
+                const maskMix = Math.min(1, Math.pow(alpha, 1.2));
+                const lift = 24 * maskMix;
+                const blend = 0.5 + maskMix * 0.35;
+                const px = Math.min(processWidth - 1, Math.max(0, Math.round((x - startX) * scaleDown)));
+                const py = Math.min(processHeight - 1, Math.max(0, Math.round((y - startY) * scaleDown)));
+                const regionIdx = (py * processWidth + px) * 4;
+                const sr = smoothData[regionIdx];
+                const sg = smoothData[regionIdx + 1];
+                const sb = smoothData[regionIdx + 2];
+
+                data[idx] = this.clamp((originalData[idx] * (1 - blend)) + sr * blend + lift);
+                data[idx + 1] = this.clamp((originalData[idx + 1] * (1 - blend)) + sg * blend + lift * 0.95);
+                data[idx + 2] = this.clamp((originalData[idx + 2] * (1 - blend)) + sb * blend + lift * 0.9);
+            }
+        }
+    }
+
+    renderLandmarkOverlay(imageData, landmarks, width, height) {
+        const palette = [
+            [255, 90, 140],
+            [90, 210, 255],
+            [255, 220, 110]
+        ];
+        const pointRadius = 3;
+        const data = imageData.data;
+
+        const setPixel = (x, y, color) => {
+            if (x < 0 || x >= width || y < 0 || y >= height) return;
+            const idx = (y * width + x) * 4;
+            data[idx] = color[0];
+            data[idx + 1] = color[1];
+            data[idx + 2] = color[2];
+            data[idx + 3] = 255;
+        };
+
+        const drawDot = (cx, cy, color) => {
+            for (let dy = -pointRadius; dy <= pointRadius; dy++) {
+                for (let dx = -pointRadius; dx <= pointRadius; dx++) {
+                    if (dx * dx + dy * dy <= pointRadius * pointRadius + 1) {
+                        setPixel(cx + dx, cy + dy, color);
+                    }
+                }
+            }
+        };
+
+        const drawPolyline = (indices, close = false, color = [70, 255, 180]) => {
+            for (let i = 0; i < indices.length - 1; i++) {
+                const a = landmarks[indices[i]];
+                const b = landmarks[indices[i + 1]];
+                this.drawLineOnImage(a, b, color, imageData, width, height, setPixel);
+            }
+            if (close) {
+                const a = landmarks[indices[indices.length - 1]];
+                const b = landmarks[indices[0]];
+                this.drawLineOnImage(a, b, color, imageData, width, height, setPixel);
+            }
+        };
+
+        landmarks.forEach((pt, index) => {
+            const px = Math.round(pt.x * width);
+            const py = Math.round(pt.y * height);
+            drawDot(px, py, palette[index % palette.length]);
+        });
+
+        drawPolyline(FACE_OVAL_INDICES, true, [255, 120, 120]);
+        drawPolyline(LEFT_EYE_INDICES, true, [120, 255, 200]);
+        drawPolyline(RIGHT_EYE_INDICES, true, [120, 255, 200]);
+        drawPolyline(LIPS_INDICES, true, [255, 200, 120]);
+        drawPolyline(LEFT_BROW_INDICES, false, [255, 180, 80]);
+        drawPolyline(RIGHT_BROW_INDICES, false, [255, 180, 80]);
+    }
+
+    drawLineOnImage(ptA, ptB, color, imageData, width, height, setPixel) {
+        const x0 = Math.round(ptA.x * width);
+        const y0 = Math.round(ptA.y * height);
+        const x1 = Math.round(ptB.x * width);
+        const y1 = Math.round(ptB.y * height);
+
+        let dx = Math.abs(x1 - x0);
+        let dy = Math.abs(y1 - y0);
+        const sx = x0 < x1 ? 1 : -1;
+        const sy = y0 < y1 ? 1 : -1;
+        let err = dx - dy;
+        let x = x0;
+        let y = y0;
+
+        while (true) {
+            setPixel(x, y, color);
+            if (x === x1 && y === y1) break;
+            const e2 = 2 * err;
+            if (e2 > -dy) {
+                err -= dy;
+                x += sx;
+            }
+            if (e2 < dx) {
+                err += dx;
+                y += sy;
+            }
+        }
+    }
+
+    ensureFaceMesh() {
+        if (this.faceMeshReady || this.faceMeshLoading) return this.faceMeshLoading;
+
+        this.faceMeshLoading = new Promise((resolve, reject) => {
+            const startInstance = () => {
+                try {
+                    this.faceMesh = new window.FaceMesh({
+                        locateFile: (file) => `${FACE_MESH_CDN_BASE}/${file}`
+                    });
+                    this.faceMesh.setOptions({
+                        maxNumFaces: 1,
+                        refineLandmarks: true,
+                        minDetectionConfidence: 0.35,
+                        minTrackingConfidence: 0.35,
+                        modelComplexity: 1,
+                        staticImageMode: false
+                    });
+                    this.faceMesh.onResults((res) => {
+                        if (res && res.multiFaceLandmarks && res.multiFaceLandmarks.length > 0) {
+                            const detected = res.multiFaceLandmarks[0];
+                            if (!this.smoothedFaceLandmarks || this.smoothedFaceLandmarks.length !== detected.length) {
+                                this.smoothedFaceLandmarks = detected.map(pt => ({ x: pt.x, y: pt.y, z: pt.z || 0 }));
+                            } else {
+                                const factor = this.landmarkSmoothFactor;
+                                for (let i = 0; i < detected.length; i++) {
+                                    const target = this.smoothedFaceLandmarks[i];
+                                    const source = detected[i];
+                                    target.x += (source.x - target.x) * factor;
+                                    target.y += (source.y - target.y) * factor;
+                                    if (typeof source.z === 'number') {
+                                        target.z += (source.z - target.z) * factor;
+                                    }
+                                }
+                            }
+                            this.lastFaceLandmarks = this.smoothedFaceLandmarks;
+                            this.lastFaceTs = performance.now();
+                        }
+                    });
+                    this.faceMeshReady = true;
+                    console.log('✅ Face Mesh 模型已載入');
+                    resolve();
+                } catch (err) {
+                    console.error('❌ 初始化 Face Mesh 失敗:', err);
+                    reject(err);
+                }
+            };
+
+            if (window.FaceMesh) {
+                startInstance();
+            } else {
+                const script = document.createElement('script');
+                script.src = `${FACE_MESH_CDN_BASE}/face_mesh.js`;
+                script.onload = () => startInstance();
+                script.onerror = (err) => {
+                    console.error('❌ 載入 Face Mesh 腳本失敗:', err);
+                    reject(err);
+                };
+                document.head.appendChild(script);
+            }
+        });
+
+        return this.faceMeshLoading;
+    }
+
+    ensureOpenCv() {
+        if (this.cvReady || this.cvLoading) return this.cvLoading;
+
+        this.cvLoading = new Promise((resolve, reject) => {
+            const markReady = () => {
+                this.cvReady = true;
+                console.log('✅ OpenCV.js 已就緒');
+                resolve();
+            };
+
+            const waitForCv = () => {
+                if (window.cv && typeof window.cv.Mat === 'function') {
+                    markReady();
+                } else {
+                    setTimeout(waitForCv, 50);
+                }
+            };
+
+            const loadScript = () => {
+                const script = document.createElement('script');
+                script.src = 'webrtc-filters-tutorial-master/public/lib/opencv.js';
+                script.onload = () => {
+                    waitForCv();
+                };
+                script.onerror = (err) => {
+                    console.error('❌ 載入 OpenCV.js 失敗:', err);
+                    reject(err);
+                };
+                document.head.appendChild(script);
+            };
+
+            if (window.cv && typeof window.cv.Mat === 'function') {
+                markReady();
+            } else {
+                loadScript();
+            }
+        });
+
+        return this.cvLoading;
+    }
+
+    applyOpenCvSkinSmoothing(imageData, maskImage) {
+        if (!this.cvReady || !window.cv || typeof window.cv.Mat !== 'function') {
+            return false;
+        }
+
+        const cv = window.cv;
+        let srcMat, rgbMat, bilateralMat, gaussianMat, smoothRgba;
+        try {
+            srcMat = cv.matFromImageData(imageData);
+            rgbMat = new cv.Mat();
+            cv.cvtColor(srcMat, rgbMat, cv.COLOR_RGBA2RGB);
+
+            bilateralMat = new cv.Mat();
+            cv.bilateralFilter(rgbMat, bilateralMat, 11, 90, 90);
+
+            gaussianMat = new cv.Mat();
+            cv.GaussianBlur(bilateralMat, gaussianMat, new cv.Size(7, 7), 0, 0, cv.BORDER_DEFAULT);
+
+            smoothRgba = new cv.Mat();
+            cv.cvtColor(gaussianMat, smoothRgba, cv.COLOR_RGB2RGBA);
+
+            const smoothData = smoothRgba.data;
+            const maskData = maskImage.data;
+            const data = imageData.data;
+
+            for (let i = 0; i < data.length; i += 4) {
+                let alpha = maskData[i + 3] / 255;
+                if (alpha <= 0.02) continue;
+                alpha = Math.min(1, Math.pow(alpha, 1.35));
+                const mix = Math.min(1, alpha * 0.95);
+
+                data[i] = this.clamp(data[i] * (1 - mix) + smoothData[i] * mix + 30 * alpha);
+                data[i + 1] = this.clamp(data[i + 1] * (1 - mix) + smoothData[i + 1] * mix + 30 * alpha);
+                data[i + 2] = this.clamp(data[i + 2] * (1 - mix) + smoothData[i + 2] * mix + 30 * alpha);
+            }
+
+            return true;
+        } catch (err) {
+            console.warn('⚠️ OpenCV 磨皮失敗，改用備援方案:', err);
+            return false;
+        } finally {
+            [srcMat, rgbMat, bilateralMat, gaussianMat, smoothRgba].forEach(mat => {
+                if (mat && typeof mat.delete === 'function') {
+                    mat.delete();
+                }
+            });
+        }
+    }
+
+    applyMosaicSkin(imageData, maskImage, blockSize = 6) {
+        if (!maskImage) return false;
+
+        const data = imageData.data;
+        const mask = maskImage.data;
+        const { width, height } = imageData;
+        const bs = Math.max(2, blockSize);
+        let applied = false;
+
+        for (let y = 0; y < height; y += bs) {
+            for (let x = 0; x < width; x += bs) {
+                let sumR = 0;
+                let sumG = 0;
+                let sumB = 0;
+                let count = 0;
+
+                for (let yy = y; yy < Math.min(y + bs, height); yy++) {
+                    for (let xx = x; xx < Math.min(x + bs, width); xx++) {
+                        const maskIdx = (yy * width + xx) * 4 + 3;
+                        const alpha = mask[maskIdx] / 255;
+                        if (alpha > 0.05) {
+                            const idx = (yy * width + xx) * 4;
+                            sumR += data[idx];
+                            sumG += data[idx + 1];
+                            sumB += data[idx + 2];
+                            count++;
+                        }
+                    }
+                }
+
+                if (!count) continue;
+                applied = true;
+                const avgR = sumR / count;
+                const avgG = sumG / count;
+                const avgB = sumB / count;
+
+                for (let yy = y; yy < Math.min(y + bs, height); yy++) {
+                    for (let xx = x; xx < Math.min(x + bs, width); xx++) {
+                        const maskIdx = (yy * width + xx) * 4 + 3;
+                        const alpha = mask[maskIdx] / 255;
+                        if (alpha > 0.05) {
+                            const idx = (yy * width + xx) * 4;
+                            data[idx] = avgR;
+                            data[idx + 1] = avgG;
+                            data[idx + 2] = avgB;
+                        }
+                    }
+                }
+            }
+        }
+
+        return applied;
+    }
+
+    setEffect(effectName) {
+        this.currentEffect = effectName;
+        console.log(`🎨 切換到特效: ${effectName}`);
     }
     
     // 設置特效

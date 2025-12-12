@@ -1627,9 +1627,9 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
         hideFilmFrameOverlay(primaryVideo);
     }
 
-    resetVideoEffectStyles(primaryVideo);
+    resetVideoEffectStyles(primaryVideo, { restoreStream: false });
     if (pipVideo && pipVideo !== primaryVideo) {
-        resetVideoEffectStyles(pipVideo);
+        resetVideoEffectStyles(pipVideo, { restoreStream: false });
     }
 
     if (triggerButton && effectType !== 'clear') {
@@ -1750,8 +1750,18 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
             console.log('✅ 北極熊特效已套用');
             break;
         case 'bright':
-            effectVideo.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
-            console.log('✅ 美白特效已套用');
+            if (typeof applyVideoEffect === 'function') {
+                applyVideoEffect('bright');
+                messageHandled = true;
+                console.log('✅ 消皺特徵點特效已套用');
+            }
+            break;
+        case 'wrinkle':
+            if (typeof applyVideoEffect === 'function') {
+                applyVideoEffect('wrinkle');
+                messageHandled = true;
+                console.log('✅ 消皺平滑特效已套用');
+            }
             break;
         case 'warm':
             effectVideo.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
@@ -1826,7 +1836,8 @@ function applyNewEffect(effectType, videoElement, triggerButton = null) {
     }
 }
 
-function resetVideoEffectStyles(videoElement) {
+function resetVideoEffectStyles(videoElement, options = {}) {
+    const { restoreStream = true } = options;
     if (!videoElement) return;
 
     videoElement.style.filter = '';
@@ -1873,7 +1884,7 @@ function resetVideoEffectStyles(videoElement) {
         activeOverlay.remove();
     }
 
-    if (typeof restoreOriginalStream === 'function' && window.videoEffectsProcessor && window.videoEffectsProcessor.currentEffect && window.videoEffectsProcessor.currentEffect !== 'none') {
+    if (restoreStream && typeof restoreOriginalStream === 'function' && window.videoEffectsProcessor && window.videoEffectsProcessor.currentEffect && window.videoEffectsProcessor.currentEffect !== 'none') {
         restoreOriginalStream();
     }
 }
@@ -3824,7 +3835,8 @@ function getEffectName(effectType) {
     'chiikawa': '吉伊卡哇',
     'cat': '哈基米',
     'polar': '北極熊',
-        'bright': '美白',
+        'bright': '消皺特徵點',
+        'wrinkle': '消皺平滑',
         'warm': '暖色調',
         'invert': '反相',
         'rainbowBorder': '彩虹邊框',

@@ -1901,7 +1901,7 @@ function applyViewerEffect(effectType) {
             targetVideo.style.filter = 'sepia(100%)';
             break;
         case 'bright':
-            targetVideo.style.filter = 'brightness(1.15) contrast(0.95) saturate(1.1)';
+            console.log('ℹ️ 消皺特徵點由主播端直接渲染，觀眾端保持原始畫面');
             break;
         case 'warm':
             targetVideo.style.filter = 'sepia(1) saturate(2.2) hue-rotate(-35deg) brightness(1.08) contrast(1.12)';
